@@ -176,11 +176,23 @@ function marRow(order) {
 async function marAction(orderId, action) {
   const order = state.orders.find(o => o.id === orderId); if (!order || !isNurse()) return;
   const patient = patientById(order.patientId);
+  const verification = window.NorthstarMedicationVerification;
+  if (action === "give") {
+    const validVerification = verification
+      && verification.orderId === order.id
+      && verification.patientId === order.patientId
+      && ["wristband-scan", "mrn-entry"].includes(verification.method)
+      && Date.now() - Number(verification.verifiedAt || 0) < 90_000;
+    if (!validVerification) {
+      showToast("Patient identity verification is required. Scan the wristband or enter the exact MRN.");
+      return;
+    }
+  }
   try {
     const batch = writeBatch(db);
     if (action === "give") {
       const adminRef = doc(collection(db, "medicationAdministrations"));
-      batch.set(adminRef, { orderId: order.id, encounterId: order.encounterId, patientId: order.patientId, medicationName: order.name, dose: order.dose || "", route: order.route || "", note: "Medication administered from MAR", administeredBy: auth.currentUser.uid, administeredByName: state.profile.displayName, administeredAt: serverTimestamp(), patientVerified: true, allergyVerified: true });
+      batch.set(adminRef, { orderId: order.id, encounterId: order.encounterId, patientId: order.patientId, medicationName: order.name, dose: order.dose || "", route: order.route || "", note: "Medication administered from MAR", administeredBy: auth.currentUser.uid, administeredByName: state.profile.displayName, administeredAt: serverTimestamp(), patientVerified: true, patientVerificationMethod: verification.method, patientVerificationAt: new Date(verification.verifiedAt), allergyVerified: true });
       batch.update(doc(db, "orders", order.id), { status: "administered", completedAt: serverTimestamp(), completedBy: auth.currentUser.uid });
       if (/morphine|fentanyl|hydromorphone|oxycodone/i.test(order.name)) {
         const taskRef = doc(collection(db, "tasks"));
@@ -190,7 +202,9 @@ async function marAction(orderId, action) {
       batch.update(doc(db, "orders", order.id), { status: action === "hold" ? "held" : "refused", statusUpdatedAt: serverTimestamp(), statusUpdatedBy: auth.currentUser.uid });
     }
     batch.set(doc(collection(db, "auditEvents")), { type: action === "give" ? "medication-administered" : `medication-${action === "hold" ? "held" : "refused"}`, orderId: order.id, encounterId: order.encounterId, patientId: order.patientId, actorUid: auth.currentUser.uid, actorName: state.profile.displayName, at: serverTimestamp() });
-    await batch.commit(); showToast(action === "give" ? "Medication administered." : action === "hold" ? "Medication held." : "Medication refusal documented.");
+    await batch.commit();
+    if (action === "give") window.NorthstarMedicationVerification = null;
+    showToast(action === "give" ? "Medication administered." : action === "hold" ? "Medication held." : "Medication refusal documented.");
   } catch (_) { showToast("Unable to update the medication record."); }
 }
 

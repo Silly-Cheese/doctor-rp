@@ -166,6 +166,12 @@ async function approve(method) {
   const button = state.sourceButton;
   if (!button || !state.order || !state.patient) return;
   await recordVerification(method);
+  window.NorthstarMedicationVerification = {
+    orderId: state.order.id,
+    patientId: state.patient.id,
+    method,
+    verifiedAt: Date.now()
+  };
   await stopCamera();
   document.querySelector("#medIdentityDialog")?.close();
   button.dataset.northstarIdentityVerified = "1";
