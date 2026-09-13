@@ -59,6 +59,96 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/system/setup).data.initializedBy;
     }
 
+    function confidentialEncounterFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'confidential',
+        'authorizationSalt',
+        'authorizationHash',
+        'failedAuthorizationAttempts',
+        'permanentlyLocked',
+        'confidentialMarkedAt',
+        'confidentialMarkedBy',
+        'confidentialMarkedByName',
+        'authorizationUpdatedAt',
+        'authorizationUpdatedBy',
+        'lastFailedAuthorizationAt',
+        'lastFailedAuthorizationBy',
+        'lockedAt',
+        'lockedByAttemptUid',
+        'lockedByAttemptName',
+        'unlockedAt',
+        'unlockedBy',
+        'unlockedByName'
+      ]);
+    }
+
+    function assignedProviderOrUnassigned() {
+      return isProvider() && (
+        resource.data.get('providerUid', '') == ''
+        || resource.data.get('providerUid', '') == request.auth.uid
+      );
+    }
+
+    function validProviderConfidentialUpdate() {
+      return assignedProviderOrUnassigned()
+             && resource.data.status != 'discharged'
+             && resource.data.get('permanentlyLocked', false) == false
+             && request.resource.data.get('confidential', false) == true
+             && request.resource.data.get('authorizationHash', '') != ''
+             && request.resource.data.get('authorizationSalt', '') != ''
+             && request.resource.data.get('failedAuthorizationAttempts', 0) == 0
+             && request.resource.data.get('permanentlyLocked', false) == false
+             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+               'confidential',
+               'authorizationSalt',
+               'authorizationHash',
+               'failedAuthorizationAttempts',
+               'permanentlyLocked',
+               'confidentialMarkedAt',
+               'confidentialMarkedBy',
+               'confidentialMarkedByName',
+               'authorizationUpdatedAt',
+               'authorizationUpdatedBy',
+               'providerUid',
+               'providerName',
+               'updatedAt'
+             ]);
+    }
+
+    function validFailedAuthorizationAttempt() {
+      return isActive()
+             && resource.data.get('confidential', false) == true
+             && resource.data.get('permanentlyLocked', false) == false
+             && request.resource.data.get('failedAuthorizationAttempts', 0) == resource.data.get('failedAuthorizationAttempts', 0) + 1
+             && request.resource.data.get('permanentlyLocked', false) == (request.resource.data.get('failedAuthorizationAttempts', 0) >= 3)
+             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+               'failedAuthorizationAttempts',
+               'permanentlyLocked',
+               'lastFailedAuthorizationAt',
+               'lastFailedAuthorizationBy',
+               'lockedAt',
+               'lockedByAttemptUid',
+               'lockedByAttemptName',
+               'updatedAt'
+             ]);
+    }
+
+    function validAdministratorCaseUnlock() {
+      return isAdministrator()
+             && resource.data.get('confidential', false) == true
+             && resource.data.get('permanentlyLocked', false) == true
+             && request.resource.data.get('permanentlyLocked', true) == false
+             && request.resource.data.get('failedAuthorizationAttempts', -1) == 0
+             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+               'failedAuthorizationAttempts',
+               'permanentlyLocked',
+               'unlockedAt',
+               'unlockedBy',
+               'unlockedByName',
+               'updatedAt'
+             ]);
+    }
+
     match /system/setup {
       allow read: if signedIn();
 
@@ -158,7 +248,12 @@ service cloud.firestore {
                     && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.get('vitalStatus', 'active') != 'deceased'
                     && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.get('currentStatus', '') != 'deceased';
 
-      allow update: if canManageRegistration();
+      allow update: if (
+        canManageRegistration() && !confidentialEncounterFieldsChanged()
+      ) || validProviderConfidentialUpdate()
+        || validFailedAuthorizationAttempt()
+        || validAdministratorCaseUnlock();
+
       allow delete: if isAdministrator();
     }
 
