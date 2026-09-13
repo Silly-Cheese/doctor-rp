@@ -1,0 +1,13 @@
+{
+  "name": "Northstar Medical Center",
+  "short_name": "Northstar",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f8fa",
+  "theme_color": "#0b4a6f",
+  "description": "Northstar Medical Center clinical information and operations system.",
+  "icons": [
+    {"src":"favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
