@@ -648,7 +648,7 @@ function renderPatientSearch() {
 
 function patientRow(patient) {
   const encounter = activeEncounterForPatient(patient.id);
-  const status = encounter ? formatStatus(encounter.status) : patient.currentStatus === "admitted" ? "Admitted" : "Not Checked In";
+  const status = patient.vitalStatus === "deceased" || patient.currentStatus === "deceased" ? "Deceased" : encounter ? formatStatus(encounter.status) : patient.currentStatus === "admitted" ? "Admitted" : "Not Checked In";
   return `
     <button class="patient-row" type="button" data-patient-id="${safe(patient.id)}">
       <div class="patient-avatar">${safe(initials(patient.firstName, patient.lastName))}</div>
@@ -750,6 +750,7 @@ async function registerPatient(event) {
       medications: document.querySelector("#patientMedications").value.trim() || "None",
       medicalHistory: document.querySelector("#patientHistory").value.trim() || "None documented",
       currentStatus: "not-checked-in",
+      vitalStatus: "active",
       activeEncounterId: null,
       createdAt: serverTimestamp(),
       createdBy: auth.currentUser.uid,
@@ -875,6 +876,10 @@ function openCheckIn(patientId) {
   if (!canRegisterPatients()) return;
   const patient = patients.find((item) => item.id === patientId);
   if (!patient) return;
+  if (patient.vitalStatus === "deceased" || patient.currentStatus === "deceased") {
+    showToast("Check-in blocked: this patient is recorded as deceased.");
+    return;
+  }
   if (activeEncounterForPatient(patientId)) {
     showToast("This patient already has an active encounter.");
     return;
@@ -890,6 +895,11 @@ async function checkInPatient(event) {
   if (!selectedPatientId || !canRegisterPatients()) return;
   const patient = patients.find((item) => item.id === selectedPatientId);
   if (!patient) return;
+  if (patient.vitalStatus === "deceased" || patient.currentStatus === "deceased") {
+    showToast("Check-in blocked: this patient is recorded as deceased.");
+    els.checkInDialog.close();
+    return;
+  }
 
   const submit = els.checkInForm.querySelector("button[type='submit']");
   submit.disabled = true;

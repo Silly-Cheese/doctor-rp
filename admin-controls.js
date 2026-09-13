@@ -553,7 +553,7 @@ injectDeathDialog();
 const patientResults = document.querySelector("#patientResults");
 const chartBody = document.querySelector("#patientChartBody");
 const staffSection = document.querySelector("#staffSection");
-[patientResults, chartBody, staffSection].filter(Boolean).forEach((target) => {
+[patientResults, chartBody].filter(Boolean).forEach((target) => {
   const observer = new MutationObserver(scheduleRender);
   observer.observe(target, { childList: true, subtree: true });
 });
