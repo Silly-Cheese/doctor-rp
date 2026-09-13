@@ -30,9 +30,9 @@ const firebaseConfig = {
   appId: "1:76025336566:web:b8507e26ce66d44c6b52d7"
 };
 
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
-const db = getFirestore(firebaseApp);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 const ROLE_LABELS = {
   administrator: "Administrator",
@@ -67,7 +67,7 @@ const els = {
 };
 
 let currentStaff = null;
-let toastTimer = null;
+let toastTimer;
 
 function showView(view) {
   [els.authView, els.pendingView, els.mainView].forEach((node) => node.classList.add("hidden"));
@@ -108,7 +108,7 @@ function formatRole(role) {
   return ROLE_LABELS[role] || "Clinical Staff";
 }
 
-function firebaseErrorMessage(error) {
+function friendlyError(error) {
   const code = error?.code || "";
   if (code.includes("email-already-in-use")) return "An account already exists with that email address.";
   if (code.includes("invalid-credential")) return "The email address or password is incorrect.";
@@ -116,7 +116,7 @@ function firebaseErrorMessage(error) {
   if (code.includes("invalid-email")) return "Enter a valid email address.";
   if (code.includes("too-many-requests")) return "Too many attempts. Try again shortly.";
   if (code.includes("permission-denied")) return "Northstar could not complete that request with the current access level.";
-  return error?.message?.replace(/^Firebase:\s*/i, "") || "Northstar could not complete that request.";
+  return "Northstar could not complete that request.";
 }
 
 async function registerStaff(event) {
@@ -128,13 +128,13 @@ async function registerStaff(event) {
   const email = document.querySelector("#registerEmail").value.trim().toLowerCase();
   const password = document.querySelector("#registerPassword").value;
   const requestedRole = document.querySelector("#requestedRole").value;
+  const submit = els.registerForm.querySelector("button[type='submit']");
 
   if (!firstName || !lastName) {
     setAuthMessage("Enter your first and last name.", "error");
     return;
   }
 
-  const submit = els.registerForm.querySelector("button[type='submit']");
   submit.disabled = true;
   submit.textContent = "Creating Account…";
 
@@ -184,7 +184,8 @@ async function registerStaff(event) {
       });
     }
   } catch (error) {
-    setAuthMessage(firebaseErrorMessage(error), "error");
+    setAuthMessage(friendlyError(error), "error");
+  } finally {
     submit.disabled = false;
     submit.textContent = "Create Staff Account";
   }
@@ -201,7 +202,7 @@ async function signInStaff(event) {
   try {
     await signInWithEmailAndPassword(auth, email, password);
   } catch (error) {
-    setAuthMessage(firebaseErrorMessage(error), "error");
+    setAuthMessage(friendlyError(error), "error");
   } finally {
     submit.disabled = false;
     submit.textContent = "Sign In";
@@ -220,8 +221,8 @@ function renderStaffIdentity(profile) {
   document.querySelectorAll(".admin-only").forEach((node) => node.classList.toggle("hidden", profile.role !== "administrator"));
 
   const hour = new Date().getHours();
-  const timeGreeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  els.greeting.textContent = `${timeGreeting}, ${profile.firstName || ""}`.trim();
+  const salutation = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  els.greeting.textContent = `${salutation}, ${profile.firstName || ""}`.trim();
 }
 
 function sectionTitle(section) {
@@ -237,21 +238,21 @@ function sectionTitle(section) {
 }
 
 function openSection(section) {
+  if (section === "staff" && currentStaff?.role !== "administrator") return;
   document.querySelectorAll(".content-section").forEach((node) => node.classList.add("hidden"));
   document.querySelector(`#${section}Section`)?.classList.remove("hidden");
   document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.section === section));
   els.pageTitle.textContent = sectionTitle(section);
   els.sidebar.classList.remove("open");
-  if (section === "staff" && currentStaff?.role === "administrator") loadPendingStaff();
+  if (section === "staff") loadPendingStaff();
 }
 
 async function loadPendingStaff() {
   els.pendingStaffList.innerHTML = '<div class="panel"><div class="empty-state compact-empty"><p>Loading staff accounts…</p></div></div>';
   try {
-    const pendingQuery = query(collection(db, "users"), where("status", "==", "pending"));
-    const snapshot = await getDocs(pendingQuery);
+    const snapshot = await getDocs(query(collection(db, "users"), where("status", "==", "pending")));
     if (snapshot.empty) {
-      els.pendingStaffList.innerHTML = '<div class="panel"><div class="empty-state compact-empty"><h4>No pending accounts</h4><p>New staff access requests will appear here.</p></div></div>';
+      els.pendingStaffList.innerHTML = '<div class="panel"><div class="empty-state compact-empty"><h4>No pending accounts</h4><p>There are no staff access requests awaiting review.</p></div></div>';
       return;
     }
 
@@ -275,19 +276,17 @@ async function loadPendingStaff() {
           </select>
           <button class="primary-button approve-staff" type="button">Approve</button>
         </div>`;
-      card.querySelector(".approve-staff").addEventListener("click", async () => {
-        const selectedRole = card.querySelector("select").value;
-        await approveStaff(staffDoc.id, selectedRole, card);
-      });
+      card.querySelector(".approve-staff").addEventListener("click", () => approveStaff(staffDoc.id, card));
       els.pendingStaffList.appendChild(card);
     });
   } catch (error) {
-    els.pendingStaffList.innerHTML = `<div class="panel"><div class="empty-state compact-empty"><h4>Unable to load staff accounts</h4><p>${escapeHtml(firebaseErrorMessage(error))}</p></div></div>`;
+    els.pendingStaffList.innerHTML = `<div class="panel"><div class="empty-state compact-empty"><h4>Unable to load staff accounts</h4><p>${escapeHtml(friendlyError(error))}</p></div></div>`;
   }
 }
 
-async function approveStaff(uid, role, card) {
+async function approveStaff(uid, card) {
   const button = card.querySelector(".approve-staff");
+  const role = card.querySelector("select").value;
   button.disabled = true;
   button.textContent = "Approving…";
   try {
@@ -303,7 +302,7 @@ async function approveStaff(uid, role, card) {
   } catch (error) {
     button.disabled = false;
     button.textContent = "Approve";
-    showToast(firebaseErrorMessage(error));
+    showToast(friendlyError(error));
   }
 }
 
@@ -336,10 +335,10 @@ els.menuButton.addEventListener("click", () => els.sidebar.classList.toggle("ope
 els.quickPatientSearch.addEventListener("click", () => openSection("patients"));
 document.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => openSection(item.dataset.section)));
 document.querySelectorAll("[data-open]").forEach((item) => item.addEventListener("click", () => openSection(item.dataset.open)));
-document.querySelector("#newPatientButton").addEventListener("click", () => showToast("Patient registration is not yet available."));
 
 onAuthStateChanged(auth, async (user) => {
   setAuthMessage();
+
   if (!user) {
     currentStaff = null;
     showView(els.authView);
@@ -366,7 +365,7 @@ onAuthStateChanged(auth, async (user) => {
     openSection("dashboard");
   } catch (error) {
     await signOut(auth);
-    setAuthMessage(firebaseErrorMessage(error), "error");
+    setAuthMessage(friendlyError(error), "error");
   }
 });
 
