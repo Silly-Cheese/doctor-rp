@@ -8,6 +8,8 @@ import "./case-records.js";
 import "./northstar-platform.js";
 import "./northstar-clinical-plus.js";
 import "./northstar-simulation.js";
+import "./deceased-access.js";
+import "./northstar-mobile.js";
 import "./session-guard.js";
 
 const chartDialog = document.querySelector("#patientChartDialog");
