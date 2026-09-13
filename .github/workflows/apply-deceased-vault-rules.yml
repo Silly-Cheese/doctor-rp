@@ -1,0 +1,87 @@
+name: Apply Deceased Record Vault Rules
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'Apply deceased record vault rules'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Tighten deceased patient rules
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          path = Path('firestore.rules')
+          text = path.read_text()
+          old = '''    match /patients/{patientId} {
+      allow read: if isActive();
+      allow create: if canManageRegistration() && request.resource.data.get('vitalStatus', 'active') != 'deceased';
+      allow update: if canEditPatients()
+                    && (
+                      request.resource.data.get('vitalStatus', 'active') == resource.data.get('vitalStatus', 'active')
+                      || (
+                        isProvider()
+                        && resource.data.get('vitalStatus', 'active') != 'deceased'
+                        && request.resource.data.get('vitalStatus', 'active') == 'deceased'
+                      )
+                      || (
+                        isAdministrator()
+                        && resource.data.get('vitalStatus', 'active') == 'deceased'
+                        && request.resource.data.get('vitalStatus', 'active') != 'deceased'
+                      )
+                      || (
+                        isAdministrator()
+                        && request.resource.data.get('vitalStatus', 'active') == 'merged'
+                      )
+                    );
+      allow delete: if isAdministrator();
+    }'''
+          new = '''    match /patients/{patientId} {
+      allow read: if isActive();
+      allow create: if canManageRegistration()
+                    && request.resource.data.get('vitalStatus', 'active') == 'active'
+                    && request.resource.data.get('recordConfidential', false) == false;
+      allow update: if isAdministrator()
+                    || (
+                      canEditPatients()
+                      && resource.data.get('vitalStatus', 'active') == 'active'
+                      && request.resource.data.get('vitalStatus', 'active') == 'active'
+                      && request.resource.data.get('recordConfidential', false) == resource.data.get('recordConfidential', false)
+                      && request.resource.data.get('deceasedAccessUids', []) == resource.data.get('deceasedAccessUids', [])
+                    )
+                    || (
+                      isProvider()
+                      && resource.data.get('vitalStatus', 'active') == 'active'
+                      && request.resource.data.get('vitalStatus', 'active') == 'deceased'
+                      && request.resource.data.get('recordConfidential', false) == true
+                      && request.resource.data.get('recordConfidentialReason', '') == 'deceased'
+                      && request.resource.data.get('deceasedAccessUids', []).size() == 0
+                    );
+      allow delete: if isAdministrator();
+    }'''
+          if old not in text:
+              raise SystemExit('patient rules block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Verify JavaScript syntax
+        run: |
+          node --check deceased-access.js
+          node --check northstar-mobile.js
+          node --check clinical-bridge.js
+      - name: Commit rules update
+        shell: bash
+        run: |
+          git config user.name "Northstar Medical Center"
+          git config user.email "northstar@users.noreply.github.com"
+          git add firestore.rules
+          git commit -m "Seal deceased patient records and protect access assignments"
+          git push origin main
