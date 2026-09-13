@@ -1,0 +1,143 @@
+name: Fix Northstar Staff Editor Stability
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.event.head_commit.message == 'Fix staff role dropdown stability'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Stabilize staff editor
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('admin-controls.js')
+          text = path.read_text()
+
+          if 'let staffRenderFingerprint = "";' not in text:
+              text = text.replace(
+                  'const ROLE_LABELS = {',
+                  'let staffRenderFingerprint = "";\nlet staffInteractionUntil = 0;\n\nconst ROLE_LABELS = {',
+                  1
+              )
+
+          old_manager = '''  if (!document.querySelector("#staffAccountManager")) {
+    section.insertAdjacentHTML("beforeend", `
+      <div id="staffAccountManager" class="staff-account-manager">
+        <div class="staff-admin-subhead">
+          <div><p class="eyebrow">Directory</p><h4>Staff Accounts</h4></div>
+          <span id="staffAccountCount" class="staff-count"></span>
+        </div>
+        <div id="staffAccountList" class="managed-staff-list"></div>
+      </div>`);
+  }
+}'''
+
+          new_manager = '''  if (!document.querySelector("#staffAccountManager")) {
+    section.insertAdjacentHTML("beforeend", `
+      <div id="staffAccountManager" class="staff-account-manager">
+        <div class="staff-admin-subhead">
+          <div><p class="eyebrow">Directory</p><h4>Staff Accounts</h4></div>
+          <span id="staffAccountCount" class="staff-count"></span>
+        </div>
+        <div id="staffAccountList" class="managed-staff-list"></div>
+      </div>`);
+
+    const manager = document.querySelector("#staffAccountManager");
+    const holdEditor = () => { staffInteractionUntil = Date.now() + 1800; };
+    manager?.addEventListener("pointerdown", holdEditor, true);
+    manager?.addEventListener("focusin", holdEditor, true);
+    manager?.addEventListener("input", holdEditor, true);
+    manager?.addEventListener("change", holdEditor, true);
+  }
+}'''
+
+          if old_manager not in text:
+              raise SystemExit('Could not locate staff manager injection')
+          text = text.replace(old_manager, new_manager, 1)
+
+          needle = '''  const list = document.querySelector("#staffAccountList");
+  const count = document.querySelector("#staffAccountCount");
+  if (!list) return;
+
+  const users = [...state.users].sort((a, b) => {'''
+          replacement = '''  const list = document.querySelector("#staffAccountList");
+  const count = document.querySelector("#staffAccountCount");
+  if (!list) return;
+
+  const activeElement = document.activeElement;
+  const editingStaff = activeElement && activeElement.closest && activeElement.closest("#staffAccountManager");
+  if (editingStaff || Date.now() < staffInteractionUntil) return;
+
+  const users = [...state.users].sort((a, b) => {'''
+          if needle not in text:
+              raise SystemExit('Could not locate renderStaffManager preamble')
+          text = text.replace(needle, replacement, 1)
+
+          needle2 = '''  if (count) count.textContent = `${users.length} account${users.length === 1 ? "" : "s"}`;
+
+  if (!users.length) {'''
+          replacement2 = '''  const nextFingerprint = JSON.stringify(users.map((user) => ({
+    id: user.uid || user.id || "",
+    displayName: user.displayName || "",
+    firstName: user.firstName || "",
+    lastName: user.lastName || "",
+    requestedRole: user.requestedRole || "",
+    role: user.role || "",
+    status: user.status || "",
+    email: user.email || ""
+  })));
+
+  if (nextFingerprint === staffRenderFingerprint && list.childElementCount) return;
+  staffRenderFingerprint = nextFingerprint;
+
+  if (count) count.textContent = `${users.length} account${users.length === 1 ? "" : "s"}`;
+
+  if (!users.length) {'''
+          if needle2 not in text:
+              raise SystemExit('Could not locate staff fingerprint insertion point')
+          text = text.replace(needle2, replacement2, 1)
+
+          if 'northstar:refresh-staff-manager' not in text:
+              text += '''\n\nwindow.addEventListener("northstar:refresh-staff-manager", () => {\n  staffRenderFingerprint = "";\n  staffInteractionUntil = 0;\n  setTimeout(renderStaffManager, 0);\n});\n'''
+
+          path.write_text(text)
+
+          fix_path = Path('staff-edit-fix.js')
+          fix = fix_path.read_text()
+          old = '''    await batch.commit();
+    showToast("Staff account updated.");'''
+          new = '''    await batch.commit();
+    button.blur();
+    window.dispatchEvent(new CustomEvent("northstar:refresh-staff-manager"));
+    showToast("Staff account updated.");'''
+          if old not in fix:
+              raise SystemExit('Could not locate staff save completion')
+          fix = fix.replace(old, new, 1)
+          fix_path.write_text(fix)
+          PY
+
+      - name: Verify JavaScript
+        run: |
+          node --check admin-controls.js
+          node --check staff-edit-fix.js
+
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name "Northstar Medical Center"
+          git config user.email "northstar@users.noreply.github.com"
+          git add admin-controls.js staff-edit-fix.js
+          git commit -m "Stabilize staff account editor interactions"
+          git push origin main
