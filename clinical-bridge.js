@@ -1,3 +1,4 @@
+import "./northstar-dialogs.js";
 import "./operations.js";
 import "./operations-polish.js";
 import "./staff-editor-stability.js";
