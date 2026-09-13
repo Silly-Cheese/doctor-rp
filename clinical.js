@@ -38,7 +38,8 @@ const state = {
   unsubscribers: [],
   activeTab: "notes",
   selectedEncounterId: null,
-  selectedOrderId: null
+  selectedOrderId: null,
+  renderQueued: false
 };
 
 const ROLE_LABELS = {
@@ -162,10 +163,10 @@ function stopListeners() {
 function bindCollection(name, key) {
   const unsubscribe = onSnapshot(collection(db, name), (snapshot) => {
     state[key] = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-    renderClinicalSurfaces();
+    scheduleClinicalRender();
   }, () => {
     state[key] = [];
-    renderClinicalSurfaces();
+    scheduleClinicalRender();
   });
   state.unsubscribers.push(unsubscribe);
 }
@@ -831,13 +832,24 @@ function renderResultsPage() {
 }
 
 function renderClinicalSurfaces() {
-  renderClinicalWorkspace();
-  renderOrdersPage();
-  renderResultsPage();
+  if (document.querySelector("#patientChartDialog")?.open) renderClinicalWorkspace();
+  const orders = document.querySelector("#ordersSection");
+  if (orders && !orders.classList.contains("hidden")) renderOrdersPage();
+  const results = document.querySelector("#resultsSection");
+  if (results && !results.classList.contains("hidden")) renderResultsPage();
+}
+
+function scheduleClinicalRender() {
+  if (state.renderQueued) return;
+  state.renderQueued = true;
+  requestAnimationFrame(() => {
+    state.renderQueued = false;
+    renderClinicalSurfaces();
+  });
 }
 
 const chartObserver = new MutationObserver(() => {
-  if (!document.querySelector("#clinicalWorkspace")) renderClinicalWorkspace();
+  if (!document.querySelector("#clinicalWorkspace")) scheduleClinicalRender();
 });
 
 const chartBody = document.querySelector("#patientChartBody");
