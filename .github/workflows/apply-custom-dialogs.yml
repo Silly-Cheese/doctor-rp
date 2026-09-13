@@ -1,0 +1,40 @@
+name: Apply Northstar Custom Dialogs
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'Apply Northstar custom dialogs'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Replace native browser dialogs
+        run: python scripts/apply_custom_dialogs.py
+      - name: Verify no app-controlled native dialogs remain
+        run: |
+          MATCHES=$(grep -RInE '\b(window\.)?(alert|confirm|prompt)\s*\(' --include='*.js' . | grep -v 'state.installPrompt.prompt' || true)
+          if [ -n "$MATCHES" ]; then
+            echo "$MATCHES"
+            exit 1
+          fi
+      - name: Verify JavaScript syntax
+        run: |
+          node --check northstar-dialogs.js
+          node --check admin-controls.js
+          node --check deceased-access.js
+          node --check northstar-scenario-director.js
+          node --check northstar-clinical-plus.js
+          node --check northstar-breakglass.js
+          node --check northstar-enterprise.js
+          node --check clinical-bridge.js
+      - name: Commit custom dialog migration
+        run: |
+          git config user.name "Northstar Medical Center"
+          git config user.email "northstar@users.noreply.github.com"
+          git add admin-controls.js deceased-access.js northstar-scenario-director.js northstar-clinical-plus.js northstar-breakglass.js northstar-enterprise.js
+          git commit -m "Replace native browser dialogs with Northstar modals"
+          git push origin main
