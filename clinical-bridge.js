@@ -13,6 +13,7 @@ import "./deceased-access-migration.js";
 import "./northstar-mobile.js";
 import "./northstar-med-verification.js";
 import "./northstar-legacy-med-guard.js";
+import "./northstar-highrisk-med.js";
 import "./northstar-order-ack.js";
 import "./northstar-enterprise.js";
 import "./northstar-breakglass.js";
