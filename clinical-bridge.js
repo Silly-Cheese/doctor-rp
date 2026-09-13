@@ -17,6 +17,7 @@ import "./northstar-legacy-med-guard.js";
 import "./northstar-highrisk-med.js";
 import "./northstar-order-ack.js";
 import "./northstar-enterprise.js";
+import "./northstar-specimen-verification.js";
 import "./northstar-breakglass.js";
 import "./northstar-safety-banner.js";
 import "./northstar-pwa.js";
