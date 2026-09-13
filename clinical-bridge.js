@@ -8,6 +8,7 @@ import "./case-records.js";
 import "./northstar-platform.js";
 import "./northstar-clinical-plus.js";
 import "./northstar-simulation.js";
+import "./northstar-scenario-director.js";
 import "./deceased-access.js";
 import "./deceased-access-migration.js";
 import "./northstar-mobile.js";
