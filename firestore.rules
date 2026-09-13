@@ -66,7 +66,7 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if signedIn() && (
-        request.auth.uid == uid || isAdministrator()
+        request.auth.uid == uid || isActive()
       );
 
       allow create: if signedIn()
@@ -140,6 +140,37 @@ service cloud.firestore {
     match /medicationAdministrations/{administrationId} {
       allow read: if isActive();
       allow create, update: if isNurse();
+      allow delete: if isAdministrator();
+    }
+
+    match /shifts/{shiftId} {
+      allow read: if isActive();
+      allow create: if isActive()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'active';
+      allow update: if isAdministrator() || (
+        isActive()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+      );
+      allow delete: if isAdministrator();
+    }
+
+    match /handoffs/{handoffId} {
+      allow read: if isActive();
+      allow create: if isActive()
+                    && request.resource.data.senderUid == request.auth.uid
+                    && request.resource.data.status == 'open';
+      allow update: if isActive();
+      allow delete: if isAdministrator();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isActive();
+      allow create: if isActive()
+                    && request.resource.data.createdBy == request.auth.uid
+                    && request.resource.data.status == 'open';
+      allow update: if isActive();
       allow delete: if isAdministrator();
     }
 
