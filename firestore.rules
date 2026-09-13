@@ -51,6 +51,14 @@ service cloud.firestore {
       return role in ['administrator', 'physician', 'nurse', 'registration', 'technician', 'staff'];
     }
 
+    function validStaffStatus(status) {
+      return status in ['active', 'pending', 'suspended'];
+    }
+
+    function founderUid() {
+      return get(/databases/$(database)/documents/system/setup).data.initializedBy;
+    }
+
     match /system/setup {
       allow read: if signedIn();
 
@@ -100,21 +108,51 @@ service cloud.firestore {
 
       allow update: if isAdministrator()
                     && validAssignedRole(request.resource.data.role)
+                    && validRequestedRole(request.resource.data.requestedRole)
+                    && validStaffStatus(request.resource.data.status)
                     && request.resource.data.uid == resource.data.uid
-                    && request.resource.data.email == resource.data.email;
+                    && request.resource.data.email == resource.data.email
+                    && (
+                      uid != founderUid()
+                      || (
+                        request.resource.data.role == 'administrator'
+                        && request.resource.data.status == 'active'
+                      )
+                    );
 
       allow delete: if false;
     }
 
     match /patients/{patientId} {
       allow read: if isActive();
-      allow create, update: if canManageRegistration();
+
+      allow create: if canManageRegistration()
+                    && request.resource.data.get('vitalStatus', 'active') != 'deceased';
+
+      allow update: if canManageRegistration()
+                    && (
+                      request.resource.data.get('vitalStatus', 'active') == resource.data.get('vitalStatus', 'active')
+                      || (
+                        isProvider()
+                        && resource.data.get('vitalStatus', 'active') != 'deceased'
+                        && request.resource.data.get('vitalStatus', 'active') == 'deceased'
+                      )
+                      || (
+                        isAdministrator()
+                        && resource.data.get('vitalStatus', 'active') == 'deceased'
+                        && request.resource.data.get('vitalStatus', 'active') != 'deceased'
+                      )
+                    );
+
       allow delete: if isAdministrator();
     }
 
     match /encounters/{encounterId} {
       allow read: if isActive();
-      allow create: if canManageRegistration();
+
+      allow create: if canManageRegistration()
+                    && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.get('vitalStatus', 'active') != 'deceased';
+
       allow update: if canManageRegistration();
       allow delete: if isAdministrator();
     }
