@@ -1,3 +1,5 @@
+import "./operations.js";
+
 const chartDialog = document.querySelector("#patientChartDialog");
 const chartBody = document.querySelector("#patientChartBody");
 
