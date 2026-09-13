@@ -104,6 +104,7 @@ let unsubscribeEncounters = null;
 let selectedPatientId = null;
 let selectedEncounterId = null;
 let toastTimer;
+let accountProvisioning = false;
 
 function showView(view) {
   [els.authView, els.pendingView, els.mainView].forEach((node) => node.classList.add("hidden"));
@@ -272,6 +273,7 @@ async function registerStaff(event) {
 
   submit.disabled = true;
   submit.textContent = "Creating Account…";
+  accountProvisioning = true;
 
   try {
     const credential = await createUserWithEmailAndPassword(auth, email, password);
@@ -318,9 +320,13 @@ async function registerStaff(event) {
         createdAt: serverTimestamp()
       });
     }
+
+    accountProvisioning = false;
+    await routeAuthenticatedUser(credential.user);
   } catch (error) {
     setAuthMessage(friendlyError(error), "error");
   } finally {
+    accountProvisioning = false;
     submit.disabled = false;
     submit.textContent = "Create Staff Account";
   }
@@ -347,6 +353,118 @@ async function signInStaff(event) {
 async function loadStaffProfile(user) {
   const snapshot = await getDoc(doc(db, "users", user.uid));
   return snapshot.exists() ? snapshot.data() : null;
+}
+
+function accountNameParts(user) {
+  const displayName = normalizeName(user.displayName || "");
+  if (displayName) {
+    const parts = displayName.split(" ");
+    return { firstName: parts.shift() || "Staff", lastName: parts.join(" ") || "Member", displayName };
+  }
+  const localPart = normalizeName((user.email || "staff").split("@")[0].replace(/[._-]+/g, " "));
+  const parts = localPart.split(" ").filter(Boolean);
+  const firstName = parts.shift() || "Staff";
+  const lastName = parts.join(" ") || "Member";
+  return { firstName, lastName, displayName: `${firstName} ${lastName}`.trim() };
+}
+
+async function ensureStaffProfile(user) {
+  const existing = await loadStaffProfile(user);
+  if (existing) return existing;
+
+  const setupRef = doc(db, "system", "setup");
+  const staffRef = doc(db, "users", user.uid);
+  const setupSnapshot = await getDoc(setupRef);
+  const names = accountNameParts(user);
+  const email = (user.email || "").toLowerCase();
+
+  if (!setupSnapshot.exists()) {
+    const batch = writeBatch(db);
+    batch.set(setupRef, {
+      initialized: true,
+      initializedBy: user.uid,
+      initializedAt: serverTimestamp(),
+      facilityName: "Northstar Medical Center"
+    });
+    batch.set(staffRef, {
+      uid: user.uid,
+      firstName: names.firstName,
+      lastName: names.lastName,
+      displayName: names.displayName,
+      email,
+      requestedRole: "physician",
+      role: "administrator",
+      status: "active",
+      createdAt: serverTimestamp(),
+      approvedAt: serverTimestamp(),
+      approvedBy: user.uid
+    });
+    await batch.commit();
+    return loadStaffProfile(user);
+  }
+
+  if (setupSnapshot.data()?.initializedBy === user.uid) {
+    await setDoc(staffRef, {
+      uid: user.uid,
+      firstName: names.firstName,
+      lastName: names.lastName,
+      displayName: names.displayName,
+      email,
+      requestedRole: "physician",
+      role: "administrator",
+      status: "active",
+      createdAt: serverTimestamp(),
+      approvedAt: serverTimestamp(),
+      approvedBy: user.uid
+    });
+    return loadStaffProfile(user);
+  }
+
+  await setDoc(staffRef, {
+    uid: user.uid,
+    firstName: names.firstName,
+    lastName: names.lastName,
+    displayName: names.displayName,
+    email,
+    requestedRole: "staff",
+    role: "staff",
+    status: "pending",
+    createdAt: serverTimestamp()
+  });
+  return loadStaffProfile(user);
+}
+
+async function routeAuthenticatedUser(user) {
+  setAuthMessage();
+  if (!user) {
+    currentStaff = null;
+    stopClinicalListeners();
+    showView(els.authView);
+    switchAuth("signin");
+    return;
+  }
+
+  try {
+    const profile = await ensureStaffProfile(user);
+    if (!profile) throw new Error("missing-profile");
+    currentStaff = profile;
+
+    if (profile.status !== "active") {
+      stopClinicalListeners();
+      showView(els.pendingView);
+      return;
+    }
+
+    renderStaffIdentity(profile);
+    showView(els.mainView);
+    openSection("dashboard");
+    startClinicalListeners();
+  } catch (error) {
+    currentStaff = null;
+    stopClinicalListeners();
+    showView(els.authView);
+    setAuthMessage(friendlyError(error), "error");
+  }
 }
 
 function renderStaffIdentity(profile) {
@@ -1051,39 +1169,8 @@ document.addEventListener("click", (event) => {
 });
 
 onAuthStateChanged(auth, async (user) => {
-  setAuthMessage();
-
-  if (!user) {
-    currentStaff = null;
-    stopClinicalListeners();
-    showView(els.authView);
-    switchAuth("signin");
-    return;
-  }
-
-  try {
-    const profile = await loadStaffProfile(user);
-    if (!profile) {
-      await signOut(auth);
-      setAuthMessage("This account does not have a Northstar staff profile.", "error");
-      return;
-    }
-
-    currentStaff = profile;
-    if (profile.status !== "active") {
-      stopClinicalListeners();
-      showView(els.pendingView);
-      return;
-    }
-
-    renderStaffIdentity(profile);
-    showView(els.mainView);
-    openSection("dashboard");
-    startClinicalListeners();
-  } catch (error) {
-    await signOut(auth);
-    setAuthMessage(friendlyError(error), "error");
-  }
+  if (accountProvisioning) return;
+  await routeAuthenticatedUser(user);
 });
 
 updateClock();

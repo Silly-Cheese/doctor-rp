@@ -44,7 +44,7 @@ service cloud.firestore {
     }
 
     function validRequestedRole(role) {
-      return role in ['physician', 'nurse', 'registration', 'technician'];
+      return role in ['physician', 'nurse', 'registration', 'technician', 'staff'];
     }
 
     function validAssignedRole(role) {
@@ -70,25 +70,33 @@ service cloud.firestore {
       );
 
       allow create: if signedIn()
-                    && request.auth.uid == uid
-                    && request.resource.data.uid == request.auth.uid
-                    && request.resource.data.email == request.auth.token.email
-                    && validRequestedRole(request.resource.data.requestedRole)
-                    && (
-                      (
-                        !exists(/databases/$(database)/documents/system/setup)
-                        && request.resource.data.role == 'administrator'
-                        && request.resource.data.status == 'active'
-                        && request.resource.data.approvedBy == request.auth.uid
-                      )
-                      ||
-                      (
-                        exists(/databases/$(database)/documents/system/setup)
-                        && request.resource.data.role == 'staff'
-                        && request.resource.data.status == 'pending'
-                        && !('approvedBy' in request.resource.data)
-                      )
-                    );
+                  && request.auth.uid == uid
+                  && request.resource.data.uid == request.auth.uid
+                  && request.resource.data.email == request.auth.token.email
+                  && validRequestedRole(request.resource.data.requestedRole)
+                  && (
+                    (
+                      !exists(/databases/$(database)/documents/system/setup)
+                      && request.resource.data.role == 'administrator'
+                      && request.resource.data.status == 'active'
+                      && request.resource.data.approvedBy == request.auth.uid
+                    )
+                    ||
+                    (
+                      exists(/databases/$(database)/documents/system/setup)
+                      && get(/databases/$(database)/documents/system/setup).data.initializedBy == request.auth.uid
+                      && request.resource.data.role == 'administrator'
+                      && request.resource.data.status == 'active'
+                      && request.resource.data.approvedBy == request.auth.uid
+                    )
+                    ||
+                    (
+                      exists(/databases/$(database)/documents/system/setup)
+                      && request.resource.data.role == 'staff'
+                      && request.resource.data.status == 'pending'
+                      && !('approvedBy' in request.resource.data)
+                    )
+                  );
 
       allow update: if isAdministrator()
                     && validAssignedRole(request.resource.data.role)
