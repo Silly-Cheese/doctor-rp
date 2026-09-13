@@ -4,6 +4,7 @@ import "./staff-editor-stability.js";
 import "./admin-controls.js";
 import "./staff-edit-fix.js";
 import "./patient-editor.js";
+import "./case-records.js";
 import "./session-guard.js";
 
 const chartDialog = document.querySelector("#patientChartDialog");
