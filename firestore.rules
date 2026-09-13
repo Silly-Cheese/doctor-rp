@@ -1,0 +1,137 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function currentUserExists() {
+      return signedIn() && exists(userPath(request.auth.uid));
+    }
+
+    function currentUser() {
+      return get(userPath(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return currentUserExists() && currentUser().status == 'active';
+    }
+
+    function isAdministrator() {
+      return isActive() && currentUser().role == 'administrator';
+    }
+
+    function validRequestedRole(role) {
+      return role in ['physician', 'nurse', 'registration', 'technician'];
+    }
+
+    function validAssignedRole(role) {
+      return role in ['administrator', 'physician', 'nurse', 'registration', 'technician', 'staff'];
+    }
+
+    match /system/setup {
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+                    && !exists(/databases/$(database)/documents/system/setup)
+                    && request.resource.data.initialized == true
+                    && request.resource.data.initializedBy == request.auth.uid
+                    && request.resource.data.facilityName == 'Northstar Medical Center';
+
+      allow update: if isAdministrator();
+      allow delete: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (
+        request.auth.uid == uid || isAdministrator()
+      );
+
+      allow create: if signedIn()
+                    && request.auth.uid == uid
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.email == request.auth.token.email
+                    && validRequestedRole(request.resource.data.requestedRole)
+                    && (
+                      (
+                        !exists(/databases/$(database)/documents/system/setup)
+                        && request.resource.data.role == 'administrator'
+                        && request.resource.data.status == 'active'
+                        && request.resource.data.approvedBy == request.auth.uid
+                      )
+                      ||
+                      (
+                        exists(/databases/$(database)/documents/system/setup)
+                        && request.resource.data.role == 'staff'
+                        && request.resource.data.status == 'pending'
+                        && !('approvedBy' in request.resource.data)
+                      )
+                    );
+
+      allow update: if isAdministrator()
+                    && validAssignedRole(request.resource.data.role)
+                    && request.resource.data.uid == resource.data.uid
+                    && request.resource.data.email == resource.data.email;
+
+      allow delete: if false;
+    }
+
+    match /patients/{patientId} {
+      allow read: if isActive();
+      allow create, update: if isActive();
+      allow delete: if isAdministrator();
+    }
+
+    match /encounters/{encounterId} {
+      allow read: if isActive();
+      allow create, update: if isActive();
+      allow delete: if isAdministrator();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isActive();
+      allow create, update: if isActive();
+      allow delete: if isAdministrator();
+    }
+
+    match /results/{resultId} {
+      allow read: if isActive();
+      allow create, update: if isActive();
+      allow delete: if isAdministrator();
+    }
+
+    match /clinicalNotes/{noteId} {
+      allow read: if isActive();
+      allow create, update: if isActive();
+      allow delete: if isAdministrator();
+    }
+
+    match /observations/{observationId} {
+      allow read: if isActive();
+      allow create, update: if isActive();
+      allow delete: if isAdministrator();
+    }
+
+    match /medicationAdministrations/{administrationId} {
+      allow read: if isActive();
+      allow create, update: if isActive();
+      allow delete: if isAdministrator();
+    }
+
+    match /auditEvents/{eventId} {
+      allow read: if isAdministrator();
+      allow create: if isActive();
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
