@@ -29,36 +29,18 @@
         </div>
 
         <form id="signInForm" class="auth-form">
-          <label>
-            <span>Email address</span>
-            <input id="signInEmail" type="email" autocomplete="email" required>
-          </label>
-          <label>
-            <span>Password</span>
-            <input id="signInPassword" type="password" autocomplete="current-password" minlength="6" required>
-          </label>
+          <label><span>Email address</span><input id="signInEmail" type="email" autocomplete="email" required></label>
+          <label><span>Password</span><input id="signInPassword" type="password" autocomplete="current-password" minlength="6" required></label>
           <button class="primary-button" type="submit">Sign In</button>
         </form>
 
         <form id="registerForm" class="auth-form hidden">
           <div class="field-row">
-            <label>
-              <span>First name</span>
-              <input id="firstName" type="text" autocomplete="given-name" required>
-            </label>
-            <label>
-              <span>Last name</span>
-              <input id="lastName" type="text" autocomplete="family-name" required>
-            </label>
+            <label><span>First name</span><input id="firstName" type="text" autocomplete="given-name" required></label>
+            <label><span>Last name</span><input id="lastName" type="text" autocomplete="family-name" required></label>
           </div>
-          <label>
-            <span>Email address</span>
-            <input id="registerEmail" type="email" autocomplete="email" required>
-          </label>
-          <label>
-            <span>Password</span>
-            <input id="registerPassword" type="password" autocomplete="new-password" minlength="6" required>
-          </label>
+          <label><span>Email address</span><input id="registerEmail" type="email" autocomplete="email" required></label>
+          <label><span>Password</span><input id="registerPassword" type="password" autocomplete="new-password" minlength="6" required></label>
           <label>
             <span>Professional title</span>
             <select id="requestedRole" required>
@@ -90,10 +72,7 @@
       <aside class="sidebar">
         <div class="sidebar-brand">
           <div class="brand-mark small">N</div>
-          <div>
-            <strong>Northstar</strong>
-            <span>Medical Center</span>
-          </div>
+          <div><strong>Northstar</strong><span>Medical Center</span></div>
         </div>
 
         <nav class="nav-list" aria-label="Main navigation">
@@ -109,10 +88,7 @@
         <div class="sidebar-footer">
           <div class="user-chip">
             <div id="userInitials" class="avatar">NS</div>
-            <div class="user-chip-copy">
-              <strong id="userName">Staff Member</strong>
-              <span id="userRole">Clinical Staff</span>
-            </div>
+            <div class="user-chip-copy"><strong id="userName">Staff Member</strong><span id="userRole">Clinical Staff</span></div>
           </div>
           <button id="signOutButton" class="text-button" type="button">Sign Out</button>
         </div>
@@ -121,24 +97,14 @@
       <div class="workspace">
         <header class="topbar">
           <button id="menuButton" class="menu-button" type="button" aria-label="Open navigation">☰</button>
-          <div>
-            <p id="departmentLabel" class="eyebrow">Emergency Department</p>
-            <h2 id="pageTitle">Clinical Overview</h2>
-          </div>
-          <div class="topbar-actions">
-            <span id="clock" class="clock"></span>
-            <button id="quickPatientSearch" class="secondary-button compact" type="button">Patient Search</button>
-          </div>
+          <div><p id="departmentLabel" class="eyebrow">Emergency Department</p><h2 id="pageTitle">Clinical Overview</h2></div>
+          <div class="topbar-actions"><span id="clock" class="clock"></span><button id="quickPatientSearch" class="secondary-button compact" type="button">Patient Search</button></div>
         </header>
 
         <main class="content">
           <section id="dashboardSection" class="content-section">
             <div class="welcome-row">
-              <div>
-                <p class="eyebrow">Current Shift</p>
-                <h3 id="greeting">Good evening</h3>
-                <p class="muted">Emergency Department clinical operations</p>
-              </div>
+              <div><p class="eyebrow">Current Shift</p><h3 id="greeting">Good evening</h3><p class="muted">Emergency Department clinical operations</p></div>
               <div class="shift-badge"><span class="status-dot"></span> System Operational</div>
             </div>
 
@@ -153,20 +119,16 @@
               <article class="panel large-panel">
                 <div class="panel-header">
                   <div><p class="eyebrow">Department Census</p><h3>Active Patients</h3></div>
-                  <button class="text-button" data-open="patients" type="button">Open Patient Search</button>
+                  <button class="text-button" data-open="encounters" type="button">View all encounters</button>
                 </div>
-                <div id="activePatientEmpty" class="empty-state">
-                  <div class="empty-icon">✚</div>
-                  <h4>No active encounters</h4>
-                  <p>Checked-in patients will appear here.</p>
-                </div>
+                <div id="dashboardPatients"></div>
               </article>
 
               <article class="panel">
                 <div class="panel-header"><div><p class="eyebrow">Quick Actions</p><h3>Clinical Tools</h3></div></div>
                 <div class="quick-actions">
-                  <button data-open="patients" type="button"><strong>Patient Search</strong><span>Locate an existing patient record</span></button>
-                  <button data-open="waiting" type="button"><strong>Waiting Room</strong><span>Review patients awaiting care</span></button>
+                  <button data-open="patients" type="button"><strong>Patient Search</strong><span>Locate or register a patient</span></button>
+                  <button data-open="waiting" type="button"><strong>Waiting Room</strong><span>Review arrivals awaiting care</span></button>
                   <button data-open="encounters" type="button"><strong>Active Encounters</strong><span>Open current clinical visits</span></button>
                 </div>
               </article>
@@ -174,19 +136,22 @@
           </section>
 
           <section id="patientsSection" class="content-section hidden">
-            <div class="section-heading"><div><p class="eyebrow">Master Patient Index</p><h3>Patient Search</h3><p>Search Northstar patient records by name or medical record number.</p></div></div>
+            <div class="section-heading">
+              <div><p class="eyebrow">Master Patient Index</p><h3>Patient Search</h3><p>Search Northstar patient records by name or medical record number.</p></div>
+              <button id="newPatientButton" class="primary-button registration-action" type="button">Register Patient</button>
+            </div>
             <div class="search-bar"><span>⌕</span><input id="patientSearchInput" type="search" placeholder="Search by patient name or MRN" autocomplete="off"></div>
-            <div class="panel"><div class="empty-state compact-empty"><h4>No patient selected</h4><p>Search for a patient to open their chart.</p></div></div>
+            <div id="patientResults"></div>
           </section>
 
           <section id="waitingSection" class="content-section hidden">
-            <div class="section-heading"><div><p class="eyebrow">Emergency Department</p><h3>Waiting Room</h3><p>Patients awaiting triage, room assignment, or provider evaluation.</p></div></div>
-            <div class="panel"><div class="empty-state compact-empty"><h4>Waiting room is clear</h4><p>No patients are currently waiting.</p></div></div>
+            <div class="section-heading"><div><p class="eyebrow">Emergency Department</p><h3>Waiting Room</h3><p>Patients awaiting triage or room assignment.</p></div></div>
+            <div id="waitingRoomList"></div>
           </section>
 
           <section id="encountersSection" class="content-section hidden">
             <div class="section-heading"><div><p class="eyebrow">Current Census</p><h3>Active Encounters</h3><p>Open visits across the department.</p></div></div>
-            <div class="panel"><div class="empty-state compact-empty"><h4>No active encounters</h4><p>No patient visits are currently open.</p></div></div>
+            <div id="activeEncounterList"></div>
           </section>
 
           <section id="ordersSection" class="content-section hidden">
@@ -208,8 +173,69 @@
     </section>
   </div>
 
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="patientRegistrationDialog" class="modal">
+    <form id="patientRegistrationForm" class="modal-card">
+      <div class="modal-header"><div><p class="eyebrow">Patient Registration</p><h3>Create Patient Record</h3></div><button class="icon-button" type="button" data-close-dialog="patientRegistrationDialog" aria-label="Close">×</button></div>
+      <div class="modal-body form-grid">
+        <p class="form-banner">Use roleplay information only. This system is not intended for real medical records.</p>
+        <div class="field-row"><label><span>First name</span><input id="patientFirstName" required></label><label><span>Last name</span><input id="patientLastName" required></label></div>
+        <div class="field-row"><label><span>Date of birth</span><input id="patientDob" type="date" required></label><label><span>Sex</span><select id="patientSex" required><option value="">Select</option><option>Female</option><option>Male</option><option>Other</option><option>Unknown</option></select></label></div>
+        <div class="field-row"><label><span>Phone</span><input id="patientPhone" type="tel" placeholder="Optional"></label><label><span>Emergency contact</span><input id="patientEmergencyContact" placeholder="Optional"></label></div>
+        <label><span>Allergies</span><input id="patientAllergies" placeholder="NKDA or known allergies"></label>
+        <label><span>Current medications</span><textarea id="patientMedications" rows="2" placeholder="None or current medications"></textarea></label>
+        <label><span>Medical history</span><textarea id="patientHistory" rows="3" placeholder="Relevant roleplay history"></textarea></label>
+      </div>
+      <div class="modal-footer"><button class="secondary-button" type="button" data-close-dialog="patientRegistrationDialog">Cancel</button><button class="primary-button" type="submit">Create Patient Record</button></div>
+    </form>
+  </dialog>
 
+  <dialog id="patientChartDialog" class="modal wide-modal">
+    <div class="modal-card">
+      <div class="modal-header"><div><p class="eyebrow">Northstar Patient Record</p><h3 id="chartPatientName">Patient Chart</h3></div><button class="icon-button" type="button" data-close-dialog="patientChartDialog" aria-label="Close">×</button></div>
+      <div id="patientChartBody" class="modal-body"></div>
+    </div>
+  </dialog>
+
+  <dialog id="checkInDialog" class="modal">
+    <form id="checkInForm" class="modal-card">
+      <div class="modal-header"><div><p class="eyebrow">Emergency Department</p><h3>Check In Patient</h3></div><button class="icon-button" type="button" data-close-dialog="checkInDialog" aria-label="Close">×</button></div>
+      <div class="modal-body form-grid">
+        <div id="checkInPatientLabel" class="patient-context"></div>
+        <label><span>Chief complaint</span><textarea id="chiefComplaint" rows="3" required placeholder="Reason for visit"></textarea></label>
+        <div class="field-row">
+          <label><span>Arrival method</span><select id="arrivalMethod" required><option>Walk-in</option><option>Private vehicle</option><option>EMS</option><option>Police</option><option>Transfer</option></select></label>
+          <label><span>Initial priority</span><select id="initialPriority"><option value="routine">Routine</option><option value="urgent">Urgent</option><option value="critical">Critical</option></select></label>
+        </div>
+      </div>
+      <div class="modal-footer"><button class="secondary-button" type="button" data-close-dialog="checkInDialog">Cancel</button><button class="primary-button" type="submit">Complete Check-In</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="triageDialog" class="modal">
+    <form id="triageForm" class="modal-card">
+      <div class="modal-header"><div><p class="eyebrow">Nursing Triage</p><h3 id="triagePatientName">Triage Patient</h3></div><button class="icon-button" type="button" data-close-dialog="triageDialog" aria-label="Close">×</button></div>
+      <div class="modal-body form-grid">
+        <div class="field-row"><label><span>Acuity</span><select id="triageAcuity" required><option value="1">ESI 1 — Immediate</option><option value="2">ESI 2 — Emergent</option><option value="3" selected>ESI 3 — Urgent</option><option value="4">ESI 4 — Less urgent</option><option value="5">ESI 5 — Non-urgent</option></select></label><label><span>Room</span><input id="triageRoom" placeholder="e.g. ER-03"></label></div>
+        <div class="vitals-grid"><label><span>Heart rate</span><input id="triageHr" type="number" min="0" max="300" placeholder="bpm"></label><label><span>Blood pressure</span><input id="triageBp" placeholder="120/80"></label><label><span>Respirations</span><input id="triageRr" type="number" min="0" max="100" placeholder="/min"></label><label><span>SpO₂</span><input id="triageSpo2" type="number" min="0" max="100" placeholder="%"></label><label><span>Temperature</span><input id="triageTemp" type="number" step="0.1" placeholder="°F"></label><label><span>Pain</span><input id="triagePain" type="number" min="0" max="10" placeholder="0–10"></label></div>
+        <label><span>Triage note</span><textarea id="triageNote" rows="3" placeholder="Initial nursing assessment"></textarea></label>
+      </div>
+      <div class="modal-footer"><button class="secondary-button" type="button" data-close-dialog="triageDialog">Cancel</button><button class="primary-button" type="submit">Save Triage</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dischargeDialog" class="modal">
+    <form id="dischargeForm" class="modal-card">
+      <div class="modal-header"><div><p class="eyebrow">Disposition</p><h3 id="dischargePatientName">Discharge Patient</h3></div><button class="icon-button" type="button" data-close-dialog="dischargeDialog" aria-label="Close">×</button></div>
+      <div class="modal-body form-grid">
+        <label><span>Disposition</span><select id="disposition" required><option value="discharged-home">Discharged Home</option><option value="admitted">Admitted</option><option value="transferred">Transferred</option><option value="observation">Observation</option><option value="left-before-treatment">Left Before Treatment</option><option value="ama">Left Against Medical Advice</option></select></label>
+        <label><span>Final diagnosis / visit summary</span><textarea id="dischargeDiagnosis" rows="3" required></textarea></label>
+        <label><span>Discharge instructions</span><textarea id="dischargeInstructions" rows="3" placeholder="Follow-up, restrictions, or return precautions"></textarea></label>
+      </div>
+      <div class="modal-footer"><button class="secondary-button" type="button" data-close-dialog="dischargeDialog">Cancel</button><button class="danger-button" type="submit">Close Encounter</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="app.js"></script>
 </body>
 </html>
