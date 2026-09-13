@@ -43,8 +43,9 @@ document.addEventListener("focusin", (event) => {
 
 document.addEventListener("pointerdown", (event) => {
   if (isStaffSave(event.target)) {
-    staffEditorActive = false;
-    flushPendingRender();
+    // Keep the current card mounted until the click/save handler has finished.
+    // Replacing the card during pointerdown prevents the subsequent click event.
+    staffEditorActive = true;
     return;
   }
 
