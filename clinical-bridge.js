@@ -1,4 +1,5 @@
 import "./operations.js";
+import "./operations-polish.js";
 
 const chartDialog = document.querySelector("#patientChartDialog");
 const chartBody = document.querySelector("#patientChartBody");
