@@ -1,0 +1,21 @@
+name: Verify Mobile Scanner and Deceased Vault
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.event.head_commit.message == 'Verify mobile scanner and deceased vault'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify JavaScript syntax
+        run: |
+          node --check deceased-access.js
+          node --check northstar-mobile.js
+          node --check clinical-bridge.js
+          node --check northstar-clinical-plus.js
