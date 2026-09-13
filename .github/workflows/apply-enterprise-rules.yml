@@ -1,0 +1,29 @@
+name: Apply Northstar Enterprise Permissions
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'Apply Northstar enterprise permissions'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Apply Firestore rules
+        run: python scripts/add_enterprise_rules.py
+      - name: Verify JavaScript syntax
+        run: |
+          node --check northstar-enterprise.js
+          node --check northstar-pwa.js
+          node --check service-worker.js
+      - name: Commit permissions
+        shell: bash
+        run: |
+          git config user.name "Northstar Medical Center"
+          git config user.email "northstar@users.noreply.github.com"
+          git add firestore.rules
+          git commit -m "Add enterprise hospital workflow permissions"
+          git push origin main
