@@ -1,5 +1,6 @@
 import "./operations.js";
 import "./operations-polish.js";
+import "./admin-controls.js";
 
 const chartDialog = document.querySelector("#patientChartDialog");
 const chartBody = document.querySelector("#patientChartBody");
