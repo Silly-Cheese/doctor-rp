@@ -125,7 +125,7 @@ service cloud.firestore {
     }
 
     match /auditEvents/{eventId} {
-      allow read: if isAdministrator();
+      allow read: if isActive();
       allow create: if isActive();
       allow update, delete: if false;
     }
