@@ -191,7 +191,7 @@ function blockRestrictedOpen(event) {
 function scheduleRender() { if (state.renderQueued) return; state.renderQueued = true; requestAnimationFrame(() => { state.renderQueued = false; ensureAssets(); applyVisibility(); }); }
 function stopListeners() { state.unsubscribers.forEach(u => { try { u(); } catch (_) {} }); state.unsubscribers = []; state.patients = []; state.encounters = []; state.users = []; }
 function bind(name,key) { const u = onSnapshot(collection(db,name), snap => { state[key] = snap.docs.map(d => ({ id:d.id, ...d.data() })); scheduleRender(); }, () => { state[key] = []; scheduleRender(); }); state.unsubscribers.push(u); }
-async function start(user) { stopListeners(); state.profile = null; if (!user) return; const p = await getDoc(doc(db,"users",user.uid)); if (!p.exists()) return; state.profile = { id:p.id, ...p.data() }; if (state.profile.status !== "active") return; bind("patients","patients"); bind("encounters","encounters"); bind("users","users"); scheduleRender(); }
+async function start(user) { stopListeners(); state.profile = null; if (!user) return; const p = await getDoc(doc(db,"users",user.uid)); if (!p.exists()) return; state.profile = { id:p.id, ...p.data() }; if (state.profile.status !== "active") return; bind("patients","patients"); bind("encounters","encounters"); if (isAdmin()) bind("users","users"); scheduleRender(); }
 
 ensureAssets();
 document.addEventListener("click", blockRestrictedOpen, true);
@@ -201,7 +201,7 @@ document.addEventListener("click", event => {
 }, true);
 document.addEventListener("submit", event => { if (event.target?.id === "deceasedForm") secureMarkDeceased(event); }, true);
 document.addEventListener("click", event => { if (event.target.closest?.("[data-restore-patient]")) secureRestore(event); }, true);
-const chart = document.querySelector("#patientChartBody"); if (chart) new MutationObserver(scheduleRender).observe(chart,{childList:true,subtree:true});
+const chart = document.querySelector("#patientChartBody"); if (chart) new MutationObserver(scheduleRender).observe(chart,{childList:true,subtree:false});
 const chartDialog = document.querySelector("#patientChartDialog"); if (chartDialog) new MutationObserver(scheduleRender).observe(chartDialog,{attributes:true,attributeFilter:["open"]});
 const patientResults = document.querySelector("#patientResults"); if (patientResults) new MutationObserver(scheduleRender).observe(patientResults,{childList:true,subtree:true});
 const commandResults = document.querySelector("#northstarCommandResults"); if (commandResults) new MutationObserver(scheduleRender).observe(commandResults,{childList:true,subtree:true});

@@ -521,11 +521,15 @@ function renderFacilityBanner() {
 
 function renderAll() {
   if (!state.profile) return;
-  renderWorkstation();
-  renderRooms();
-  renderMessages();
-  renderAlerts();
-  renderControlCenter();
+  const visible = selector => {
+    const node = document.querySelector(selector);
+    return Boolean(node && !node.classList.contains("hidden"));
+  };
+  if (visible("#northstarWorkstationSection")) renderWorkstation();
+  if (visible("#northstarRoomsSection")) renderRooms();
+  if (visible("#northstarMessagesSection")) renderMessages();
+  if (visible("#northstarAlertsSection")) renderAlerts();
+  if (visible("#northstarControlSection")) renderControlCenter();
   renderFacilityBanner();
   document.querySelectorAll(".admin-platform-nav").forEach(n => n.classList.toggle("hidden", !isAdmin()));
 }

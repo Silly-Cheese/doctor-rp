@@ -204,10 +204,21 @@ function enhanceChart() {
   const dialog = document.querySelector("#patientChartDialog"); const body = document.querySelector("#patientChartBody"); if (!dialog?.open || !body || !state.profile) return;
   const patient = currentChartPatient(); if (!patient) return; state.selectedPatientId = patient.id;
   const bannerActions = body.querySelector(".chart-actions");
-  if (bannerActions && !bannerActions.querySelector("[data-print-wristband]")) {
-    if (canWristband()) bannerActions.insertAdjacentHTML("afterbegin", `<button class="secondary-button" type="button" data-print-wristband="${safe(patient.id)}">Print Wristband</button>`);
-    bannerActions.insertAdjacentHTML("afterbegin", `<button class="secondary-button" type="button" data-identity-safety="${safe(patient.id)}">Identity & Safety</button>`);
-    const active = activeEncounterForPatient(patient.id); if (active && isProvider()) bannerActions.insertAdjacentHTML("beforeend", `<button class="secondary-button" type="button" data-order-catalog="${safe(active.id)}">Order Catalog</button>`);
+  if (bannerActions) {
+    if (canWristband() && !bannerActions.querySelector("[data-print-wristband]")) {
+      bannerActions.insertAdjacentHTML("afterbegin", `<button class="secondary-button" type="button" data-print-wristband="${safe(patient.id)}">Print Wristband</button>`);
+    }
+    if (!bannerActions.querySelector("[data-identity-safety]")) {
+      bannerActions.insertAdjacentHTML("afterbegin", `<button class="secondary-button" type="button" data-identity-safety="${safe(patient.id)}">Identity & Safety</button>`);
+    }
+    const active = activeEncounterForPatient(patient.id);
+    if (active && isProvider() && !bannerActions.querySelector(`[data-order-catalog="${CSS.escape(active.id)}"]`)) {
+      bannerActions.insertAdjacentHTML("beforeend", `<button class="secondary-button" type="button" data-order-catalog="${safe(active.id)}">Order Catalog</button>`);
+    }
+    const identityButtons = [...bannerActions.querySelectorAll("[data-identity-safety]")];
+    identityButtons.slice(1).forEach(button => button.remove());
+    const wristbandButtons = [...bannerActions.querySelectorAll("[data-print-wristband]")];
+    wristbandButtons.slice(1).forEach(button => button.remove());
   }
   renderIdentityPanel(body, patient);
   renderVitalsTrend(body, patient);
@@ -222,6 +233,9 @@ function renderIdentityPanel(body, patient) {
   let panel = body.querySelector("#identitySafetyPanel"); if (!panel) { panel = document.createElement("section"); panel.id = "identitySafetyPanel"; panel.className = "chart-section identity-safety-panel"; const grid = body.querySelector(".chart-grid"); grid?.after(panel); }
   const alerts = patient.patientAlerts || "None documented";
   const duplicate = state.patients.find(p => p.id !== patient.id && p.currentStatus !== "merged" && p.dob === patient.dob && (`${p.firstName} ${p.lastName}`.toLowerCase() === `${patient.firstName} ${patient.lastName}`.toLowerCase() || p.lastName?.toLowerCase() === patient.lastName?.toLowerCase()));
+  const signature = JSON.stringify([patient.id, patient.alias || "", patient.codeStatus || "Full Code", patient.primaryPhysician || "", patient.preferredPharmacy || "", alerts, patient.advanceDirectives || "", Boolean(patient.confidentialFlag), duplicate?.id || "", isAdmin()]);
+  if (panel.dataset.signature === signature) return;
+  panel.dataset.signature = signature;
   panel.innerHTML = `<div class="chart-section-title identity-title"><div><p class="eyebrow">Identity & Safety</p><h4>Patient Safety Profile</h4></div><div class="identity-badges"><span class="code-status">${safe(patient.codeStatus || "Full Code")}</span>${patient.confidentialFlag ? '<span class="identity-alert">Restricted</span>' : ""}</div></div><div class="identity-grid"><div><span>Alias / Previous Name</span><strong>${safe(patient.alias || "None")}</strong></div><div><span>Primary Physician</span><strong>${safe(patient.primaryPhysician || "Not assigned")}</strong></div><div><span>Preferred Pharmacy</span><strong>${safe(patient.preferredPharmacy || "Not documented")}</strong></div><div class="identity-alert-cell"><span>Patient Alerts</span><strong>${safe(alerts)}</strong></div><div class="identity-wide"><span>Advance Directives</span><strong>${safe(patient.advanceDirectives || "None documented")}</strong></div></div>${duplicate && isAdmin() ? `<div class="duplicate-warning"><div><strong>Possible duplicate record</strong><span>${safe(duplicate.lastName)}, ${safe(duplicate.firstName)} · ${safe(duplicate.mrn)}</span></div><button type="button" class="secondary-button compact" data-merge-records="${safe(patient.id)}" data-merge-target="${safe(duplicate.id)}">Merge Into ${safe(duplicate.mrn)}</button></div>` : ""}`;
 }
 
@@ -244,12 +258,19 @@ function sparkline(values, minOverride = null, maxOverride = null) {
 function renderVitalsTrend(body, patient) {
   let panel = body.querySelector("#vitalsTrendPanel"); if (!panel) { panel = document.createElement("section"); panel.id = "vitalsTrendPanel"; panel.className = "chart-section vitals-trend-panel"; body.appendChild(panel); }
   const p = trendPoints(patient.id);
+  const signature = JSON.stringify([patient.id, p]);
+  if (panel.dataset.signature === signature) return;
+  panel.dataset.signature = signature;
   panel.innerHTML = `<div class="chart-section-title"><p class="eyebrow">Clinical Trends</p><h4>Vitals Over Time</h4></div><div class="trend-grid"><div><span>Heart Rate</span>${sparkline(p.map(x => x.hr))}</div><div><span>SpO₂</span>${sparkline(p.map(x => x.spo2),80,100)}</div><div><span>Respirations</span>${sparkline(p.map(x => x.rr))}</div><div><span>Temperature</span>${sparkline(p.map(x => x.temp),95,105)}</div><div><span>Pain</span>${sparkline(p.map(x => x.pain),0,10)}</div></div>`;
 }
 
 function renderDocumentation(body, patient) {
   let panel = body.querySelector("#signedDocumentationPanel"); if (!panel) { panel = document.createElement("section"); panel.id = "signedDocumentationPanel"; panel.className = "chart-section signed-documentation-panel"; body.appendChild(panel); }
   const notes = state.notes.filter(n => n.patientId === patient.id).sort((a,b) => timeValue(b.createdAt) - timeValue(a.createdAt));
+  const addenda = state.addenda.filter(a => a.patientId === patient.id);
+  const signature = JSON.stringify([patient.id, isProvider(), notes.map(n => [n.id, n.title, n.workingDiagnosis, n.note, n.plan, timeValue(n.createdAt)]), addenda.map(a => [a.id, a.noteId, a.text, timeValue(a.createdAt)])]);
+  if (panel.dataset.signature === signature) return;
+  panel.dataset.signature = signature;
   panel.innerHTML = `<div class="chart-section-title"><p class="eyebrow">Documentation Integrity</p><h4>Signed Clinical Notes</h4></div>${notes.length ? `<div class="signed-note-list">${notes.map(note => signedNote(note)).join("")}</div>` : '<div class="chart-empty"><p>No signed clinical notes.</p></div>'}`;
 }
 
@@ -337,7 +358,7 @@ function bindEvents() {
   document.addEventListener("click",e=>{const check=e.target.closest("[data-checkin-id]"); if(!check)return; const p=patientById(check.dataset.checkinId); if(p&&(p.currentStatus==="merged"||p.vitalStatus==="merged")){e.preventDefault();e.stopImmediatePropagation();showToast("Check-in blocked: this patient record was merged into another record.");}},true);
 }
 
-function scheduleRender(){if(state.renderQueued)return;state.renderQueued=true;requestAnimationFrame(()=>{state.renderQueued=false;renderMar();enhanceChart();});}
+function scheduleRender(){if(state.renderQueued)return;state.renderQueued=true;requestAnimationFrame(()=>{state.renderQueued=false;const mar=document.querySelector("#northstarMarSection");if(mar&&!mar.classList.contains("hidden"))renderMar();if(document.querySelector("#patientChartDialog")?.open)enhanceChart();});}
 function stopListeners(){state.unsubscribers.forEach(u=>{try{u();}catch(_){}});state.unsubscribers=[];state.profile=null;}
 function bindCollection(name,key){const u=onSnapshot(collection(db,name),s=>{state[key]=s.docs.map(d=>({id:d.id,...d.data()}));scheduleRender();},()=>{state[key]=[];scheduleRender();});state.unsubscribers.push(u);}
 async function start(user){stopListeners();if(!user)return;const p=await getDoc(doc(db,"users",user.uid));if(!p.exists())return;state.profile={id:p.id,...p.data()};if(state.profile.status!=="active")return;[["patients","patients"],["encounters","encounters"],["orders","orders"],["results","results"],["clinicalNotes","notes"],["noteAddenda","addenda"],["observations","observations"],["medicationAdministrations","administrations"],["tasks","tasks"]].forEach(([n,k])=>bindCollection(n,k));scheduleRender();}

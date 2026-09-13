@@ -211,6 +211,9 @@ function renderStaffManager() {
     return String(a.displayName || "").localeCompare(String(b.displayName || ""));
   });
   if (count) count.textContent = `${users.length} account${users.length === 1 ? "" : "s"}`;
+  const signature = JSON.stringify(users.map(user => [user.uid || user.id, user.displayName || "", user.requestedRole || "", user.role || "", user.status || "", user.email || ""]));
+  if (list.dataset.signature === signature) return;
+  list.dataset.signature = signature;
 
   if (!users.length) {
     list.innerHTML = '<div class="managed-empty">No staff accounts are available.</div>';
