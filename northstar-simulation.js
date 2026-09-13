@@ -29,7 +29,12 @@ const BUILTIN = [
 const state={profile:null,patients:[],encounters:[],scenarios:[],runs:[],events:[],unsubscribers:[],selectedScenario:null,renderQueued:false};
 function safe(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
 function toDate(v){if(!v)return null;if(typeof v.toDate==="function")return v.toDate();if(typeof v.seconds==="number")return new Date(v.seconds*1000);const d=new Date(v);return Number.isNaN(d.getTime())?null:d;}
-function timeValue(v){return toDate(v)?.getTime()||0;}function formatTime(v){const d=toDate(v);return d?new Intl.DateTimeFormat("en-US",{hour:"numeric",minute:"2-digit",second:"2-digit"}).format(d):"—";}function activeEncounters(){return state.encounters.filter(e=>e.status!=="discharged");}function patientById(id){return state.patients.find(p=>p.id===id)||null;}function encounterById(id){return state.encounters.find(e=>e.id===id)||null;}function isAdmin(){return state.profile?.status==="active"&&state.profile?.role==="administrator";}function canEmergency(){return state.profile?.status==="active"&&(state.profile.role==="administrator"||state.profile.permissions?.emergencyEvents!==false);}
+function timeValue(v){return toDate(v)?.getTime()||0;}function formatTime(v){const d=toDate(v);return d?new Intl.DateTimeFormat("en-US",{hour:"numeric",minute:"2-digit",second:"2-digit"}).format(d):"—";}function activeEncounters(){return state.encounters.filter(e=>e.status!=="discharged");}function patientById(id){return state.patients.find(p=>p.id===id)||null;}function encounterById(id){return state.encounters.find(e=>e.id===id)||null;}function isAdmin(){return state.profile?.status==="active"&&state.profile?.role==="administrator";}function canEmergency(){
+  if(state.profile?.status!=="active")return false;
+  if(state.profile.role==="administrator")return true;
+  if(Object.prototype.hasOwnProperty.call(state.profile.permissions||{},"emergencyEvents"))return state.profile.permissions.emergencyEvents===true;
+  return ["physician","nurse","technician"].includes(state.profile.role);
+}
 function showToast(m){const t=document.querySelector("#toast");if(!t)return;t.textContent=m;t.classList.add("show");clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>t.classList.remove("show"),3000);}
 function ensureStyles(){if(document.querySelector('link[href="northstar-simulation.css"]'))return;const l=document.createElement("link");l.rel="stylesheet";l.href="northstar-simulation.css";document.head.appendChild(l);}
 

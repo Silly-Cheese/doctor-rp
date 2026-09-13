@@ -72,7 +72,10 @@ service cloud.firestore {
     }
 
     function canEmergency() {
-      return isActive() && (currentUser().role == 'administrator' || permission('emergencyEvents', true));
+      return isActive() && (
+        currentUser().role == 'administrator'
+        || permission('emergencyEvents', currentUser().role in ['physician', 'nurse', 'technician'])
+      );
     }
 
     function validRequestedRole(role) {
@@ -306,7 +309,8 @@ service cloud.firestore {
     match /noteAddenda/{addendumId} {
       allow read: if isActive();
       allow create: if isProvider() && request.resource.data.authorUid == request.auth.uid;
-      allow update: if false;
+      allow update: if isAdministrator()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['patientId', 'patientName', 'mrn', 'updatedAt']);
       allow delete: if isAdministrator();
     }
 
