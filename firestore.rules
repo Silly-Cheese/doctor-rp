@@ -64,6 +64,7 @@ service cloud.firestore {
         'confidential',
         'authorizationSalt',
         'authorizationHash',
+        'authorizationEpoch',
         'failedAuthorizationAttempts',
         'permanentlyLocked',
         'confidentialMarkedAt',
@@ -96,12 +97,14 @@ service cloud.firestore {
              && request.resource.data.get('confidential', false) == true
              && request.resource.data.get('authorizationHash', '') != ''
              && request.resource.data.get('authorizationSalt', '') != ''
+             && request.resource.data.get('authorizationEpoch', 0) == resource.data.get('authorizationEpoch', 0) + 1
              && request.resource.data.get('failedAuthorizationAttempts', 0) == 0
              && request.resource.data.get('permanentlyLocked', false) == false
              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                'confidential',
                'authorizationSalt',
                'authorizationHash',
+               'authorizationEpoch',
                'failedAuthorizationAttempts',
                'permanentlyLocked',
                'confidentialMarkedAt',
@@ -139,9 +142,11 @@ service cloud.firestore {
              && resource.data.get('permanentlyLocked', false) == true
              && request.resource.data.get('permanentlyLocked', true) == false
              && request.resource.data.get('failedAuthorizationAttempts', -1) == 0
+             && request.resource.data.get('authorizationEpoch', 0) == resource.data.get('authorizationEpoch', 0) + 1
              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                'failedAuthorizationAttempts',
                'permanentlyLocked',
+               'authorizationEpoch',
                'unlockedAt',
                'unlockedBy',
                'unlockedByName',

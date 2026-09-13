@@ -125,14 +125,18 @@ function accessKey(encounter) {
   return `northstar-case-access:${auth.currentUser?.uid || "anon"}:${encounter.id}`;
 }
 
+function authorizationSessionToken(encounter) {
+  return `${encounter.authorizationHash || ""}:${Number(encounter.authorizationEpoch || 0)}`;
+}
+
 function hasSessionAccess(encounter) {
   if (!isConfidential(encounter)) return true;
   if (!encounter.authorizationHash || isPermanentlyLocked(encounter)) return false;
-  return sessionStorage.getItem(accessKey(encounter)) === encounter.authorizationHash;
+  return sessionStorage.getItem(accessKey(encounter)) === authorizationSessionToken(encounter);
 }
 
 function grantSessionAccess(encounter) {
-  if (encounter.authorizationHash) sessionStorage.setItem(accessKey(encounter), encounter.authorizationHash);
+  if (encounter.authorizationHash) sessionStorage.setItem(accessKey(encounter), authorizationSessionToken(encounter));
 }
 
 function revokeSessionAccess(encounter) {
@@ -198,14 +202,33 @@ function injectDialogs() {
           <button class="primary-button" type="submit">Save Confidential Access</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog id="caseAdminUnlockDialog" class="modal">
+      <form id="caseAdminUnlockForm" class="modal-card">
+        <div class="modal-header">
+          <div><p class="eyebrow">Administrator Review</p><h3>Unlock Confidential Case</h3></div>
+          <button class="icon-button" type="button" data-close-case="caseAdminUnlockDialog" aria-label="Close">×</button>
+        </div>
+        <div class="modal-body form-grid">
+          <div id="caseAdminUnlockContext" class="patient-context"></div>
+          <div class="case-lock-warning"><strong>Permanent lock override</strong><br>This resets the failed-attempt counter. The authorization code will still be required, and all previously authorized browser sessions will be revoked.</div>
+          <label><span>Unlock reason</span><textarea id="caseAdminUnlockReason" rows="4" minlength="5" required placeholder="Document why the permanent lock is being removed"></textarea></label>
+        </div>
+        <div class="modal-footer">
+          <button class="secondary-button" type="button" data-close-case="caseAdminUnlockDialog">Cancel</button>
+          <button class="danger-button" type="submit">Remove Permanent Lock</button>
+        </div>
+      </form>
     </dialog>`);
 
   document.querySelector("#caseAuthorizationForm")?.addEventListener("submit", submitAuthorization);
   document.querySelector("#caseConfidentialSetupForm")?.addEventListener("submit", submitConfidentialSetup);
+  document.querySelector("#caseAdminUnlockForm")?.addEventListener("submit", submitAdminUnlock);
   document.querySelectorAll("[data-close-case]").forEach((button) => {
     button.addEventListener("click", () => document.querySelector(`#${button.dataset.closeCase}`)?.close());
   });
-  ["caseRecordDialog", "caseAuthorizationDialog", "caseConfidentialSetupDialog"].forEach((id) => {
+  ["caseRecordDialog", "caseAuthorizationDialog", "caseConfidentialSetupDialog", "caseAdminUnlockDialog"].forEach((id) => {
     document.querySelector(`#${id}`)?.addEventListener("click", (event) => {
       if (event.target.id === id) event.target.close();
     });
@@ -230,6 +253,7 @@ function caseArchiveFingerprint(patient, encounters) {
     locked: !!encounter.permanentlyLocked,
     attempts: Number(encounter.failedAuthorizationAttempts || 0),
     hash: encounter.authorizationHash || "",
+    epoch: Number(encounter.authorizationEpoch || 0),
     updatedAt: encounter.updatedAt?.seconds || 0
   }))) + patient.id;
 }
@@ -279,9 +303,13 @@ function archiveRow(encounter) {
     : confidential
       ? '<span class="case-security-badge confidential">Confidential</span>'
       : '<span class="case-security-badge standard">Standard</span>';
-  const secondary = confidential && !hasSessionAccess(encounter)
-    ? (locked ? "Access disabled pending Administrator unlock" : "Authorization code required to view case contents")
+  const authorized = hasSessionAccess(encounter);
+  const secondary = confidential && !authorized
+    ? (locked ? "Protected case contents unavailable until Administrator unlock" : "Protected encounter details hidden — authorization required")
     : `${encounter.chiefComplaint || "No chief complaint entered"}${encounter.finalDiagnosis || encounter.workingDiagnosis ? ` · ${encounter.finalDiagnosis || encounter.workingDiagnosis}` : ""}`;
+  const departmentLabel = confidential && !authorized ? "Restricted Case" : (encounter.department || "Emergency Department");
+  const statusLabel = locked ? "Locked" : confidential && !authorized ? "Authorization Required" : (active ? formatStatus(encounter.status) : formatStatus(encounter.disposition || "Closed"));
+  const openLabel = locked ? "Review Lock" : confidential && !authorized ? "Authorize & Open" : "Open Full Case";
 
   return `
     <article class="case-archive-row ${className}">
@@ -291,13 +319,13 @@ function archiveRow(encounter) {
         <span>${safe(secondary)}</span>
       </div>
       <div class="case-archive-meta">
-        <span>${safe(encounter.department || "Emergency Department")}</span>
-        <strong>${safe(active ? formatStatus(encounter.status) : formatStatus(encounter.disposition || "Closed"))}</strong>
+        <span>${safe(departmentLabel)}</span>
+        <strong>${safe(statusLabel)}</strong>
       </div>
       <div class="case-archive-actions">
         ${providerCanManage && !confidential ? `<button class="secondary-button compact" type="button" data-mark-case-confidential="${safe(encounter.id)}">Mark Confidential</button>` : ""}
         ${providerCanManage && confidential ? `<button class="secondary-button compact" type="button" data-change-case-code="${safe(encounter.id)}">Change Code</button>` : ""}
-        <button class="primary-button compact" type="button" data-open-case-record="${safe(encounter.id)}">Open Full Case</button>
+        <button class="primary-button compact" type="button" data-open-case-record="${safe(encounter.id)}">${safe(openLabel)}</button>
       </div>
     </article>`;
 }
@@ -349,7 +377,7 @@ function renderLockedCase(encounter) {
       <div class="case-gate-icon">!</div>
       <h4>Case Permanently Locked</h4>
       <p>Three incorrect authorization codes were entered. Case contents are unavailable until an Administrator removes the permanent lock.</p>
-      ${isAdministrator() ? '<button class="danger-button" type="button" data-admin-unlock-case>Unlock Permanent Lock</button>' : ""}
+      ${isAdministrator() ? '<button class="danger-button" type="button" data-admin-unlock-case>Administrator Review & Unlock</button>' : ""}
     </div>`;
   document.querySelector("#caseRecordDialog").showModal();
 }
@@ -367,6 +395,56 @@ function caseSummary(encounter, patient) {
       <div class="case-summary-item"><span>Diagnosis</span><strong>${safe(encounter.finalDiagnosis || encounter.workingDiagnosis || "—")}</strong></div>
       <div class="case-summary-item"><span>Acuity / Room</span><strong>${triage.acuity ? `ESI ${safe(triage.acuity)} · ` : ""}${safe(encounter.room || triage.room || "—")}</strong></div>
     </div>`;
+}
+
+function renderCaseSecurity(encounter) {
+  if (!isConfidential(encounter)) return "";
+  const attempts = Number(encounter.failedAuthorizationAttempts || 0);
+  const remaining = Math.max(0, 3 - attempts);
+  const securityTypes = new Set([
+    "case-marked-confidential",
+    "confidential-case-code-changed",
+    "confidential-case-access-granted",
+    "confidential-case-authorization-failed",
+    "confidential-case-permanently-locked",
+    "confidential-case-admin-unlocked",
+    "confidential-case-session-ended"
+  ]);
+  const events = state.audits
+    .filter((item) => item.encounterId === encounter.id && securityTypes.has(item.type))
+    .sort((a, b) => timeValue(b.at) - timeValue(a.at))
+    .slice(0, 10);
+  const labels = {
+    "case-marked-confidential": "Case marked confidential",
+    "confidential-case-code-changed": "Authorization code changed",
+    "confidential-case-access-granted": "Confidential access granted",
+    "confidential-case-authorization-failed": "Incorrect authorization code",
+    "confidential-case-permanently-locked": "Permanent lock triggered",
+    "confidential-case-admin-unlocked": "Permanent lock removed",
+    "confidential-case-session-ended": "Authorized session ended"
+  };
+  const authorized = hasSessionAccess(encounter);
+  return `
+    <section class="case-security-panel">
+      <div class="case-security-panel-head">
+        <div><p class="eyebrow">Case Security</p><h4>Confidential Access Control</h4></div>
+        <span class="case-security-state ${isPermanentlyLocked(encounter) ? "locked" : authorized ? "authorized" : "restricted"}">${isPermanentlyLocked(encounter) ? "Permanently Locked" : authorized ? "Authorized This Session" : "Restricted"}</span>
+      </div>
+      <div class="case-security-grid">
+        <div><span>Failed Attempts</span><strong>${attempts} / 3</strong><small>${remaining} remaining before permanent lock</small></div>
+        <div><span>Secured By</span><strong>${safe(encounter.confidentialMarkedByName || encounter.providerName || "Physician")}</strong><small>${safe(formatDateTime(encounter.confidentialMarkedAt))}</small></div>
+        <div><span>Authorization Version</span><strong>${Number(encounter.authorizationEpoch || 0)}</strong><small>Changes revoke previous sessions</small></div>
+        <div><span>Access Mode</span><strong>${authorized ? "Open in this session" : "Code required"}</strong><small>${isPermanentlyLocked(encounter) ? "Administrator intervention required" : "Case-sensitive authorization"}</small></div>
+      </div>
+      <div class="case-security-toolbar">
+        ${canManageConfidential(encounter) ? `<button class="secondary-button compact" type="button" data-change-case-code="${safe(encounter.id)}">Rotate Authorization Code</button>` : ""}
+        ${authorized ? '<button class="secondary-button compact" type="button" data-end-case-access>End My Access Session</button>' : ""}
+      </div>
+      <div class="case-access-history">
+        <div class="case-access-history-head"><strong>Security Activity</strong><span>${events.length ? "Latest activity" : "No activity recorded"}</span></div>
+        ${events.length ? events.map((item) => `<div class="case-access-event"><time>${safe(formatDateTime(item.at))}</time><div><strong>${safe(labels[item.type] || formatStatus(item.type))}</strong><span>${safe(item.actorName || "Northstar Staff")}${item.attemptNumber ? ` · Attempt ${safe(item.attemptNumber)} of 3` : ""}${item.reason ? ` · ${safe(item.reason)}` : ""}</span></div></div>`).join("") : '<div class="case-empty">No security activity has been recorded for this case.</div>'}
+      </div>
+    </section>`;
 }
 
 function renderFullCase(encounter) {
@@ -390,6 +468,7 @@ function renderFullCase(encounter) {
 
   document.querySelector("#caseRecordBody").innerHTML = `
     ${confidentialBanner}
+    ${renderCaseSecurity(encounter)}
     ${caseSummary(encounter, patient)}
     ${renderEncounterOverview(encounter)}
     ${renderNotes(notes)}
@@ -556,6 +635,7 @@ async function submitConfidentialSetup(event) {
       confidential: true,
       authorizationSalt: salt,
       authorizationHash: hash,
+      authorizationEpoch: Number(encounter.authorizationEpoch || 0) + 1,
       failedAuthorizationAttempts: 0,
       permanentlyLocked: false,
       confidentialMarkedAt: encounter.confidentialMarkedAt || serverTimestamp(),
@@ -686,16 +766,34 @@ async function recordFailedAttempt(encounter) {
   return result;
 }
 
-async function adminUnlockSelectedCase() {
+function adminUnlockSelectedCase() {
+  const encounter = encounterById(state.selectedEncounterId);
+  const patient = encounter ? patientById(encounter.patientId) : null;
+  if (!encounter || !patient || !isAdministrator() || !isPermanentlyLocked(encounter)) return;
+  document.querySelector("#caseAdminUnlockForm")?.reset();
+  document.querySelector("#caseAdminUnlockContext").innerHTML = `<strong>${safe(patient.lastName)}, ${safe(patient.firstName)}</strong><span>${safe(patient.mrn || "")} · ${safe(formatDateTime(encounter.arrivalAt))}</span>`;
+  document.querySelector("#caseAdminUnlockDialog").showModal();
+  setTimeout(() => document.querySelector("#caseAdminUnlockReason")?.focus(), 40);
+}
+
+async function submitAdminUnlock(event) {
+  event.preventDefault();
   const encounter = encounterById(state.selectedEncounterId);
   if (!encounter || !isAdministrator() || !isPermanentlyLocked(encounter)) return;
-  if (!window.confirm("Unlock this permanently locked case? The authorization code will still be required afterward.")) return;
-
+  const reason = document.querySelector("#caseAdminUnlockReason").value.trim();
+  if (reason.length < 5) {
+    showToast("Enter a brief reason for removing the permanent lock.");
+    return;
+  }
+  const button = event.currentTarget.querySelector("button[type='submit']");
+  button.disabled = true;
+  button.textContent = "Unlocking…";
   try {
     const batch = writeBatch(db);
     batch.update(doc(db, "encounters", encounter.id), {
       failedAuthorizationAttempts: 0,
       permanentlyLocked: false,
+      authorizationEpoch: Number(encounter.authorizationEpoch || 0) + 1,
       unlockedAt: serverTimestamp(),
       unlockedBy: auth.currentUser.uid,
       unlockedByName: state.profile.displayName,
@@ -705,18 +803,43 @@ async function adminUnlockSelectedCase() {
       type: "confidential-case-admin-unlocked",
       patientId: encounter.patientId,
       encounterId: encounter.id,
+      reason,
       actorUid: auth.currentUser.uid,
       actorName: state.profile.displayName,
       at: serverTimestamp()
     });
     await batch.commit();
     revokeSessionAccess(encounter);
+    document.querySelector("#caseAdminUnlockDialog").close();
     document.querySelector("#caseRecordDialog").close();
     showToast("Permanent lock removed. Authorization code is still required.");
   } catch (error) {
     console.error("Northstar admin unlock failed", error);
     showToast("Unable to unlock this case.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Remove Permanent Lock";
   }
+}
+
+async function endSelectedCaseAccess() {
+  const encounter = encounterById(state.selectedEncounterId);
+  if (!encounter || !isConfidential(encounter)) return;
+  revokeSessionAccess(encounter);
+  try {
+    const batch = writeBatch(db);
+    batch.set(doc(collection(db, "auditEvents")), {
+      type: "confidential-case-session-ended",
+      patientId: encounter.patientId,
+      encounterId: encounter.id,
+      actorUid: auth.currentUser.uid,
+      actorName: state.profile.displayName,
+      at: serverTimestamp()
+    });
+    await batch.commit();
+  } catch (_) { }
+  document.querySelector("#caseRecordDialog").close();
+  showToast("Confidential case access ended for this browser session.");
 }
 
 function stopListeners() {
@@ -753,7 +876,8 @@ async function start(user) {
     ["observations", "observations"],
     ["orders", "orders"],
     ["results", "results"],
-    ["medicationAdministrations", "administrations"]
+    ["medicationAdministrations", "administrations"],
+    ["auditEvents", "audits"]
   ].forEach(([name, key]) => bindCollection(name, key));
 }
 
@@ -798,7 +922,12 @@ document.addEventListener("click", async (event) => {
   }
 
   if (event.target.closest("[data-admin-unlock-case]")) {
-    await adminUnlockSelectedCase();
+    adminUnlockSelectedCase();
+    return;
+  }
+
+  if (event.target.closest("[data-end-case-access]")) {
+    await endSelectedCaseAccess();
   }
 });
 
