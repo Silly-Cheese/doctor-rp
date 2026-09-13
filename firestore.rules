@@ -23,24 +23,56 @@ service cloud.firestore {
       return currentUserExists() && currentUser().status == 'active';
     }
 
+    function permission(name, fallback) {
+      return currentUser().get('permissions', {}).get(name, fallback);
+    }
+
     function isAdministrator() {
       return isActive() && currentUser().role == 'administrator';
     }
 
     function isProvider() {
-      return isActive() && currentUser().role in ['administrator', 'physician'];
+      return isActive()
+             && currentUser().role in ['administrator', 'physician']
+             && (currentUser().role == 'administrator' || permission('providerActions', true));
     }
 
     function isNurse() {
-      return isActive() && currentUser().role in ['administrator', 'nurse'];
+      return isActive()
+             && currentUser().role in ['administrator', 'nurse']
+             && (currentUser().role == 'administrator' || permission('nursingActions', true));
     }
 
     function isTechnician() {
-      return isActive() && currentUser().role in ['administrator', 'technician'];
+      return isActive()
+             && currentUser().role in ['administrator', 'technician']
+             && (currentUser().role == 'administrator' || permission('diagnosticActions', true));
     }
 
     function canManageRegistration() {
-      return isActive() && currentUser().role in ['administrator', 'physician', 'nurse', 'registration'];
+      return isActive()
+             && currentUser().role in ['administrator', 'physician', 'nurse', 'registration']
+             && (currentUser().role == 'administrator' || permission('manageRegistration', true));
+    }
+
+    function canEditPatients() {
+      return isActive()
+             && currentUser().role in ['administrator', 'physician', 'nurse', 'registration']
+             && (currentUser().role == 'administrator' || permission('editPatients', true));
+    }
+
+    function canManageRooms() {
+      return isActive()
+             && currentUser().role in ['administrator', 'physician', 'nurse']
+             && (currentUser().role == 'administrator' || permission('manageRooms', true));
+    }
+
+    function canMessage() {
+      return isActive() && (currentUser().role == 'administrator' || permission('messages', true));
+    }
+
+    function canEmergency() {
+      return isActive() && (currentUser().role == 'administrator' || permission('emergencyEvents', true));
     }
 
     function validRequestedRole(role) {
@@ -156,22 +188,23 @@ service cloud.firestore {
 
     match /system/setup {
       allow read: if signedIn();
-
       allow create: if signedIn()
                     && !exists(/databases/$(database)/documents/system/setup)
                     && request.resource.data.initialized == true
                     && request.resource.data.initializedBy == request.auth.uid
                     && request.resource.data.facilityName == 'Northstar Medical Center';
-
       allow update: if isAdministrator();
       allow delete: if false;
     }
 
-    match /users/{uid} {
-      allow read: if signedIn() && (
-        request.auth.uid == uid || isActive()
-      );
+    match /system/facility {
+      allow read: if isActive();
+      allow create, update: if isAdministrator();
+      allow delete: if false;
+    }
 
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isActive());
       allow create: if signedIn()
                   && request.auth.uid == uid
                   && request.resource.data.uid == request.auth.uid
@@ -200,35 +233,21 @@ service cloud.firestore {
                       && !('approvedBy' in request.resource.data)
                     )
                   );
-
       allow update: if isAdministrator()
                     && validAssignedRole(request.resource.data.role)
                     && validRequestedRole(request.resource.data.requestedRole)
                     && validStaffStatus(request.resource.data.status)
                     && resource.data.get('uid', uid) == uid
                     && request.resource.data.get('uid', uid) == uid
-                    && (
-                      resource.data.get('email', '') == ''
-                      || request.resource.data.get('email', '') == resource.data.get('email', '')
-                    )
-                    && (
-                      uid != founderUid()
-                      || (
-                        request.resource.data.role == 'administrator'
-                        && request.resource.data.status == 'active'
-                      )
-                    );
-
+                    && (resource.data.get('email', '') == '' || request.resource.data.get('email', '') == resource.data.get('email', ''))
+                    && (uid != founderUid() || (request.resource.data.role == 'administrator' && request.resource.data.status == 'active'));
       allow delete: if false;
     }
 
     match /patients/{patientId} {
       allow read: if isActive();
-
-      allow create: if canManageRegistration()
-                    && request.resource.data.get('vitalStatus', 'active') != 'deceased';
-
-      allow update: if canManageRegistration()
+      allow create: if canManageRegistration() && request.resource.data.get('vitalStatus', 'active') != 'deceased';
+      allow update: if canEditPatients()
                     && (
                       request.resource.data.get('vitalStatus', 'active') == resource.data.get('vitalStatus', 'active')
                       || (
@@ -241,24 +260,24 @@ service cloud.firestore {
                         && resource.data.get('vitalStatus', 'active') == 'deceased'
                         && request.resource.data.get('vitalStatus', 'active') != 'deceased'
                       )
+                      || (
+                        isAdministrator()
+                        && request.resource.data.get('vitalStatus', 'active') == 'merged'
+                      )
                     );
-
       allow delete: if isAdministrator();
     }
 
     match /encounters/{encounterId} {
       allow read: if isActive();
-
       allow create: if canManageRegistration()
-                    && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.get('vitalStatus', 'active') != 'deceased'
+                    && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.get('vitalStatus', 'active') == 'active'
                     && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.get('currentStatus', '') != 'deceased';
-
       allow update: if (
         canManageRegistration() && !confidentialEncounterFieldsChanged()
       ) || validProviderConfidentialUpdate()
         || validFailedAuthorizationAttempt()
         || validAdministratorCaseUnlock();
-
       allow delete: if isAdministrator();
     }
 
@@ -278,7 +297,16 @@ service cloud.firestore {
 
     match /clinicalNotes/{noteId} {
       allow read: if isActive();
-      allow create, update: if isProvider();
+      allow create: if isProvider();
+      allow update: if isAdministrator()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['patientId', 'patientName', 'mrn', 'updatedAt']);
+      allow delete: if isAdministrator();
+    }
+
+    match /noteAddenda/{addendumId} {
+      allow read: if isActive();
+      allow create: if isProvider() && request.resource.data.authorUid == request.auth.uid;
+      allow update: if false;
       allow delete: if isAdministrator();
     }
 
@@ -296,33 +324,56 @@ service cloud.firestore {
 
     match /shifts/{shiftId} {
       allow read: if isActive();
-      allow create: if isActive()
-                    && request.resource.data.uid == request.auth.uid
-                    && request.resource.data.status == 'active';
-      allow update: if isAdministrator() || (
-        isActive()
-        && resource.data.uid == request.auth.uid
-        && request.resource.data.uid == resource.data.uid
-      );
+      allow create: if isActive() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'active';
+      allow update: if isAdministrator() || (isActive() && resource.data.uid == request.auth.uid && request.resource.data.uid == resource.data.uid);
       allow delete: if isAdministrator();
     }
 
     match /handoffs/{handoffId} {
       allow read: if isActive();
-      allow create: if isActive()
-                    && request.resource.data.senderUid == request.auth.uid
-                    && request.resource.data.status == 'open';
+      allow create: if isActive() && request.resource.data.senderUid == request.auth.uid && request.resource.data.status == 'open';
       allow update: if isActive();
       allow delete: if isAdministrator();
     }
 
     match /tasks/{taskId} {
       allow read: if isActive();
-      allow create: if isActive()
-                    && request.resource.data.createdBy == request.auth.uid
-                    && request.resource.data.status == 'open';
+      allow create: if isActive() && request.resource.data.createdBy == request.auth.uid && request.resource.data.status == 'open';
       allow update: if isActive();
       allow delete: if isAdministrator();
+    }
+
+    match /rooms/{roomId} {
+      allow read: if isActive();
+      allow create, update: if canManageRooms();
+      allow delete: if isAdministrator();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isActive();
+      allow create: if canMessage() && request.resource.data.senderUid == request.auth.uid;
+      allow update: if canMessage();
+      allow delete: if isAdministrator();
+    }
+
+    match /clinicalAlerts/{alertId} {
+      allow read: if isActive();
+      allow create, update: if isActive();
+      allow delete: if isAdministrator();
+    }
+
+    match /emergencyEvents/{eventId} {
+      allow read: if isActive();
+      allow create, update: if canEmergency();
+      allow delete: if isAdministrator();
+    }
+
+    match /scenarios/{scenarioId} {
+      allow read, create, update, delete: if isAdministrator();
+    }
+
+    match /caseRuns/{runId} {
+      allow read, create, update, delete: if isAdministrator();
     }
 
     match /auditEvents/{eventId} {
