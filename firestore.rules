@@ -249,24 +249,24 @@ service cloud.firestore {
 
     match /patients/{patientId} {
       allow read: if isActive();
-      allow create: if canManageRegistration() && request.resource.data.get('vitalStatus', 'active') != 'deceased';
-      allow update: if canEditPatients()
-                    && (
-                      request.resource.data.get('vitalStatus', 'active') == resource.data.get('vitalStatus', 'active')
-                      || (
-                        isProvider()
-                        && resource.data.get('vitalStatus', 'active') != 'deceased'
-                        && request.resource.data.get('vitalStatus', 'active') == 'deceased'
-                      )
-                      || (
-                        isAdministrator()
-                        && resource.data.get('vitalStatus', 'active') == 'deceased'
-                        && request.resource.data.get('vitalStatus', 'active') != 'deceased'
-                      )
-                      || (
-                        isAdministrator()
-                        && request.resource.data.get('vitalStatus', 'active') == 'merged'
-                      )
+      allow create: if canManageRegistration()
+                    && request.resource.data.get('vitalStatus', 'active') == 'active'
+                    && request.resource.data.get('recordConfidential', false) == false;
+      allow update: if isAdministrator()
+                    || (
+                      canEditPatients()
+                      && resource.data.get('vitalStatus', 'active') == 'active'
+                      && request.resource.data.get('vitalStatus', 'active') == 'active'
+                      && request.resource.data.get('recordConfidential', false) == resource.data.get('recordConfidential', false)
+                      && request.resource.data.get('deceasedAccessUids', []) == resource.data.get('deceasedAccessUids', [])
+                    )
+                    || (
+                      isProvider()
+                      && resource.data.get('vitalStatus', 'active') == 'active'
+                      && request.resource.data.get('vitalStatus', 'active') == 'deceased'
+                      && request.resource.data.get('recordConfidential', false) == true
+                      && request.resource.data.get('recordConfidentialReason', '') == 'deceased'
+                      && request.resource.data.get('deceasedAccessUids', []).size() == 0
                     );
       allow delete: if isAdministrator();
     }
