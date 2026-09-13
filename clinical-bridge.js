@@ -1,5 +1,6 @@
 import "./operations.js";
 import "./operations-polish.js";
+import "./staff-editor-stability.js";
 import "./admin-controls.js";
 import "./staff-edit-fix.js";
 import "./patient-editor.js";
