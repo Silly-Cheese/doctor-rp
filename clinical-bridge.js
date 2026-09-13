@@ -12,4 +12,5 @@ import "./deceased-access.js";
 import "./deceased-access-migration.js";
 import "./northstar-mobile.js";
 import "./northstar-med-verification.js";
+import "./northstar-enterprise.js";
 import "./session-guard.js";
