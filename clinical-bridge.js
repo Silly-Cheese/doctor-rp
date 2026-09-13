@@ -5,6 +5,9 @@ import "./admin-controls.js";
 import "./staff-edit-fix.js";
 import "./patient-editor.js";
 import "./case-records.js";
+import "./northstar-platform.js";
+import "./northstar-clinical-plus.js";
+import "./northstar-simulation.js";
 import "./session-guard.js";
 
 const chartDialog = document.querySelector("#patientChartDialog");
