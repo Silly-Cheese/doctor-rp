@@ -1,0 +1,82 @@
+name: Northstar Control Polish
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    if: github.event.head_commit.message == 'Apply Northstar account and patient control polish'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Apply final control integration
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          admin_path = Path('admin-controls.js')
+          admin = admin_path.read_text()
+          admin = admin.replace(
+              '[patientResults, chartBody, staffSection].filter(Boolean).forEach((target) => {',
+              '[patientResults, chartBody].filter(Boolean).forEach((target) => {',
+              1
+          )
+          admin_path.write_text(admin)
+
+          app_path = Path('app.js')
+          app = app_path.read_text()
+          app = app.replace(
+              '      currentStatus: "not-checked-in",\n      activeEncounterId: null,',
+              '      currentStatus: "not-checked-in",\n      vitalStatus: "active",\n      activeEncounterId: null,',
+              1
+          )
+          app = app.replace(
+              '  const status = encounter ? formatStatus(encounter.status) : patient.currentStatus === "admitted" ? "Admitted" : "Not Checked In";',
+              '  const status = patient.vitalStatus === "deceased" || patient.currentStatus === "deceased" ? "Deceased" : encounter ? formatStatus(encounter.status) : patient.currentStatus === "admitted" ? "Admitted" : "Not Checked In";',
+              1
+          )
+          app = app.replace(
+              '  if (!patient) return;\n  if (activeEncounterForPatient(patientId)) {',
+              '  if (!patient) return;\n  if (patient.vitalStatus === "deceased" || patient.currentStatus === "deceased") {\n    showToast("Check-in blocked: this patient is recorded as deceased.");\n    return;\n  }\n  if (activeEncounterForPatient(patientId)) {',
+              1
+          )
+          app = app.replace(
+              '  if (!patient) return;\n\n  const submit = els.checkInForm.querySelector("button[type=\'submit\']");',
+              '  if (!patient) return;\n  if (patient.vitalStatus === "deceased" || patient.currentStatus === "deceased") {\n    showToast("Check-in blocked: this patient is recorded as deceased.");\n    els.checkInDialog.close();\n    return;\n  }\n\n  const submit = els.checkInForm.querySelector("button[type=\'submit\']");',
+              1
+          )
+          app_path.write_text(app)
+
+          index_path = Path('index.html')
+          index = index_path.read_text()
+          if 'href="favicon.svg"' not in index:
+              index = index.replace(
+                  '  <title>Northstar Medical Center</title>',
+                  '  <title>Northstar Medical Center</title>\n  <link rel="icon" type="image/svg+xml" href="favicon.svg">',
+                  1
+              )
+          index_path.write_text(index)
+          PY
+
+      - name: Verify JavaScript syntax
+        run: |
+          node --check admin-controls.js
+          node --check session-guard.js
+          node --check app.js
+
+      - name: Commit integration
+        shell: bash
+        run: |
+          git config user.name "Northstar Medical Center"
+          git config user.email "northstar@users.noreply.github.com"
+          git add admin-controls.js app.js index.html
+          git commit -m "Finalize staff management and deceased patient safeguards"
+          git push origin main
