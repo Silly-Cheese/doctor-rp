@@ -27,6 +27,22 @@ service cloud.firestore {
       return isActive() && currentUser().role == 'administrator';
     }
 
+    function isProvider() {
+      return isActive() && currentUser().role in ['administrator', 'physician'];
+    }
+
+    function isNurse() {
+      return isActive() && currentUser().role in ['administrator', 'nurse'];
+    }
+
+    function isTechnician() {
+      return isActive() && currentUser().role in ['administrator', 'technician'];
+    }
+
+    function canManageRegistration() {
+      return isActive() && currentUser().role in ['administrator', 'physician', 'nurse', 'registration'];
+    }
+
     function validRequestedRole(role) {
       return role in ['physician', 'nurse', 'registration', 'technician'];
     }
@@ -84,43 +100,46 @@ service cloud.firestore {
 
     match /patients/{patientId} {
       allow read: if isActive();
-      allow create, update: if isActive();
+      allow create, update: if canManageRegistration();
       allow delete: if isAdministrator();
     }
 
     match /encounters/{encounterId} {
       allow read: if isActive();
-      allow create, update: if isActive();
+      allow create: if canManageRegistration();
+      allow update: if canManageRegistration();
       allow delete: if isAdministrator();
     }
 
     match /orders/{orderId} {
       allow read: if isActive();
-      allow create, update: if isActive();
+      allow create: if isProvider();
+      allow update: if isProvider() || isNurse() || isTechnician();
       allow delete: if isAdministrator();
     }
 
     match /results/{resultId} {
       allow read: if isActive();
-      allow create, update: if isActive();
+      allow create: if isProvider() || isTechnician();
+      allow update: if isProvider() || isTechnician();
       allow delete: if isAdministrator();
     }
 
     match /clinicalNotes/{noteId} {
       allow read: if isActive();
-      allow create, update: if isActive();
+      allow create, update: if isProvider();
       allow delete: if isAdministrator();
     }
 
     match /observations/{observationId} {
       allow read: if isActive();
-      allow create, update: if isActive();
+      allow create, update: if isNurse() || isProvider();
       allow delete: if isAdministrator();
     }
 
     match /medicationAdministrations/{administrationId} {
       allow read: if isActive();
-      allow create, update: if isActive();
+      allow create, update: if isNurse();
       allow delete: if isAdministrator();
     }
 
