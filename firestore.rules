@@ -110,8 +110,12 @@ service cloud.firestore {
                     && validAssignedRole(request.resource.data.role)
                     && validRequestedRole(request.resource.data.requestedRole)
                     && validStaffStatus(request.resource.data.status)
-                    && request.resource.data.uid == resource.data.uid
-                    && request.resource.data.email == resource.data.email
+                    && resource.data.get('uid', uid) == uid
+                    && request.resource.data.get('uid', uid) == uid
+                    && (
+                      resource.data.get('email', '') == ''
+                      || request.resource.data.get('email', '') == resource.data.get('email', '')
+                    )
                     && (
                       uid != founderUid()
                       || (
@@ -151,7 +155,8 @@ service cloud.firestore {
       allow read: if isActive();
 
       allow create: if canManageRegistration()
-                    && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.get('vitalStatus', 'active') != 'deceased';
+                    && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.get('vitalStatus', 'active') != 'deceased'
+                    && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.get('currentStatus', '') != 'deceased';
 
       allow update: if canManageRegistration();
       allow delete: if isAdministrator();
