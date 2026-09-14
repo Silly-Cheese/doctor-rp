@@ -129,7 +129,7 @@ async function secureRestore(event) {
   if (!isAdmin()) return;
   const patient = selectedPatient();
   if (!patient || !isDeceased(patient)) return;
-  if (!window.confirm(`Restore ${patient.firstName || "this patient"} ${patient.lastName || ""} to active status and remove deceased-record restrictions?`)) return;
+  if (!await window.NorthstarDialog.confirm({title:"Restore Deceased Record",message:`Restore ${patient.firstName || "this patient"} ${patient.lastName || ""} to active status and remove deceased-record restrictions?`,confirmText:"Restore Record",cancelText:"Cancel",tone:"danger"})) return;
   try {
     const batch = writeBatch(db);
     batch.update(doc(db, "patients", patient.id), { vitalStatus: "active", currentStatus: "not-checked-in", activeEncounterId: null, currentEncounterStatus: null, recordConfidential: false, recordConfidentialReason: null, deceasedAccessUids: [], vitalStatusRestoredAt: serverTimestamp(), vitalStatusRestoredBy: auth.currentUser.uid, vitalStatusRestoredByName: state.profile.displayName, updatedAt: serverTimestamp() });

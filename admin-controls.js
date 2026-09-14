@@ -460,7 +460,7 @@ async function restorePatientStatus() {
   if (!isAdministrator()) return;
   const patient = patientById(state.selectedPatientId);
   if (!patient || !isDeceased(patient)) return;
-  if (!window.confirm(`Restore ${patient.firstName || "this patient"} ${patient.lastName || ""} to active vital status?`)) return;
+  if (!await window.NorthstarDialog.confirm({title:"Restore Patient Vital Status",message:`Restore ${patient.firstName || "this patient"} ${patient.lastName || ""} to active vital status?`,confirmText:"Restore Active Status",cancelText:"Cancel",tone:"warning"})) return;
 
   try {
     await updateDoc(doc(db, "patients", patient.id), {
