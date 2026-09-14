@@ -17,7 +17,7 @@ jobs:
         run: python scripts/apply_custom_dialogs.py
       - name: Verify no app-controlled native dialogs remain
         run: |
-          MATCHES=$(grep -RInE '\b(window\.)?(alert|confirm|prompt)\s*\(' --include='*.js' . | grep -v 'state.installPrompt.prompt' || true)
+          MATCHES=$(grep -RInE '\b(window\.)?(alert|confirm|prompt)\s*\(' --include='*.js' . | grep -v 'NorthstarDialog\.' | grep -v 'state.installPrompt.prompt' || true)
           if [ -n "$MATCHES" ]; then
             echo "$MATCHES"
             exit 1
