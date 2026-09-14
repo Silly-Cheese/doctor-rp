@@ -11,7 +11,40 @@ function isDeceased(p){return p?.vitalStatus==="deceased"||p?.currentStatus==="d
 function expiryKey(encounterId){return`northstar-breakglass-expiry:${auth.currentUser?.uid}:${encounterId}`}
 function accessKey(encounterId){return`northstar-case-access:${auth.currentUser?.uid}:${encounterId}`}
 
-async function openBreakGlass(){if(!active()||!state.encounterId)return;const eSnap=await getDoc(doc(db,"encounters",state.encounterId));if(!eSnap.exists())return;const enc={id:eSnap.id,...eSnap.data()};const pSnap=await getDoc(doc(db,"patients",enc.patientId));const p=pSnap.exists()?{id:pSnap.id,...pSnap.data()}:null;if(isDeceased(p)){toast("Break-glass access is not available for deceased records.");return;}if(enc.permanentlyLocked){toast("A permanently locked case requires Administrator review.");return;}const reason=await window.NorthstarDialog.prompt({title:"Emergency Break-Glass Access",message:"Document why emergency access to this confidential case is required. Access will be temporary and audited.",label:"Emergency access reason",placeholder:"Describe the clinical need for emergency access",required:true,minLength:8,multiline:true,confirmText:"Grant Emergency Access",cancelText:"Cancel",tone:"warning"});if(!reason||reason.trim().length<8){toast("Emergency access requires a documented reason.");return;}await addDoc(collection(db,"breakGlassEvents"),{encounterId:enc.id,patientId:enc.patientId,mrn:p?.mrn||"",reason:reason.trim(),userUid:auth.currentUser.uid,userName:state.profile.displayName||auth.currentUser.email||"Northstar Staff",grantedAt:serverTimestamp(),expiresAfterMinutes:10});const token=`${enc.authorizationHash||""}:${Number(enc.authorizationEpoch||0)}`;sessionStorage.setItem(accessKey(enc.id),token);sessionStorage.setItem(expiryKey(enc.id),String(Date.now()+10*60*1000));document.querySelector("#caseAuthorizationDialog")?.close();toast("Emergency break-glass access granted for 10 minutes and audited.");document.querySelector(`[data-open-case-record="${CSS.escape(enc.id)}"]`)?.click();scheduleExpiry(enc.id)}
+async function openBreakGlass(){
+  if(!active()||!state.encounterId)return;
+  const eSnap=await getDoc(doc(db,"encounters",state.encounterId));
+  if(!eSnap.exists())return;
+  const enc={id:eSnap.id,...eSnap.data()};
+  const pSnap=await getDoc(doc(db,"patients",enc.patientId));
+  const p=pSnap.exists()?{id:pSnap.id,...pSnap.data()}:null;
+  if(isDeceased(p)){toast("Break-glass access is not available for deceased records.");return;}
+  if(enc.permanentlyLocked){toast("A permanently locked case requires Administrator review.");return;}
+
+  const authorizationDialog=document.querySelector("#caseAuthorizationDialog");
+  const reopenAuthorization=Boolean(authorizationDialog?.open);
+  if(reopenAuthorization)authorizationDialog.close();
+
+  let reason=null;
+  try{
+    reason=await window.NorthstarDialog.prompt({title:"Emergency Break-Glass Access",message:"Document why emergency access to this confidential case is required. Access will be temporary and audited.",label:"Emergency access reason",placeholder:"Describe the clinical need for emergency access",required:true,minLength:8,multiline:true,confirmText:"Grant Emergency Access",cancelText:"Cancel",tone:"warning"});
+  }catch(error){
+    console.error("Northstar break-glass dialog failed",error);
+    toast("Unable to open Emergency Access. Please try again.");
+  }
+  if(!reason||reason.trim().length<8){
+    if(reopenAuthorization&&!authorizationDialog?.open)authorizationDialog?.showModal();
+    return;
+  }
+
+  await addDoc(collection(db,"breakGlassEvents"),{encounterId:enc.id,patientId:enc.patientId,mrn:p?.mrn||"",reason:reason.trim(),userUid:auth.currentUser.uid,userName:state.profile.displayName||auth.currentUser.email||"Northstar Staff",grantedAt:serverTimestamp(),expiresAfterMinutes:10});
+  const token=`${enc.authorizationHash||""}:${Number(enc.authorizationEpoch||0)}`;
+  sessionStorage.setItem(accessKey(enc.id),token);
+  sessionStorage.setItem(expiryKey(enc.id),String(Date.now()+10*60*1000));
+  toast("Emergency break-glass access granted for 10 minutes and audited.");
+  document.querySelector(`[data-open-case-record="${CSS.escape(enc.id)}"]`)?.click();
+  scheduleExpiry(enc.id);
+}
 function scheduleExpiry(encounterId){clearTimeout(state.timer);const expires=Number(sessionStorage.getItem(expiryKey(encounterId))||0);const delay=Math.max(0,expires-Date.now());state.timer=setTimeout(()=>{sessionStorage.removeItem(accessKey(encounterId));sessionStorage.removeItem(expiryKey(encounterId));toast("Emergency case access expired.")},delay)}
 function enforceExpiries(){for(let i=sessionStorage.length-1;i>=0;i--){const key=sessionStorage.key(i);if(!key?.startsWith(`northstar-breakglass-expiry:${auth.currentUser?.uid}:`))continue;const id=key.split(":").at(-1);const expiry=Number(sessionStorage.getItem(key)||0);if(expiry<=Date.now()){sessionStorage.removeItem(key);sessionStorage.removeItem(accessKey(id))}}}
 

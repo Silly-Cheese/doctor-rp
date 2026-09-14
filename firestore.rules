@@ -118,16 +118,22 @@ service cloud.firestore {
       ]);
     }
 
-    function assignedProviderOrUnassigned() {
-      return isProvider() && (
-        resource.data.get('providerUid', '') == ''
-        || resource.data.get('providerUid', '') == request.auth.uid
-      );
+    function canManageEncounterConfidentiality() {
+      return isAdministrator()
+             || (
+               isProvider()
+               && (
+                 resource.data.get('providerUid', '') == request.auth.uid
+                 || (
+                   resource.data.get('providerUid', '') == ''
+                   && resource.data.status != 'discharged'
+                 )
+               )
+             );
     }
 
     function validProviderConfidentialUpdate() {
-      return assignedProviderOrUnassigned()
-             && resource.data.status != 'discharged'
+      return canManageEncounterConfidentiality()
              && resource.data.get('permanentlyLocked', false) == false
              && request.resource.data.get('confidential', false) == true
              && request.resource.data.get('authorizationHash', '') != ''

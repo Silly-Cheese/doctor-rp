@@ -117,8 +117,10 @@ function canActAsPhysician() {
 }
 
 function canManageConfidential(encounter) {
-  if (!canActAsPhysician() || !isActiveEncounter(encounter) || isPermanentlyLocked(encounter)) return false;
-  return !encounter.providerUid || encounter.providerUid === auth.currentUser?.uid;
+  if (!canActAsPhysician() || isPermanentlyLocked(encounter)) return false;
+  if (isAdministrator()) return true;
+  if (isActiveEncounter(encounter)) return !encounter.providerUid || encounter.providerUid === auth.currentUser?.uid;
+  return encounter.providerUid === auth.currentUser?.uid;
 }
 
 function accessKey(encounter) {
@@ -584,7 +586,7 @@ function openConfidentialSetup(encounterId, mode = "set") {
   const encounter = encounterById(encounterId);
   const patient = encounter ? patientById(encounter.patientId) : null;
   if (!encounter || !patient || !canManageConfidential(encounter)) {
-    showToast("Only the assigned physician can manage confidentiality while this case is active.");
+    showToast("Only the assigned physician or an Administrator can manage confidentiality for this case.");
     return;
   }
   state.selectedEncounterId = encounterId;
@@ -645,7 +647,7 @@ async function submitConfidentialSetup(event) {
       authorizationUpdatedBy: auth.currentUser.uid,
       updatedAt: serverTimestamp()
     };
-    if (!encounter.providerUid) {
+    if (!encounter.providerUid && isActiveEncounter(encounter)) {
       changes.providerUid = auth.currentUser.uid;
       changes.providerName = state.profile.displayName;
     }
@@ -665,7 +667,7 @@ async function submitConfidentialSetup(event) {
     showToast(state.setupMode === "change" ? "Authorization code changed." : "Case marked confidential.");
   } catch (error) {
     console.error("Northstar confidential case setup failed", error);
-    showToast(error?.code === "permission-denied" ? "Only the assigned physician can secure this case." : "Unable to update confidential access.");
+    showToast(error?.code === "permission-denied" ? "Only the assigned physician or an Administrator can secure this case." : "Unable to update confidential access.");
   } finally {
     button.disabled = false;
     button.textContent = "Save Confidential Access";
