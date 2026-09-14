@@ -1,0 +1,18 @@
+name: Diagnose Medication Verification Flow
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    if: github.event.head_commit.message == 'Diagnose medication verification flow'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect medication and wristband wiring
+        run: |
+          echo '=== medication buttons ==='
+          grep -RInE 'data-mar-give|data-administer-medication|medicationAdministrationForm|administerMedication|medicationAdministrations' --include='*.js' . || true
+          echo '=== wristband payloads ==='
+          grep -RInE 'NORTHSTAR\||qr|QRCode|wristband' --include='*.js' . | head -n 160 || true
