@@ -13,7 +13,8 @@ const state = {
   stream: null,
   loop: 0,
   scanner: null,
-  busy: false
+  busy: false,
+  approving: false
 };
 
 function safe(value) {
@@ -57,13 +58,17 @@ function ensureUi() {
               <div class="med-verify-method-head"><span>Preferred</span><strong>Scan Wristband</strong></div>
               <div class="med-verify-camera"><video id="medVerifyVideo" autoplay playsinline muted></video><div class="med-verify-reticle" aria-hidden="true"></div></div>
               <p id="medVerifyScannerStatus" class="med-verify-status">Camera is ready to start.</p>
-              <button id="medVerifyStartCamera" class="secondary-button" type="button">Start Camera</button>
+              <div class="med-verify-actions">
+                <button id="medVerifyStartCamera" class="primary-button" type="button">Start Camera</button>
+                <label class="secondary-button" for="medVerifyPhoto">Scan Photo</label>
+                <input id="medVerifyPhoto" type="file" accept="image/*" capture="environment" hidden>
+              </div>
             </section>
             <section class="med-verify-method">
               <div class="med-verify-method-head"><span>Alternative</span><strong>Enter MRN</strong></div>
-              <label class="med-mrn-field"><span>Medical Record Number</span><input id="medVerifyMrn" autocomplete="off" autocapitalize="characters" placeholder="NMC-100001"></label>
+              <label class="med-mrn-field"><span>Medical Record Number</span><input id="medVerifyMrn" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="NMC-100001"></label>
               <p class="med-verify-copy">The MRN must exactly match the patient attached to this medication order.</p>
-              <button id="medVerifyMrnButton" class="primary-button" type="button">Verify MRN</button>
+              <button id="medVerifyMrnButton" class="primary-button" type="button">Verify MRN & Continue</button>
             </section>
           </div>
           <div id="medVerifyError" class="form-message"></div>
@@ -82,6 +87,7 @@ function ensureUi() {
       verifyMrn();
     }
   });
+  document.querySelector("#medVerifyPhoto")?.addEventListener("change", scanPhoto);
 }
 
 function setStatus(message, kind = "") {
@@ -102,6 +108,7 @@ async function loadMedicationContext(orderId, sourceButton) {
   const orderSnap = await getDoc(doc(db, "orders", orderId));
   if (!orderSnap.exists()) throw new Error("Medication order not found.");
   const order = { id: orderSnap.id, ...orderSnap.data() };
+  if (order.category !== "medication") throw new Error("This is not a medication order.");
   const patientSnap = await getDoc(doc(db, "patients", order.patientId));
   if (!patientSnap.exists()) throw new Error("Patient record not found.");
   const patient = { id: patientSnap.id, ...patientSnap.data() };
@@ -112,7 +119,7 @@ async function loadMedicationContext(orderId, sourceButton) {
 }
 
 async function openVerification(orderId, sourceButton) {
-  if (state.busy) return;
+  if (state.busy || state.approving) return;
   state.busy = true;
   ensureUi();
   try {
@@ -121,8 +128,10 @@ async function openVerification(orderId, sourceButton) {
     const order = state.order;
     document.querySelector("#medIdentityContext").innerHTML = `<div><span>Patient</span><strong>${safe(patient.lastName || "")}, ${safe(patient.firstName || "")}</strong><small>${safe(patient.dob || "DOB unavailable")} · ${safe(patient.sex || "")}</small></div><div><span>Medication</span><strong>${safe(order.name || "Medication")}</strong><small>${safe([order.dose, order.route, order.frequency].filter(Boolean).join(" · "))}</small></div>`;
     document.querySelector("#medVerifyMrn").value = "";
+    const photo = document.querySelector("#medVerifyPhoto");
+    if (photo) photo.value = "";
     setError("");
-    setStatus("Camera is ready to start.");
+    setStatus("Choose Start Camera, Scan Photo, or enter the exact MRN.");
     const dialog = document.querySelector("#medIdentityDialog");
     if (!dialog.open) dialog.showModal();
   } catch (error) {
@@ -136,11 +145,12 @@ async function openVerification(orderId, sourceButton) {
 function resolveQr(value) {
   const raw = String(value || "").trim();
   if (!raw || !state.patient) return false;
+  const expectedMrn = String(state.patient.mrn || "").trim().toUpperCase();
   if (raw.startsWith("NORTHSTAR|")) {
     const [, patientId, mrn] = raw.split("|");
-    return patientId === state.patient.id && String(mrn || "").toUpperCase() === String(state.patient.mrn || "").toUpperCase();
+    return patientId === state.patient.id && String(mrn || "").trim().toUpperCase() === expectedMrn;
   }
-  return raw.toUpperCase() === String(state.patient.mrn || "").toUpperCase();
+  return raw.toUpperCase() === expectedMrn;
 }
 
 async function recordVerification(method) {
@@ -163,27 +173,32 @@ async function recordVerification(method) {
 }
 
 async function approve(method) {
+  if (state.approving || !state.sourceButton || !state.order || !state.patient) return;
+  state.approving = true;
   const button = state.sourceButton;
-  if (!button || !state.order || !state.patient) return;
-  await recordVerification(method);
-  window.NorthstarMedicationVerification = {
-    orderId: state.order.id,
-    patientId: state.patient.id,
-    method,
-    verifiedAt: Date.now()
-  };
-  await stopCamera();
-  document.querySelector("#medIdentityDialog")?.close();
-  button.dataset.northstarIdentityVerified = "1";
-  button.dataset.northstarVerificationMethod = method;
-  showToast(method === "wristband-scan" ? "Patient verified by wristband. Administering medication." : "Patient verified by MRN. Administering medication.");
-  const nextButton = button;
-  resetContext(false);
-  queueMicrotask(() => nextButton.click());
+  try {
+    await recordVerification(method);
+    window.NorthstarMedicationVerification = {
+      orderId: state.order.id,
+      patientId: state.patient.id,
+      method,
+      verifiedAt: Date.now()
+    };
+    await stopCamera();
+    document.querySelector("#medIdentityDialog")?.close();
+    button.dataset.northstarIdentityVerified = "1";
+    button.dataset.northstarVerificationMethod = method;
+    showToast(method === "wristband-scan" ? "Patient verified by wristband." : "Patient verified by MRN.");
+    const nextButton = button;
+    resetContext(false);
+    queueMicrotask(() => nextButton.click());
+  } finally {
+    state.approving = false;
+  }
 }
 
 async function verifyMrn() {
-  if (!state.patient) return;
+  if (!state.patient || state.approving) return;
   const entered = String(document.querySelector("#medVerifyMrn")?.value || "").trim().toUpperCase();
   const expected = String(state.patient.mrn || "").trim().toUpperCase();
   if (!entered) { setError("Enter the patient's MRN."); return; }
@@ -194,6 +209,17 @@ async function verifyMrn() {
   }
   setError("");
   await approve("mrn-entry");
+}
+
+async function handleScannedValue(value) {
+  if (!state.patient || state.approving) return;
+  if (!resolveQr(value)) {
+    setError("That wristband belongs to a different patient. Medication administration remains blocked.");
+    showToast("Wrong patient wristband. Medication was not administered.");
+    return;
+  }
+  setError("");
+  await approve("wristband-scan");
 }
 
 async function startNative(video) {
@@ -208,14 +234,14 @@ async function startNative(video) {
     setStatus("Rear camera active. Center the wristband QR code in the frame.", "scanning");
     let previous = 0;
     const loop = async timestamp => {
-      if (!state.stream) return;
+      if (!state.stream || state.approving) return;
       if (timestamp - previous > 260) {
         previous = timestamp;
         try {
           const codes = await detector.detect(video);
           if (codes[0]?.rawValue) {
-            if (resolveQr(codes[0].rawValue)) { await approve("wristband-scan"); return; }
-            setError("That wristband belongs to a different patient. Medication administration remains blocked.");
+            await handleScannedValue(codes[0].rawValue);
+            if (state.approving || !state.stream) return;
           }
         } catch (_) {}
       }
@@ -235,9 +261,7 @@ async function startLibrary(video) {
     const module = await import("https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js");
     const QrScanner = module.default || module;
     state.scanner = new QrScanner(video, async result => {
-      const value = result?.data || result;
-      if (resolveQr(value)) await approve("wristband-scan");
-      else setError("That wristband belongs to a different patient. Medication administration remains blocked.");
+      await handleScannedValue(result?.data || result);
     }, { preferredCamera: "environment", maxScansPerSecond: 8, returnDetailedScanResult: true });
     await state.scanner.start();
     setStatus("Rear camera active. Center the wristband QR code in the frame.", "scanning");
@@ -250,16 +274,35 @@ async function startLibrary(video) {
 }
 
 async function startCamera() {
-  if (!state.patient) return;
+  if (!state.patient || state.approving) return;
   await stopCamera();
   setError("");
   const video = document.querySelector("#medVerifyVideo");
   if (!video) return;
-  if (!window.isSecureContext) { setStatus("Camera scanning requires HTTPS. Enter the MRN instead.", "error"); return; }
+  if (!window.isSecureContext) { setStatus("Camera scanning requires HTTPS. Use Scan Photo or enter the MRN.", "error"); return; }
   setStatus("Starting rear camera…", "scanning");
   if (await startNative(video)) return;
   if (await startLibrary(video)) return;
-  setStatus("Camera scanning is unavailable on this browser. Enter the MRN instead.", "error");
+  setStatus("Live camera scanning is unavailable on this browser. Use Scan Photo or enter the MRN.", "error");
+}
+
+async function scanPhoto(event) {
+  if (!state.patient || state.approving) return;
+  const file = event.target.files?.[0];
+  if (!file) return;
+  setError("");
+  setStatus("Reading wristband image…", "scanning");
+  try {
+    const module = await import("https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js");
+    const QrScanner = module.default || module;
+    const result = await QrScanner.scanImage(file, { returnDetailedScanResult: true });
+    await handleScannedValue(result?.data || result);
+  } catch (_) {
+    setStatus("No readable Northstar QR code was found in that image.", "error");
+    setError("Try another photo, use the live camera, or enter the MRN.");
+  } finally {
+    event.target.value = "";
+  }
 }
 
 async function stopCamera() {
