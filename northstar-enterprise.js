@@ -60,7 +60,7 @@ function renderDischarge(){const el=document.querySelector("#enterprise-discharg
 function openDischarge(){const enc=state.encounters.filter(e=>e.status!=="discharged");openForm("Discharge Plan","Prepare an After Visit Summary and close the encounter.",`<label><span>Patient</span><select id="entPatient">${enc.map(e=>`<option value="${e.id}">${esc(e.patientName||"Patient")}</option>`).join("")}</select></label><label><span>Final diagnosis</span><input id="entDx" required></label><label><span>Follow-up</span><input id="entFollow"></label><label><span>Return precautions / instructions</span><textarea id="entInstructions" rows="4"></textarea></label>`,async()=>{const e=state.encounters.find(x=>x.id===document.querySelector("#entPatient").value);await addDoc(collection(db,"dischargePlans"),{encounterId:e.id,patientId:e.patientId,patientName:e.patientName||"",finalDiagnosis:document.querySelector("#entDx").value.trim(),followUp:document.querySelector("#entFollow").value.trim(),instructions:document.querySelector("#entInstructions").value.trim(),status:"draft",createdBy:auth.currentUser.uid,createdAt:serverTimestamp()});});}
 
 function procedureTime(value){if(!value)return"";const d=typeof value.toDate==="function"?value.toDate():value?.seconds?new Date(value.seconds*1000):new Date(value);if(Number.isNaN(d.getTime()))return"";return new Intl.DateTimeFormat("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).format(d);}
-function procedureStep(done,labelText){return \`<span class="procedure-step \${done?"done":""}"><i>\${done?"✓":"○"}</i>\${esc(labelText)}</span>\`;}
+function procedureStep(done,labelText){return `<span class="procedure-step ${done?"done":""}"><i>${done?"✓":"○"}</i>${esc(labelText)}</span>`;}
 function renderProcedures(){
   const el=document.querySelector("#enterprise-procedures");if(!el)return;
   const rows=(state.data.procedures||[]).slice().sort((a,b)=>{
@@ -74,54 +74,54 @@ function renderProcedures(){
   const timeoutReady=rows.filter(x=>x.consentObtained&&!x.timeoutComplete&&x.status!=="complete").length;
   const canWork=isProvider()||isNurse();
   el.innerHTML=heading("procedures","Consent, patient verification, formal timeout, procedure documentation, and completion tracking.",isProvider()?'<button class="primary-button" data-new-procedure>New Procedure</button>':"")
-    +\`<div class="procedure-metrics">
-      <article><span>Planned</span><strong>\${planned}</strong><small>awaiting timeout</small></article>
-      <article><span>Ready</span><strong>\${timeoutReady}</strong><small>consent documented</small></article>
-      <article><span>In Progress</span><strong>\${inProgress}</strong><small>timeout complete</small></article>
-      <article><span>Completed</span><strong>\${completed}</strong><small>documented procedures</small></article>
+    +`<div class="procedure-metrics">
+      <article><span>Planned</span><strong>${planned}</strong><small>awaiting timeout</small></article>
+      <article><span>Ready</span><strong>${timeoutReady}</strong><small>consent documented</small></article>
+      <article><span>In Progress</span><strong>${inProgress}</strong><small>timeout complete</small></article>
+      <article><span>Completed</span><strong>${completed}</strong><small>documented procedures</small></article>
     </div>
-    <div class="procedure-worklist">\${rows.length?rows.map(x=>{
+    <div class="procedure-worklist">${rows.length?rows.map(x=>{
       const done=x.status==="complete";
       const inProgressNow=x.status==="in-progress";
       const status=done?"Complete":inProgressNow?"In Progress":"Planned";
       const action=!canWork||done?"":x.timeoutComplete
-        ?\`<button class="primary-button compact" data-procedure-complete="\${esc(x.id)}">Document Completion</button>\`
-        :\`<button class="primary-button compact" data-procedure-timeout="\${esc(x.id)}">Run Safety Timeout</button>\`;
-      const completion=done?\`<div class="procedure-completion-summary">
-        <div><span>Outcome</span><strong>\${esc(label(x.outcome||"completed-as-planned"))}</strong></div>
-        <div><span>Completed By</span><strong>\${esc(x.completedByName||"Northstar Staff")}</strong></div>
-        <div><span>Completed</span><strong>\${esc(procedureTime(x.completedAt)||"Documented")}</strong></div>
-        <div><span>Complications</span><strong>\${esc(x.complications||"None documented")}</strong></div>
-        \${x.procedureNote?\`<p><span>Procedure Note</span>\${esc(x.procedureNote)}</p>\`:""}
-        \${x.findings?\`<p><span>Findings</span>\${esc(x.findings)}</p>\`:""}
-        \${x.aftercare?\`<p><span>Aftercare</span>\${esc(x.aftercare)}</p>\`:""}
-      </div>\`:"";
-      return \`<article class="procedure-card \${done?"complete":inProgressNow?"active":""}">
+        ?`<button class="primary-button compact" data-procedure-complete="${esc(x.id)}">Document Completion</button>`
+        :`<button class="primary-button compact" data-procedure-timeout="${esc(x.id)}">Run Safety Timeout</button>`;
+      const completion=done?`<div class="procedure-completion-summary">
+        <div><span>Outcome</span><strong>${esc(label(x.outcome||"completed-as-planned"))}</strong></div>
+        <div><span>Completed By</span><strong>${esc(x.completedByName||"Northstar Staff")}</strong></div>
+        <div><span>Completed</span><strong>${esc(procedureTime(x.completedAt)||"Documented")}</strong></div>
+        <div><span>Complications</span><strong>${esc(x.complications||"None documented")}</strong></div>
+        ${x.procedureNote?`<p><span>Procedure Note</span>${esc(x.procedureNote)}</p>`:""}
+        ${x.findings?`<p><span>Findings</span>${esc(x.findings)}</p>`:""}
+        ${x.aftercare?`<p><span>Aftercare</span>${esc(x.aftercare)}</p>`:""}
+      </div>`:"";
+      return `<article class="procedure-card ${done?"complete":inProgressNow?"active":""}">
         <div class="procedure-card-head">
-          <div class="procedure-status-block"><span class="enterprise-type">\${esc(status)}</span><strong>\${esc(x.name||"Procedure")}</strong><small>\${esc(x.patientName||"Patient")}\${x.site? \` · \${esc(x.site)}\`:""}</small></div>
-          <div class="procedure-actions">\${action}</div>
+          <div class="procedure-status-block"><span class="enterprise-type">${esc(status)}</span><strong>${esc(x.name||"Procedure")}</strong><small>${esc(x.patientName||"Patient")}${x.site? ` · ${esc(x.site)}`:""}</small></div>
+          <div class="procedure-actions">${action}</div>
         </div>
         <div class="procedure-progress">
-          \${procedureStep(!!x.consentObtained,"Consent")}
-          \${procedureStep(!!x.identityConfirmed,"Identity")}
-          \${procedureStep(!!x.timeoutComplete,"Timeout")}
-          \${procedureStep(done,"Completion")}
+          ${procedureStep(!!x.consentObtained,"Consent")}
+          ${procedureStep(!!x.identityConfirmed,"Identity")}
+          ${procedureStep(!!x.timeoutComplete,"Timeout")}
+          ${procedureStep(done,"Completion")}
         </div>
-        \${x.indication?\`<div class="procedure-indication"><span>Indication</span><strong>\${esc(x.indication)}</strong></div>\`:""}
-        \${completion}
-      </article>\`;
-    }).join(""):empty("No procedures","Planned procedures will appear here.")}</div>\`;
+        ${x.indication?`<div class="procedure-indication"><span>Indication</span><strong>${esc(x.indication)}</strong></div>`:""}
+        ${completion}
+      </article>`;
+    }).join(""):empty("No procedures","Planned procedures will appear here.")}</div>`;
 }
 function openProcedure(){
   const enc=state.encounters.filter(e=>e.status!=="discharged");
   if(!enc.length){toast("No active encounter is available for a new procedure.");return;}
-  openForm("Procedure & Consent","Create the procedure record before the safety timeout.",\`
-    <label><span>Patient</span><select id="entPatient">\${enc.map(e=>\`<option value="\${e.id}">\${esc(e.patientName||"Patient")}</option>\`).join("")}</select></label>
+  openForm("Procedure & Consent","Create the procedure record before the safety timeout.",`
+    <label><span>Patient</span><select id="entPatient">${enc.map(e=>`<option value="${e.id}">${esc(e.patientName||"Patient")}</option>`).join("")}</select></label>
     <label><span>Procedure</span><input id="entProcedure" required placeholder="Procedure name"></label>
     <label><span>Indication</span><textarea id="entProcedureIndication" rows="3" required placeholder="Reason the procedure is being performed"></textarea></label>
-    <div class="field-row"><label><span>Site / side</span><input id="entProcedureSite" placeholder="e.g. Left foot"></label><label><span>Planned performer</span><input id="entProcedurePerformer" value="\${esc(state.profile?.displayName||"")}" placeholder="Clinician"></label></div>
+    <div class="field-row"><label><span>Site / side</span><input id="entProcedureSite" placeholder="e.g. Left foot"></label><label><span>Planned performer</span><input id="entProcedurePerformer" value="${esc(state.profile?.displayName||"")}" placeholder="Clinician"></label></div>
     <label class="check-line procedure-consent-check"><input id="entConsent" type="checkbox" required><span>I confirm informed consent has been obtained and documented.</span></label>
-  \`,async()=>{
+  `,async()=>{
     const e=state.encounters.find(x=>x.id===document.querySelector("#entPatient").value);if(!e)throw new Error("Encounter not found");
     const ref=await addDoc(collection(db,"procedures"),{
       encounterId:e.id,patientId:e.patientId,patientName:e.patientName||"",
@@ -141,8 +141,8 @@ function openProcedureTimeout(id){
   if(!(isProvider()||isNurse())){toast("Your role cannot perform a procedure timeout.");return;}
   if(x.status==="complete"){toast("This procedure is already complete.");return;}
   if(!x.consentObtained){toast("Consent must be documented before the timeout.");return;}
-  openForm("Procedure Safety Timeout","Every required check must be confirmed before the procedure begins.",\`
-    <div class="procedure-timeout-context"><strong>\${esc(x.name||"Procedure")}</strong><span>\${esc(x.patientName||"Patient")}\${x.site?\` · \${esc(x.site)}\`:""}</span></div>
+  openForm("Procedure Safety Timeout","Every required check must be confirmed before the procedure begins.",`
+    <div class="procedure-timeout-context"><strong>${esc(x.name||"Procedure")}</strong><span>${esc(x.patientName||"Patient")}${x.site?` · ${esc(x.site)}`:""}</span></div>
     <div class="procedure-timeout-checklist">
       <label class="check-line"><input id="entTimeIdentity" type="checkbox" required><span>Patient identity confirmed using two identifiers.</span></label>
       <label class="check-line"><input id="entTimeProcedure" type="checkbox" required><span>Correct procedure confirmed with the team.</span></label>
@@ -152,7 +152,7 @@ function openProcedureTimeout(id){
       <label class="check-line"><input id="entTimeEquipment" type="checkbox" required><span>Required equipment and supplies are available.</span></label>
       <label class="check-line"><input id="entTimeTeam" type="checkbox" required><span>Team is ready to proceed.</span></label>
     </div>
-  \`,async()=>{
+  `,async()=>{
     await updateDoc(doc(db,"procedures",x.id),{
       identityConfirmed:true,procedureConfirmed:true,siteConfirmed:true,consentReconfirmed:true,
       allergiesReviewed:true,equipmentReady:true,teamReady:true,timeoutComplete:true,status:"in-progress",
@@ -167,15 +167,15 @@ function openProcedureCompletion(id){
   if(!(isProvider()||isNurse())){toast("Your role cannot complete a procedure record.");return;}
   if(x.status==="complete"){toast("This procedure is already complete.");return;}
   if(!x.timeoutComplete){toast("The safety timeout must be completed first.");return;}
-  openForm("Complete Procedure","Document what occurred before closing the procedure record.",\`
-    <div class="procedure-timeout-context"><strong>\${esc(x.name||"Procedure")}</strong><span>\${esc(x.patientName||"Patient")}\${x.site?\` · \${esc(x.site)}\`:""}</span></div>
+  openForm("Complete Procedure","Document what occurred before closing the procedure record.",`
+    <div class="procedure-timeout-context"><strong>${esc(x.name||"Procedure")}</strong><span>${esc(x.patientName||"Patient")}${x.site?` · ${esc(x.site)}`:""}</span></div>
     <label><span>Outcome</span><select id="entProcedureOutcome"><option value="completed-as-planned">Completed as planned</option><option value="completed-with-complications">Completed with complications</option><option value="aborted">Aborted / stopped</option></select></label>
     <label><span>Procedure note</span><textarea id="entProcedureNote" rows="5" required placeholder="Document the procedure performed, key steps, and patient tolerance"></textarea></label>
     <label><span>Findings</span><textarea id="entProcedureFindings" rows="3" placeholder="Relevant findings"></textarea></label>
     <div class="field-row"><label><span>Estimated blood loss</span><input id="entProcedureBloodLoss" placeholder="e.g. Minimal / 25 mL"></label><label><span>Specimens</span><input id="entProcedureSpecimens" placeholder="None or specimen details"></label></div>
     <label><span>Complications</span><textarea id="entProcedureComplications" rows="2" placeholder="None or describe complications"></textarea></label>
     <label><span>Post-procedure plan / aftercare</span><textarea id="entProcedureAftercare" rows="3" required placeholder="Monitoring, dressing, restrictions, follow-up, reassessment"></textarea></label>
-  \`,async()=>{
+  `,async()=>{
     const outcome=document.querySelector("#entProcedureOutcome").value;
     await updateDoc(doc(db,"procedures",x.id),{
       status:"complete",outcome,
