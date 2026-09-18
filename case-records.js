@@ -24,6 +24,7 @@ const state = {
   orders: [],
   results: [],
   administrations: [],
+  procedures: [],
   audits: [],
   selectedPatientId: null,
   selectedEncounterId: null,
@@ -456,6 +457,7 @@ function renderFullCase(encounter) {
   const orders = itemsFor(state.orders, encounter.id);
   const results = itemsFor(state.results, encounter.id);
   const administrations = itemsFor(state.administrations, encounter.id);
+  const procedures = itemsFor(state.procedures, encounter.id, ["completedAt", "timeoutAt", "createdAt"]);
   const confidential = isConfidential(encounter);
   const providerCanManage = canManageConfidential(encounter);
 
@@ -477,7 +479,8 @@ function renderFullCase(encounter) {
     ${renderObservations(observations, encounter)}
     ${renderOrdersResults(orders, results)}
     ${renderAdministrations(administrations, orders)}
-    ${renderTimeline(encounter, notes, observations, orders, results, administrations)}
+    ${renderCaseProcedures(procedures)}
+    ${renderTimeline(encounter, notes, observations, orders, results, administrations, procedures)}
   `;
   document.querySelector("#caseRecordDialog").showModal();
 }
@@ -564,7 +567,32 @@ function renderAdministrations(administrations, orders) {
     </section>`;
 }
 
-function renderTimeline(encounter, notes, observations, orders, results, administrations) {
+function renderCaseProcedures(procedures) {
+  return `
+    <section class="case-section">
+      <div class="case-section-head"><h4>Procedures</h4><span class="muted">${procedures.length} procedure${procedures.length === 1 ? "" : "s"}</span></div>
+      ${procedures.length ? `<div class="case-doc-list">${procedures.map((item) => `
+        <article class="case-doc">
+          <div class="case-doc-top"><strong>${safe(item.name || "Procedure")}</strong><span>${safe(formatStatus(item.status || "planned"))} · ${safe(formatDateTime(item.completedAt || item.timeoutAt || item.createdAt))}</span></div>
+          <div class="case-doc-grid">
+            <div class="case-doc-field"><span>Indication</span><p>${safe(item.indication || "—")}</p></div>
+            <div class="case-doc-field"><span>Site / Side</span><p>${safe(item.site || "—")}</p></div>
+            <div class="case-doc-field"><span>Consent</span><p>${item.consentObtained ? "Obtained" : "Not documented"}</p></div>
+            <div class="case-doc-field"><span>Safety Timeout</span><p>${item.timeoutComplete ? `Completed by ${safe(item.timeoutByName || "Northstar Staff")} · ${safe(formatDateTime(item.timeoutAt))}` : "Not completed"}</p></div>
+            ${item.outcome ? `<div class="case-doc-field"><span>Outcome</span><p>${safe(formatStatus(item.outcome))}</p></div>` : ""}
+            ${item.completedByName ? `<div class="case-doc-field"><span>Completed By</span><p>${safe(item.completedByName)} · ${safe(formatDateTime(item.completedAt))}</p></div>` : ""}
+            ${item.procedureNote ? `<div class="case-doc-field"><span>Procedure Note</span><p>${safe(item.procedureNote)}</p></div>` : ""}
+            ${item.findings ? `<div class="case-doc-field"><span>Findings</span><p>${safe(item.findings)}</p></div>` : ""}
+            ${item.complications ? `<div class="case-doc-field"><span>Complications</span><p>${safe(item.complications)}</p></div>` : ""}
+            ${item.estimatedBloodLoss ? `<div class="case-doc-field"><span>Estimated Blood Loss</span><p>${safe(item.estimatedBloodLoss)}</p></div>` : ""}
+            ${item.specimens ? `<div class="case-doc-field"><span>Specimens</span><p>${safe(item.specimens)}</p></div>` : ""}
+            ${item.aftercare ? `<div class="case-doc-field"><span>Aftercare</span><p>${safe(item.aftercare)}</p></div>` : ""}
+          </div>
+        </article>`).join("")}</div>` : '<div class="case-empty">No procedures were recorded for this case.</div>'}
+    </section>`;
+}
+
+function renderTimeline(encounter, notes, observations, orders, results, administrations, procedures = []) {
   const events = [];
   if (encounter.arrivalAt) events.push({ at: encounter.arrivalAt, title: "Patient checked in", detail: encounter.chiefComplaint || "Encounter opened" });
   if (encounter.triagedAt || encounter.triage?.completedAt) events.push({ at: encounter.triagedAt || encounter.triage?.completedAt, title: "Triage completed", detail: encounter.room || encounter.triage?.room || "Emergency Department" });
@@ -573,6 +601,11 @@ function renderTimeline(encounter, notes, observations, orders, results, adminis
   orders.forEach((item) => events.push({ at: item.createdAt, title: `${formatStatus(item.category || "Clinical")} order entered`, detail: item.name || "Order" }));
   results.forEach((item) => events.push({ at: item.createdAt, title: "Diagnostic result finalized", detail: item.summary || item.orderName || "Result" }));
   administrations.forEach((item) => events.push({ at: item.administeredAt || item.createdAt, title: "Medication administered", detail: item.medicationName || item.orderName || "Medication" }));
+  procedures.forEach((item) => {
+    if (item.createdAt) events.push({ at: item.createdAt, title: "Procedure planned", detail: item.name || "Procedure" });
+    if (item.timeoutAt) events.push({ at: item.timeoutAt, title: "Procedure safety timeout completed", detail: item.name || "Procedure" });
+    if (item.completedAt) events.push({ at: item.completedAt, title: "Procedure completed", detail: `${item.name || "Procedure"} · ${formatStatus(item.outcome || "completed")}` });
+  });
   if (encounter.dischargedAt) events.push({ at: encounter.dischargedAt, title: "Encounter closed", detail: formatStatus(encounter.disposition || "Discharged") });
   events.sort((a, b) => timeValue(a.at) - timeValue(b.at));
   return `
@@ -879,6 +912,7 @@ async function start(user) {
     ["orders", "orders"],
     ["results", "results"],
     ["medicationAdministrations", "administrations"],
+    ["procedures", "procedures"],
     ["auditEvents", "audits"]
   ].forEach(([name, key]) => bindCollection(name, key));
 }
