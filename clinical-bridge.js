@@ -1,8 +1,10 @@
+const NORTHSTAR_BUILD = "20260917-2210";
+const moduleUrl = path => `${path}?v=${NORTHSTAR_BUILD}`;
 const failedModules = [];
 
 async function loadNorthstarModule(path) {
   try {
-    await import(path);
+    await import(moduleUrl(path));
     return true;
   } catch (error) {
     failedModules.push({ path, error });
