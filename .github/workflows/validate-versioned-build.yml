@@ -1,0 +1,22 @@
+name: Validate Versioned Northstar Build
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JavaScript
+        run: |
+          node --check clinical-bridge.js
+          node --check northstar-enterprise.js
+          node --check case-records.js
+          node --check service-worker.js
+      - name: Verify build versioning
+        run: |
+          grep -q 'NORTHSTAR_BUILD = "20260917-2210"' clinical-bridge.js
+          grep -q 'clinical-bridge.js?v=20260917-2210' index.html
+          grep -q 'northstar-enterprise.css?v=20260917-2210' northstar-enterprise.js
