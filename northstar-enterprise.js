@@ -59,8 +59,138 @@ function openEms(){openForm("Incoming EMS","Create a pre-arrival notification.",
 function renderDischarge(){const el=document.querySelector("#enterprise-discharge");if(!el)return;const rows=state.data.dischargePlans||[];el.innerHTML=heading("discharge","Complete diagnosis, instructions, follow-up, precautions, and final disposition.",isProvider()?'<button class="primary-button" data-new-discharge>Prepare Discharge</button>':"")+`<div class="enterprise-list">${rows.length?rows.map(x=>`<article class="enterprise-row static"><span class="enterprise-type">${esc(label(x.status||"draft"))}</span><div><strong>${esc(x.patientName||"Patient")}</strong><small>${esc(x.finalDiagnosis||"Diagnosis pending")} · ${esc(x.followUp||"Follow-up pending")}</small></div><button class="secondary-button compact" data-finalize-discharge="${x.id}">Finalize</button></article>`).join(""):empty("No discharge plans","Prepared discharges will appear here.")}</div>`;}
 function openDischarge(){const enc=state.encounters.filter(e=>e.status!=="discharged");openForm("Discharge Plan","Prepare an After Visit Summary and close the encounter.",`<label><span>Patient</span><select id="entPatient">${enc.map(e=>`<option value="${e.id}">${esc(e.patientName||"Patient")}</option>`).join("")}</select></label><label><span>Final diagnosis</span><input id="entDx" required></label><label><span>Follow-up</span><input id="entFollow"></label><label><span>Return precautions / instructions</span><textarea id="entInstructions" rows="4"></textarea></label>`,async()=>{const e=state.encounters.find(x=>x.id===document.querySelector("#entPatient").value);await addDoc(collection(db,"dischargePlans"),{encounterId:e.id,patientId:e.patientId,patientName:e.patientName||"",finalDiagnosis:document.querySelector("#entDx").value.trim(),followUp:document.querySelector("#entFollow").value.trim(),instructions:document.querySelector("#entInstructions").value.trim(),status:"draft",createdBy:auth.currentUser.uid,createdAt:serverTimestamp()});});}
 
-function renderProcedures(){const el=document.querySelector("#enterprise-procedures");if(!el)return;const rows=state.data.procedures||[];el.innerHTML=heading("procedures","Consent, identity confirmation, timeout, and procedure documentation.",isProvider()?'<button class="primary-button" data-new-procedure>New Procedure</button>':"")+`<div class="enterprise-list">${rows.length?rows.map(x=>`<article class="enterprise-row static"><span class="enterprise-type">${esc(label(x.status||"planned"))}</span><div><strong>${esc(x.name||"Procedure")}</strong><small>${esc(x.patientName||"")} · ${x.timeoutComplete?"Timeout complete":"Timeout required"}</small></div><button class="secondary-button compact" data-timeout-procedure="${x.id}">${x.timeoutComplete?"Complete":"Run Timeout"}</button></article>`).join(""):empty("No procedures","Planned procedures will appear here.")}</div>`;}
-function openProcedure(){const enc=state.encounters.filter(e=>e.status!=="discharged");openForm("Procedure & Consent","Document consent before performing a procedure.",`<label><span>Patient</span><select id="entPatient">${enc.map(e=>`<option value="${e.id}">${esc(e.patientName||"Patient")}</option>`).join("")}</select></label><label><span>Procedure</span><input id="entProcedure" required></label><label class="check-line"><input id="entConsent" type="checkbox" required><span>Consent obtained</span></label>`,async()=>{const e=state.encounters.find(x=>x.id===document.querySelector("#entPatient").value);await addDoc(collection(db,"procedures"),{encounterId:e.id,patientId:e.patientId,patientName:e.patientName||"",name:document.querySelector("#entProcedure").value.trim(),consentObtained:document.querySelector("#entConsent").checked,timeoutComplete:false,status:"planned",createdBy:auth.currentUser.uid,createdAt:serverTimestamp()});});}
+function procedureTime(value){if(!value)return"";const d=typeof value.toDate==="function"?value.toDate():value?.seconds?new Date(value.seconds*1000):new Date(value);if(Number.isNaN(d.getTime()))return"";return new Intl.DateTimeFormat("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).format(d);}
+function procedureStep(done,labelText){return \`<span class="procedure-step \${done?"done":""}"><i>\${done?"✓":"○"}</i>\${esc(labelText)}</span>\`;}
+function renderProcedures(){
+  const el=document.querySelector("#enterprise-procedures");if(!el)return;
+  const rows=(state.data.procedures||[]).slice().sort((a,b)=>{
+    const aDone=a.status==="complete",bDone=b.status==="complete";
+    if(aDone!==bDone)return aDone?1:-1;
+    return (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0);
+  });
+  const planned=rows.filter(x=>x.status==="planned"&&!x.timeoutComplete).length;
+  const inProgress=rows.filter(x=>x.status==="in-progress").length;
+  const completed=rows.filter(x=>x.status==="complete").length;
+  const timeoutReady=rows.filter(x=>x.consentObtained&&!x.timeoutComplete&&x.status!=="complete").length;
+  const canWork=isProvider()||isNurse();
+  el.innerHTML=heading("procedures","Consent, patient verification, formal timeout, procedure documentation, and completion tracking.",isProvider()?'<button class="primary-button" data-new-procedure>New Procedure</button>':"")
+    +\`<div class="procedure-metrics">
+      <article><span>Planned</span><strong>\${planned}</strong><small>awaiting timeout</small></article>
+      <article><span>Ready</span><strong>\${timeoutReady}</strong><small>consent documented</small></article>
+      <article><span>In Progress</span><strong>\${inProgress}</strong><small>timeout complete</small></article>
+      <article><span>Completed</span><strong>\${completed}</strong><small>documented procedures</small></article>
+    </div>
+    <div class="procedure-worklist">\${rows.length?rows.map(x=>{
+      const done=x.status==="complete";
+      const inProgressNow=x.status==="in-progress";
+      const status=done?"Complete":inProgressNow?"In Progress":"Planned";
+      const action=!canWork||done?"":x.timeoutComplete
+        ?\`<button class="primary-button compact" data-procedure-complete="\${esc(x.id)}">Document Completion</button>\`
+        :\`<button class="primary-button compact" data-procedure-timeout="\${esc(x.id)}">Run Safety Timeout</button>\`;
+      const completion=done?\`<div class="procedure-completion-summary">
+        <div><span>Outcome</span><strong>\${esc(label(x.outcome||"completed-as-planned"))}</strong></div>
+        <div><span>Completed By</span><strong>\${esc(x.completedByName||"Northstar Staff")}</strong></div>
+        <div><span>Completed</span><strong>\${esc(procedureTime(x.completedAt)||"Documented")}</strong></div>
+        <div><span>Complications</span><strong>\${esc(x.complications||"None documented")}</strong></div>
+        \${x.procedureNote?\`<p><span>Procedure Note</span>\${esc(x.procedureNote)}</p>\`:""}
+        \${x.findings?\`<p><span>Findings</span>\${esc(x.findings)}</p>\`:""}
+        \${x.aftercare?\`<p><span>Aftercare</span>\${esc(x.aftercare)}</p>\`:""}
+      </div>\`:"";
+      return \`<article class="procedure-card \${done?"complete":inProgressNow?"active":""}">
+        <div class="procedure-card-head">
+          <div class="procedure-status-block"><span class="enterprise-type">\${esc(status)}</span><strong>\${esc(x.name||"Procedure")}</strong><small>\${esc(x.patientName||"Patient")}\${x.site? \` · \${esc(x.site)}\`:""}</small></div>
+          <div class="procedure-actions">\${action}</div>
+        </div>
+        <div class="procedure-progress">
+          \${procedureStep(!!x.consentObtained,"Consent")}
+          \${procedureStep(!!x.identityConfirmed,"Identity")}
+          \${procedureStep(!!x.timeoutComplete,"Timeout")}
+          \${procedureStep(done,"Completion")}
+        </div>
+        \${x.indication?\`<div class="procedure-indication"><span>Indication</span><strong>\${esc(x.indication)}</strong></div>\`:""}
+        \${completion}
+      </article>\`;
+    }).join(""):empty("No procedures","Planned procedures will appear here.")}</div>\`;
+}
+function openProcedure(){
+  const enc=state.encounters.filter(e=>e.status!=="discharged");
+  if(!enc.length){toast("No active encounter is available for a new procedure.");return;}
+  openForm("Procedure & Consent","Create the procedure record before the safety timeout.",\`
+    <label><span>Patient</span><select id="entPatient">\${enc.map(e=>\`<option value="\${e.id}">\${esc(e.patientName||"Patient")}</option>\`).join("")}</select></label>
+    <label><span>Procedure</span><input id="entProcedure" required placeholder="Procedure name"></label>
+    <label><span>Indication</span><textarea id="entProcedureIndication" rows="3" required placeholder="Reason the procedure is being performed"></textarea></label>
+    <div class="field-row"><label><span>Site / side</span><input id="entProcedureSite" placeholder="e.g. Left foot"></label><label><span>Planned performer</span><input id="entProcedurePerformer" value="\${esc(state.profile?.displayName||"")}" placeholder="Clinician"></label></div>
+    <label class="check-line procedure-consent-check"><input id="entConsent" type="checkbox" required><span>I confirm informed consent has been obtained and documented.</span></label>
+  \`,async()=>{
+    const e=state.encounters.find(x=>x.id===document.querySelector("#entPatient").value);if(!e)throw new Error("Encounter not found");
+    const ref=await addDoc(collection(db,"procedures"),{
+      encounterId:e.id,patientId:e.patientId,patientName:e.patientName||"",
+      name:document.querySelector("#entProcedure").value.trim(),
+      indication:document.querySelector("#entProcedureIndication").value.trim(),
+      site:document.querySelector("#entProcedureSite").value.trim(),
+      plannedPerformer:document.querySelector("#entProcedurePerformer").value.trim(),
+      consentObtained:true,consentAt:serverTimestamp(),consentBy:auth.currentUser.uid,consentByName:state.profile.displayName,
+      identityConfirmed:false,timeoutComplete:false,status:"planned",
+      createdBy:auth.currentUser.uid,createdByName:state.profile.displayName,createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+    });
+    await addDoc(collection(db,"auditEvents"),{type:"procedure-planned",procedureId:ref.id,encounterId:e.id,patientId:e.patientId,patientName:e.patientName||"",procedureName:document.querySelector("#entProcedure").value.trim(),actorUid:auth.currentUser.uid,actorName:state.profile.displayName,at:serverTimestamp()});
+  });
+}
+function openProcedureTimeout(id){
+  const x=(state.data.procedures||[]).find(p=>p.id===id);if(!x)return;
+  if(!(isProvider()||isNurse())){toast("Your role cannot perform a procedure timeout.");return;}
+  if(x.status==="complete"){toast("This procedure is already complete.");return;}
+  if(!x.consentObtained){toast("Consent must be documented before the timeout.");return;}
+  openForm("Procedure Safety Timeout","Every required check must be confirmed before the procedure begins.",\`
+    <div class="procedure-timeout-context"><strong>\${esc(x.name||"Procedure")}</strong><span>\${esc(x.patientName||"Patient")}\${x.site?\` · \${esc(x.site)}\`:""}</span></div>
+    <div class="procedure-timeout-checklist">
+      <label class="check-line"><input id="entTimeIdentity" type="checkbox" required><span>Patient identity confirmed using two identifiers.</span></label>
+      <label class="check-line"><input id="entTimeProcedure" type="checkbox" required><span>Correct procedure confirmed with the team.</span></label>
+      <label class="check-line"><input id="entTimeSite" type="checkbox" required><span>Correct site / side confirmed when applicable.</span></label>
+      <label class="check-line"><input id="entTimeConsent" type="checkbox" required><span>Consent reviewed and confirmed.</span></label>
+      <label class="check-line"><input id="entTimeAllergy" type="checkbox" required><span>Allergies and relevant safety alerts reviewed.</span></label>
+      <label class="check-line"><input id="entTimeEquipment" type="checkbox" required><span>Required equipment and supplies are available.</span></label>
+      <label class="check-line"><input id="entTimeTeam" type="checkbox" required><span>Team is ready to proceed.</span></label>
+    </div>
+  \`,async()=>{
+    await updateDoc(doc(db,"procedures",x.id),{
+      identityConfirmed:true,procedureConfirmed:true,siteConfirmed:true,consentReconfirmed:true,
+      allergiesReviewed:true,equipmentReady:true,teamReady:true,timeoutComplete:true,status:"in-progress",
+      timeoutAt:serverTimestamp(),timeoutBy:auth.currentUser.uid,timeoutByName:state.profile.displayName,
+      startedAt:serverTimestamp(),updatedAt:serverTimestamp()
+    });
+    await addDoc(collection(db,"auditEvents"),{type:"procedure-timeout-completed",procedureId:x.id,encounterId:x.encounterId,patientId:x.patientId,patientName:x.patientName||"",procedureName:x.name||"",actorUid:auth.currentUser.uid,actorName:state.profile.displayName,at:serverTimestamp()});
+  });
+}
+function openProcedureCompletion(id){
+  const x=(state.data.procedures||[]).find(p=>p.id===id);if(!x)return;
+  if(!(isProvider()||isNurse())){toast("Your role cannot complete a procedure record.");return;}
+  if(x.status==="complete"){toast("This procedure is already complete.");return;}
+  if(!x.timeoutComplete){toast("The safety timeout must be completed first.");return;}
+  openForm("Complete Procedure","Document what occurred before closing the procedure record.",\`
+    <div class="procedure-timeout-context"><strong>\${esc(x.name||"Procedure")}</strong><span>\${esc(x.patientName||"Patient")}\${x.site?\` · \${esc(x.site)}\`:""}</span></div>
+    <label><span>Outcome</span><select id="entProcedureOutcome"><option value="completed-as-planned">Completed as planned</option><option value="completed-with-complications">Completed with complications</option><option value="aborted">Aborted / stopped</option></select></label>
+    <label><span>Procedure note</span><textarea id="entProcedureNote" rows="5" required placeholder="Document the procedure performed, key steps, and patient tolerance"></textarea></label>
+    <label><span>Findings</span><textarea id="entProcedureFindings" rows="3" placeholder="Relevant findings"></textarea></label>
+    <div class="field-row"><label><span>Estimated blood loss</span><input id="entProcedureBloodLoss" placeholder="e.g. Minimal / 25 mL"></label><label><span>Specimens</span><input id="entProcedureSpecimens" placeholder="None or specimen details"></label></div>
+    <label><span>Complications</span><textarea id="entProcedureComplications" rows="2" placeholder="None or describe complications"></textarea></label>
+    <label><span>Post-procedure plan / aftercare</span><textarea id="entProcedureAftercare" rows="3" required placeholder="Monitoring, dressing, restrictions, follow-up, reassessment"></textarea></label>
+  \`,async()=>{
+    const outcome=document.querySelector("#entProcedureOutcome").value;
+    await updateDoc(doc(db,"procedures",x.id),{
+      status:"complete",outcome,
+      procedureNote:document.querySelector("#entProcedureNote").value.trim(),
+      findings:document.querySelector("#entProcedureFindings").value.trim(),
+      estimatedBloodLoss:document.querySelector("#entProcedureBloodLoss").value.trim(),
+      specimens:document.querySelector("#entProcedureSpecimens").value.trim(),
+      complications:document.querySelector("#entProcedureComplications").value.trim()||"None documented",
+      aftercare:document.querySelector("#entProcedureAftercare").value.trim(),
+      completedAt:serverTimestamp(),completedBy:auth.currentUser.uid,completedByName:state.profile.displayName,
+      updatedAt:serverTimestamp()
+    });
+    await addDoc(collection(db,"auditEvents"),{type:"procedure-completed",procedureId:x.id,encounterId:x.encounterId,patientId:x.patientId,patientName:x.patientName||"",procedureName:x.name||"",outcome,actorUid:auth.currentUser.uid,actorName:state.profile.displayName,at:serverTimestamp()});
+  });
+}
 
 function renderBlood(){const el=document.querySelector("#enterprise-blood");if(!el)return;const rows=state.data.bloodBankRequests||[];el.innerHTML=heading("blood","Type & screen, crossmatch, release, bedside verification, transfusion, and monitoring.",isProvider()?'<button class="primary-button" data-new-blood>New Blood Request</button>':"")+`<div class="enterprise-list">${rows.length?rows.map(x=>`<article class="enterprise-row static"><span class="enterprise-type">${esc(label(x.status||"requested"))}</span><div><strong>${esc(x.product||"Blood product")}</strong><small>${esc(x.patientName||"")} · ${esc(x.units||1)} unit(s)</small></div><button class="secondary-button compact" data-advance-blood="${x.id}">Advance</button></article>`).join(""):empty("No blood-bank requests","Requests will appear here.")}</div>`;}
 function openBlood(){const enc=state.encounters.filter(e=>e.status!=="discharged");openForm("Blood Bank Request","Create a fictional blood-product workflow.",`<label><span>Patient</span><select id="entPatient">${enc.map(e=>`<option value="${e.id}">${esc(e.patientName||"Patient")}</option>`).join("")}</select></label><label><span>Product</span><select id="entProduct"><option>PRBC</option><option>FFP</option><option>Platelets</option></select></label><label><span>Units</span><input id="entUnits" type="number" min="1" max="10" value="1"></label>`,async()=>{const e=state.encounters.find(x=>x.id===document.querySelector("#entPatient").value);await addDoc(collection(db,"bloodBankRequests"),{encounterId:e.id,patientId:e.patientId,patientName:e.patientName||"",product:document.querySelector("#entProduct").value,units:Number(document.querySelector("#entUnits").value),status:"requested",createdBy:auth.currentUser.uid,createdAt:serverTimestamp()});});}
@@ -76,7 +206,7 @@ function finderItems(q){q=q.trim().toLowerCase();const wf=WORKFLOWS.map(x=>({tit
 function openFinder(){const d=document.querySelector("#enterpriseFinder");if(!d.open)d.showModal();const i=document.querySelector("#enterpriseFinderInput");i.value="";renderFinder("");setTimeout(()=>i.focus(),10)}
 function renderFinder(q){const r=document.querySelector("#enterpriseFinderResults");const items=finderItems(q);r.innerHTML=items.map((x,i)=>`<button data-finder-index="${i}"><strong>${esc(x.title)}</strong><span>${esc(x.detail)}</span></button>`).join("");r._items=items;}
 
-function bind(){document.addEventListener("click",async e=>{const n=e.target.closest("[data-enterprise-open]");if(n){openSection(n.dataset.enterpriseOpen);return;}if(e.target.closest("[data-new-admission]")){openAdmission();return;}if(e.target.closest("[data-new-ems]")){openEms();return;}if(e.target.closest("[data-new-discharge]")){openDischarge();return;}if(e.target.closest("[data-new-procedure]")){openProcedure();return;}if(e.target.closest("[data-new-blood]")){openBlood();return;}if(e.target.closest("[data-new-supply]")){openSupply();return;}const l=e.target.closest("[data-lab-order]");if(l){await advanceLab(l.dataset.labOrder);return;}const im=e.target.closest("[data-imaging-order]");if(im){await advanceImaging(im.dataset.imagingOrder);return;}const em=e.target.closest("[data-accept-ems]");if(em){await updateDoc(doc(db,"emsArrivals",em.dataset.acceptEms),{status:"accepted",acceptedAt:serverTimestamp(),acceptedBy:auth.currentUser.uid});return;}const pr=e.target.closest("[data-timeout-procedure]");if(pr){await updateDoc(doc(db,"procedures",pr.dataset.timeoutProcedure),{timeoutComplete:true,status:"in-progress",timeoutAt:serverTimestamp(),timeoutBy:auth.currentUser.uid});return;}const br=e.target.closest("[data-advance-blood]");if(br){const x=(state.data.bloodBankRequests||[]).find(y=>y.id===br.dataset.advanceBlood);const c=["requested","type-screen","crossmatched","released","bedside-verified","transfusing","complete"];const next=c[Math.min(c.indexOf(x.status)+1,c.length-1)];await updateDoc(doc(db,"bloodBankRequests",x.id),{status:next,updatedAt:serverTimestamp()});return;}const su=e.target.closest("[data-use-supply]");if(su){const x=(state.data.supplyItems||[]).find(y=>y.id===su.dataset.useSupply);await updateDoc(doc(db,"supplyItems",x.id),{quantity:Math.max(0,Number(x.quantity||0)-1),updatedAt:serverTimestamp()});return;}const fd=e.target.closest("[data-finalize-discharge]");if(fd){const x=(state.data.dischargePlans||[]).find(y=>y.id===fd.dataset.finalizeDischarge);await updateDoc(doc(db,"dischargePlans",x.id),{status:"complete",completedAt:serverTimestamp()});if(x.encounterId)await updateDoc(doc(db,"encounters",x.encounterId),{status:"discharged",disposition:"discharged-home",finalDiagnosis:x.finalDiagnosis||"",dischargedAt:serverTimestamp(),updatedAt:serverTimestamp()});toast("Discharge finalized.");return;}const fi=e.target.closest("[data-finder-index]");if(fi){const r=document.querySelector("#enterpriseFinderResults");r._items?.[Number(fi.dataset.finderIndex)]?.action();document.querySelector("#enterpriseFinder")?.close();}});document.addEventListener("input",e=>{if(e.target.id==="enterpriseNavSearch"){if(e.target.value.trim()){openFinder();document.querySelector("#enterpriseFinderInput").value=e.target.value;renderFinder(e.target.value)}e.target.value="";}if(e.target.id==="enterpriseFinderInput")renderFinder(e.target.value)});document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openFinder()}if(e.key==="Escape"&&document.querySelector("#enterpriseFinder")?.open)document.querySelector("#enterpriseFinder").close()});window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();state.installPrompt=e;addInstallButton()});}
+function bind(){document.addEventListener("click",async e=>{const n=e.target.closest("[data-enterprise-open]");if(n){openSection(n.dataset.enterpriseOpen);return;}if(e.target.closest("[data-new-admission]")){openAdmission();return;}if(e.target.closest("[data-new-ems]")){openEms();return;}if(e.target.closest("[data-new-discharge]")){openDischarge();return;}if(e.target.closest("[data-new-procedure]")){openProcedure();return;}if(e.target.closest("[data-new-blood]")){openBlood();return;}if(e.target.closest("[data-new-supply]")){openSupply();return;}const l=e.target.closest("[data-lab-order]");if(l){await advanceLab(l.dataset.labOrder);return;}const im=e.target.closest("[data-imaging-order]");if(im){await advanceImaging(im.dataset.imagingOrder);return;}const em=e.target.closest("[data-accept-ems]");if(em){await updateDoc(doc(db,"emsArrivals",em.dataset.acceptEms),{status:"accepted",acceptedAt:serverTimestamp(),acceptedBy:auth.currentUser.uid});return;}const pt=e.target.closest("[data-procedure-timeout]");if(pt){openProcedureTimeout(pt.dataset.procedureTimeout);return;}const pc=e.target.closest("[data-procedure-complete]");if(pc){openProcedureCompletion(pc.dataset.procedureComplete);return;}const br=e.target.closest("[data-advance-blood]");if(br){const x=(state.data.bloodBankRequests||[]).find(y=>y.id===br.dataset.advanceBlood);const c=["requested","type-screen","crossmatched","released","bedside-verified","transfusing","complete"];const next=c[Math.min(c.indexOf(x.status)+1,c.length-1)];await updateDoc(doc(db,"bloodBankRequests",x.id),{status:next,updatedAt:serverTimestamp()});return;}const su=e.target.closest("[data-use-supply]");if(su){const x=(state.data.supplyItems||[]).find(y=>y.id===su.dataset.useSupply);await updateDoc(doc(db,"supplyItems",x.id),{quantity:Math.max(0,Number(x.quantity||0)-1),updatedAt:serverTimestamp()});return;}const fd=e.target.closest("[data-finalize-discharge]");if(fd){const x=(state.data.dischargePlans||[]).find(y=>y.id===fd.dataset.finalizeDischarge);await updateDoc(doc(db,"dischargePlans",x.id),{status:"complete",completedAt:serverTimestamp()});if(x.encounterId)await updateDoc(doc(db,"encounters",x.encounterId),{status:"discharged",disposition:"discharged-home",finalDiagnosis:x.finalDiagnosis||"",dischargedAt:serverTimestamp(),updatedAt:serverTimestamp()});toast("Discharge finalized.");return;}const fi=e.target.closest("[data-finder-index]");if(fi){const r=document.querySelector("#enterpriseFinderResults");r._items?.[Number(fi.dataset.finderIndex)]?.action();document.querySelector("#enterpriseFinder")?.close();}});document.addEventListener("input",e=>{if(e.target.id==="enterpriseNavSearch"){if(e.target.value.trim()){openFinder();document.querySelector("#enterpriseFinderInput").value=e.target.value;renderFinder(e.target.value)}e.target.value="";}if(e.target.id==="enterpriseFinderInput")renderFinder(e.target.value)});document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openFinder()}if(e.key==="Escape"&&document.querySelector("#enterpriseFinder")?.open)document.querySelector("#enterpriseFinder").close()});window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();state.installPrompt=e;addInstallButton()});}
 function addInstallButton(){if(!state.installPrompt||document.querySelector("#installNorthstar"))return;const f=document.querySelector(".sidebar-footer");const b=document.createElement("button");b.id="installNorthstar";b.className="text-button";b.textContent="Install Northstar";b.onclick=async()=>{await state.installPrompt.prompt();state.installPrompt=null;b.remove()};f?.prepend(b)}
 
 function startBase(user){state.patients=[];state.encounters=[];state.users=[];if(!user)return;Promise.all([getDoc(doc(db,"users",user.uid))]).then(([p])=>{if(!p.exists())return;state.profile={id:p.id,...p.data()};});onSnapshot(collection(db,"patients"),s=>state.patients=s.docs.map(d=>({id:d.id,...d.data()})),()=>{});onSnapshot(collection(db,"encounters"),s=>state.encounters=s.docs.map(d=>({id:d.id,...d.data()})),()=>{});onSnapshot(collection(db,"users"),s=>state.users=s.docs.map(d=>({id:d.id,...d.data()})),()=>{});}
