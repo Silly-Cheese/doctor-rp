@@ -42,7 +42,7 @@
 .alert-severity-pill.urgent{background:#fff1db;color:#8a6211}
 .alert-center-copy>strong{display:block;color:#183746;font-size:.92rem}
 .alert-center-copy>p{margin:5px 0 0;color:#5b6f7a;font-size:.76rem;line-height:1.48}
-.alert-center-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 17px 12px;border-top:1px solid #edf1f3;border-bottom:1px solid #edf1f3;background:#fbfcfd}
+.alert-center-context{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px 17px 12px;border-top:1px solid #edf1f3;border-bottom:1px solid #edf1f3;background:#fbfcfd}
 .alert-center-context span{min-width:0;color:#596c77;font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .alert-center-context b{display:block;margin-bottom:3px;color:#8797a0;font-size:.56rem;text-transform:uppercase;letter-spacing:.05em}
 .alert-center-row .alert-center-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;margin-top:auto;padding:12px 17px;background:#fff}
