@@ -1,4 +1,4 @@
-const NORTHSTAR_BUILD = "20260917-2210";
+const NORTHSTAR_BUILD = "20260919-1615";
 const moduleUrl = path => `${path}?v=${NORTHSTAR_BUILD}`;
 window.NorthstarBuild = NORTHSTAR_BUILD;
 const failedModules = [];
@@ -58,6 +58,9 @@ async function bootNorthstar() {
 
   // Navigation comes last so it can organize every feature that registered a destination.
   await loadNorthstarModule("./northstar-enterprise.js");
+
+  // vNext connects the existing clinical, operational, and simulation surfaces into one command experience.
+  await loadNorthstarModule("./northstar-vnext.js");
 
   document.documentElement.dataset.northstarBoot = failedModules.length ? "degraded" : "ready";
   document.documentElement.dataset.northstarBootMs = String(Math.round(performance.now() - startedAt));
