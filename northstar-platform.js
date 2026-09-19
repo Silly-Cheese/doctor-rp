@@ -479,6 +479,7 @@ function buildAlert(id, encounter, level, title, detail, persisted, orderId = nu
     acknowledged,
     acknowledgedAt: stored.acknowledgedAt || null,
     acknowledgedByName: stored.acknowledgedByName || "",
+    firstSeenAt: stored.firstSeenAt || null,
     lastSeenAt: stored.lastSeenAt || null
   };
 }
@@ -549,6 +550,7 @@ function alertRow(alert) {
       <span><b>Patient</b>${safe(patientLabel)}</span>
       ${location ? `<span><b>Location</b>${safe(location)}</span>` : ""}
       <span><b>Status</b>${safe(ackCopy)}</span>
+      <span><b>Detected</b>${safe(alert.firstSeenAt ? formatDateTime(alert.firstSeenAt) : "Just now")}</span>
     </div>
     <div class="alert-center-actions">
       ${alert.patientId ? `<button class="secondary-button compact" type="button" data-alert-open-patient="${safe(alert.patientId)}">Open Patient</button>` : ""}
@@ -601,9 +603,25 @@ function bindAlertCenterActions(target, alerts) {
 async function persistAlertShells(alerts) {
   if (!state.profile || !alerts.length) return;
   const storedById = new Map(state.alerts.map(a => [a.id, a]));
-  await Promise.all(alerts.map(a => {
-    const stored = storedById.get(a.id) || {};
-    const signalChanged = Boolean(stored.signalKey && stored.signalKey !== a.signalKey);
+  const writes = [];
+
+  for (const a of alerts) {
+    const stored = storedById.get(a.id);
+    const signalChanged = Boolean(stored?.signalKey && stored.signalKey !== a.signalKey);
+    const shellChanged = !stored
+      || stored.level !== a.level
+      || stored.title !== a.title
+      || stored.detail !== a.detail
+      || (stored.encounterId || null) !== (a.encounterId || null)
+      || (stored.patientId || null) !== (a.patientId || null)
+      || (stored.orderId || null) !== (a.orderId || null)
+      || stored.source !== a.source
+      || stored.signalKey !== a.signalKey;
+
+    // Do not write on every render. Firestore snapshots trigger renders, so
+    // unconditional timestamp writes create a self-sustaining render loop.
+    if (!shellChanged) continue;
+
     const payload = {
       level: a.level,
       title: a.title,
@@ -615,14 +633,18 @@ async function persistAlertShells(alerts) {
       signalKey: a.signalKey,
       lastSeenAt: serverTimestamp()
     };
+    if (!stored) payload.firstSeenAt = serverTimestamp();
     if (signalChanged) {
+      payload.firstSeenAt = serverTimestamp();
       payload.acknowledged = false;
       payload.acknowledgedAt = null;
       payload.acknowledgedBy = null;
       payload.acknowledgedByName = null;
     }
-    return setDoc(doc(db, "clinicalAlerts", a.id), payload, { merge: true });
-  }));
+    writes.push(setDoc(doc(db, "clinicalAlerts", a.id), payload, { merge: true }));
+  }
+
+  if (writes.length) await Promise.all(writes);
 }
 
 function alertCompact() {
@@ -693,14 +715,32 @@ function scheduleRender() {
 }
 
 function openPatient(patientId) {
-  document.querySelector('[data-section="patients"]')?.click();
   const patient = patientById(patientId);
-  const input = document.querySelector("#patientSearchInput");
-  if (input && patient) {
-    input.value = patient.mrn || `${patient.firstName} ${patient.lastName}`;
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    setTimeout(() => document.querySelector(`[data-patient-id="${CSS.escape(patientId)}"]`)?.click(), 40);
+  if (!patient) {
+    showToast("Patient record is not available.");
+    return;
   }
+  document.querySelector('[data-section="patients"]')?.click();
+  const input = document.querySelector("#patientSearchInput");
+  if (!input) {
+    showToast("Patient search is not available.");
+    return;
+  }
+  input.value = patient.mrn || `${patient.firstName} ${patient.lastName}`;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+
+  let attempts = 0;
+  const openWhenReady = () => {
+    const row = document.querySelector(`[data-patient-id="${CSS.escape(patientId)}"]`);
+    if (row) {
+      row.click();
+      return;
+    }
+    attempts += 1;
+    if (attempts < 5) setTimeout(openWhenReady, 50);
+    else showToast("Patient record loaded, but the chart could not be opened automatically.");
+  };
+  requestAnimationFrame(openWhenReady);
 }
 
 function openRoomAssignment(defaultRoom = "") {
