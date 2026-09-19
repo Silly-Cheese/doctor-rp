@@ -94,6 +94,22 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/system/setup).data.initializedBy;
     }
 
+    function profileLockFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'profileLocked',
+        'profileLockReason',
+        'profileLockedByUid',
+        'profileLockedByName',
+        'profileLockedByStaffId',
+        'profileLockedAt',
+        'profileLockEpoch',
+        'profileLockRemovedAt',
+        'profileLockRemovedBy',
+        'profileLockRemovedByName',
+        'profileLockRemovalReason'
+      ]);
+    }
+
     function confidentialEncounterFieldsChanged() {
       return request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'confidential',
@@ -219,6 +235,14 @@ service cloud.firestore {
                   && request.resource.data.uid == request.auth.uid
                   && request.resource.data.email == request.auth.token.email
                   && validRequestedRole(request.resource.data.requestedRole)
+                  && !request.resource.data.keys().hasAny([
+                    'staffId',
+                    'staffCredentialHash',
+                    'staffIdStatus',
+                    'staffIdIssuedAt',
+                    'staffIdIssuedBy',
+                    'staffIdVersion'
+                  ])
                   && (
                     (
                       !exists(/databases/$(database)/documents/system/setup)
@@ -253,6 +277,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /staffCredentials/{uid} {
+      allow read: if isAdministrator() || (isActive() && request.auth.uid == uid);
+      allow create, update: if isAdministrator()
+                            && request.resource.data.uid == uid;
+      allow delete: if isAdministrator();
+    }
+
     match /patients/{patientId} {
       allow read: if isActive();
       allow create: if canManageRegistration()
@@ -265,6 +296,7 @@ service cloud.firestore {
                       && request.resource.data.get('vitalStatus', 'active') == 'active'
                       && request.resource.data.get('recordConfidential', false) == resource.data.get('recordConfidential', false)
                       && request.resource.data.get('deceasedAccessUids', []) == resource.data.get('deceasedAccessUids', [])
+                      && !profileLockFieldsChanged()
                     )
                     || (
                       isProvider()
@@ -273,6 +305,7 @@ service cloud.firestore {
                       && request.resource.data.get('recordConfidential', false) == true
                       && request.resource.data.get('recordConfidentialReason', '') == 'deceased'
                       && request.resource.data.get('deceasedAccessUids', []).size() == 0
+                      && !profileLockFieldsChanged()
                     );
       allow delete: if isAdministrator();
     }
