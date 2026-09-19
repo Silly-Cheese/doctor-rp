@@ -1,0 +1,88 @@
+
+/* Northstar Staff ID + Patient Record Lock */
+:root{
+  --lock-red:#a93643;
+  --lock-red-soft:#fff3f4;
+  --lock-red-line:#edc9cd;
+  --lock-ink:#163446;
+  --lock-blue:#0f5b82;
+}
+.record-lock-chip{display:inline-flex!important;align-items:center;gap:5px;width:max-content;margin-top:5px;padding:4px 7px;border:1px solid var(--lock-red-line);border-radius:999px;background:var(--lock-red-soft);color:var(--lock-red);font-size:.58rem!important;font-weight:900!important;letter-spacing:.045em;text-transform:uppercase}
+.record-lock-reason{display:block!important;margin-top:4px!important;color:#8d4650!important;font-size:.64rem!important;line-height:1.35!important;white-space:normal!important}
+.profile-record-locked{box-shadow:inset 4px 0 0 var(--lock-red)!important}
+.profile-record-locked .patient-avatar{background:#f8e8ea!important;color:#8f3340!important}
+.record-lock-chart-banner{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;margin:0 0 14px;padding:13px 14px;border:1px solid var(--lock-red-line);border-radius:12px;background:linear-gradient(135deg,#fff7f8,#fff1f3);color:#69313a}
+.record-lock-chart-banner .record-lock-icon{width:35px;height:35px;display:grid;place-items:center;border-radius:10px;background:#f8dfe2;color:#953744;font-weight:900}
+.record-lock-chart-banner strong,.record-lock-chart-banner span{display:block}
+.record-lock-chart-banner strong{font-size:.8rem;color:#762f3a}
+.record-lock-chart-banner span{margin-top:3px;font-size:.68rem;line-height:1.4}
+.record-lock-chart-banner small{color:#87565d;font-size:.62rem}
+.record-lock-button{border-color:#e1aeb4!important;color:#973943!important;background:#fff7f8!important}
+.record-lock-button:hover{background:#ffedef!important}
+.staff-id-mini{display:inline-flex;align-items:center;gap:7px;margin-top:5px;padding:5px 8px;border:1px solid #d4e0e6;border-radius:8px;background:#f8fbfc;color:#3f5a69;font-size:.64rem;font-weight:800}
+.staff-id-mini b{color:#123f58;letter-spacing:.05em}
+.staff-id-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:9px}
+.staff-id-footer-button{width:100%;margin-top:7px!important}
+.staff-id-card{position:relative;overflow:hidden;min-height:260px;padding:22px;border-radius:20px;background:linear-gradient(145deg,#0a2f45,#0d4d70 58%,#0d3650);color:#fff;box-shadow:0 18px 48px rgba(8,45,66,.24)}
+.staff-id-card:after{content:"";position:absolute;right:-70px;top:-100px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(112,211,255,.25),transparent 68%)}
+.staff-id-brand{position:relative;z-index:1;display:flex;align-items:center;gap:11px}
+.staff-id-brand-mark{width:40px;height:40px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.24);border-radius:12px;background:rgba(255,255,255,.08);font:800 1.05rem "Source Serif 4",serif}
+.staff-id-brand strong,.staff-id-brand span{display:block}
+.staff-id-brand strong{font-size:.82rem;letter-spacing:.04em}.staff-id-brand span{margin-top:2px;color:#a9d2e5;font-size:.64rem}
+.staff-id-main{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:20px;align-items:end;margin-top:28px}
+.staff-id-main h3{margin:0 0 5px;color:#fff;font:700 1.7rem "Source Serif 4",serif}
+.staff-id-main p{margin:0;color:#c9e0ea;font-size:.76rem}
+.staff-id-number{display:inline-flex;margin-top:14px;padding:7px 10px;border:1px solid rgba(255,255,255,.17);border-radius:9px;background:rgba(0,0,0,.12);font-size:.74rem;font-weight:900;letter-spacing:.12em}
+.staff-id-credential{margin-top:8px;color:#a9cbd9;font-size:.58rem;word-break:break-all}
+.staff-id-qr{padding:9px;border-radius:14px;background:#fff;text-align:center}
+.staff-id-qr img{display:block;width:132px;height:132px;margin:auto}
+.staff-id-qr span{display:block;margin-top:5px;color:#25485a;font-size:.55rem;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
+.staff-id-card-note{position:relative;z-index:1;margin-top:17px;color:#a9cbd9;font-size:.58rem}
+.staff-scan-result{margin-top:12px;padding:13px;border:1px solid #d3e0e6;border-radius:12px;background:#f8fbfc}
+.staff-scan-result.valid{border-color:#bcdccd;background:#f3fbf7}
+.staff-scan-result.invalid{border-color:#e8c2c7;background:#fff5f6}
+.staff-scan-result strong,.staff-scan-result span{display:block}
+.staff-scan-result span{margin-top:4px;color:#617680;font-size:.7rem}
+.staff-scanner-camera{position:relative;overflow:hidden;min-height:220px;border-radius:13px;background:#06141d}
+.staff-scanner-camera video{display:block;width:100%;min-height:220px;max-height:330px;object-fit:cover}
+.staff-scan-reticle{position:absolute;inset:50% auto auto 50%;width:180px;height:180px;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.85);border-radius:18px;box-shadow:0 0 0 999px rgba(0,0,0,.22)}
+.staff-scanner-status{margin:9px 0 0;color:#617680;font-size:.69rem;text-align:center}
+.record-lock-gate-card{width:min(720px,94vw)}
+.record-lock-gate-hero{display:grid;grid-template-columns:46px minmax(0,1fr);gap:13px;padding:15px;border:1px solid var(--lock-red-line);border-radius:14px;background:var(--lock-red-soft)}
+.record-lock-gate-hero .gate-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:#f7dce0;color:#943743;font-size:1.05rem;font-weight:900}
+.record-lock-gate-hero strong,.record-lock-gate-hero span{display:block}
+.record-lock-gate-hero strong{color:#71303a;font-size:.88rem}.record-lock-gate-hero span{margin-top:4px;color:#7f5359;font-size:.72rem;line-height:1.45}
+.record-lock-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:11px}
+.record-lock-detail-grid>div{padding:10px 11px;border:1px solid #e1e8ec;border-radius:10px;background:#fbfcfd}
+.record-lock-detail-grid span,.record-lock-detail-grid strong{display:block}.record-lock-detail-grid span{color:#84949c;font-size:.58rem;font-weight:900;text-transform:uppercase;letter-spacing:.055em}.record-lock-detail-grid strong{margin-top:4px;color:#314b59;font-size:.73rem}
+.record-lock-methods{display:grid;grid-template-columns:1.1fr .9fr;gap:13px;margin-top:14px}
+.record-lock-method{padding:13px;border:1px solid #d9e3e8;border-radius:13px;background:#fff}
+.record-lock-method>strong{display:block;margin-bottom:9px;color:#294655;font-size:.76rem}
+.record-lock-camera{position:relative;overflow:hidden;min-height:180px;border-radius:11px;background:#06141d}
+.record-lock-camera video{display:block;width:100%;height:200px;object-fit:cover}
+.record-lock-camera .staff-scan-reticle{width:145px;height:145px}
+.record-lock-manual{display:grid;gap:8px}
+.record-lock-manual input{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.035em;text-transform:uppercase}
+.record-lock-session{margin-top:10px;padding:9px 11px;border:1px solid #cce4d7;border-radius:10px;background:#f3faf6;color:#3a7459;font-size:.68rem;font-weight:800}
+.staff-admin-id-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+@media(max-width:720px){
+  .record-lock-chart-banner{grid-template-columns:auto 1fr}.record-lock-chart-banner small{grid-column:2}
+  .staff-id-main{grid-template-columns:1fr}.staff-id-qr{width:max-content}
+  .record-lock-methods{grid-template-columns:1fr}
+}
+@media(max-width:470px){
+  .record-lock-detail-grid{grid-template-columns:1fr}
+  .staff-id-card{padding:18px}.staff-id-main h3{font-size:1.4rem}
+}
+@media print{
+  body.staff-id-printing>*:not(.staff-id-print-root){display:none!important}
+  .staff-id-print-root{display:block!important;padding:20px}
+  .staff-id-print-root .staff-id-card{width:3.375in;height:2.125in;min-height:0;padding:.16in;border-radius:.14in;box-shadow:none;box-sizing:border-box}
+  .staff-id-print-root .staff-id-brand-mark{width:.35in;height:.35in}
+  .staff-id-print-root .staff-id-main{grid-template-columns:1fr 1.05in;gap:.1in;margin-top:.13in}
+  .staff-id-print-root .staff-id-main h3{font-size:.19in}.staff-id-print-root .staff-id-main p{font-size:.09in}
+  .staff-id-print-root .staff-id-number{margin-top:.08in;padding:.04in .06in;font-size:.08in}
+  .staff-id-print-root .staff-id-credential{margin-top:.04in;font-size:.052in}
+  .staff-id-print-root .staff-id-qr{padding:.04in}.staff-id-print-root .staff-id-qr img{width:.91in;height:.91in}.staff-id-print-root .staff-id-qr span{font-size:.045in}
+  .staff-id-print-root .staff-id-card-note{display:none}
+}
