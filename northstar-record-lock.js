@@ -69,7 +69,7 @@ async function digest(v){const d=await crypto.subtle.digest("SHA-256",new TextEn
 function qrPayload(uid,staffId,credential){return "NORTHSTAR-STAFF|"+uid+"|"+staffId+"|"+canonical(credential);}
 function parsePayload(v){const p=String(v||"").trim().split("|");return p.length===4&&p[0]==="NORTHSTAR-STAFF"?{uid:p[1],staffId:p[2],credential:p[3]}:null;}
 
-async function issueStaffId(uid,force){
+async function issueStaffId(uid,force,silent){
   if(!isAdmin()||!uid)return null;
   const u=userById(uid);if(!u||u.status!=="active"||state.provisioning.has(uid))return null;
   if(!force&&u.staffId&&u.staffCredentialHash)return null;
@@ -79,10 +79,10 @@ async function issueStaffId(uid,force){
     batch.set(doc(db,"staffCredentials",uid),{uid:uid,staffId:staffId,credential:credential,credentialHash:credentialHash,status:"active",issuedAt:serverTimestamp(),issuedBy:auth.currentUser.uid,issuedByName:state.profile.displayName||"Northstar Administrator"});
     batch.update(doc(db,"users",uid),{staffId:staffId,staffCredentialHash:credentialHash,staffIdStatus:"active",staffIdIssuedAt:serverTimestamp(),staffIdIssuedBy:auth.currentUser.uid,staffIdVersion:Number(u.staffIdVersion||0)+1});
     batch.set(doc(collection(db,"auditEvents")),{type:force?"staff-id-reissued":"staff-id-issued",staffUid:uid,staffName:u.displayName||"Northstar Staff",staffId:staffId,actorUid:auth.currentUser.uid,actorName:state.profile.displayName||"Northstar Administrator",at:serverTimestamp()});
-    await batch.commit();toast((force?"Staff ID reissued for ":"Staff ID issued for ")+(u.displayName||"Northstar Staff")+".");return credential;
-  }catch(_){toast("Unable to issue Staff ID.");return null;}finally{state.provisioning.delete(uid);}
+    await batch.commit();if(!silent)toast((force?"Staff ID reissued for ":"Staff ID issued for ")+(u.displayName||"Northstar Staff")+".");return credential;
+  }catch(_){if(!silent)toast("Unable to issue Staff ID.");return null;}finally{state.provisioning.delete(uid);}
 }
-async function provisionMissing(){if(!isAdmin())return;const list=state.users.filter(function(u){return u.status==="active"&&(!u.staffId||!u.staffCredentialHash);});for(const u of list)await issueStaffId(u.uid||u.id,false);}
+async function provisionMissing(){if(!isAdmin())return;const list=state.users.filter(function(u){return u.status==="active"&&(!u.staffId||!u.staffCredentialHash);});for(const u of list)await issueStaffId(u.uid||u.id,false,true);}
 async function getCredential(uid){try{const s=await getDoc(doc(db,"staffCredentials",uid));return s.exists()?s.data():null;}catch(_){return null;}}
 
 async function openBadge(uid){
@@ -208,7 +208,7 @@ function decoratePatients(){
   });
 }
 function decorateStaff(){
-  if(!isAdmin())return;const sub=document.querySelector("#staffSection .staff-admin-subhead");
+  if(!isAdmin())return;const sub=document.querySelector("#staffAccountManager .staff-admin-subhead")||document.querySelector("#staffSection .staff-admin-subhead");
   if(sub&&!sub.querySelector("[data-scan-staff-id]")){const d=document.createElement("div");d.className="staff-admin-id-tools";d.innerHTML='<button class="secondary-button compact" type="button" data-scan-staff-id>Scan Staff ID</button>';sub.appendChild(d);}
   document.querySelectorAll("[data-managed-staff]").forEach(function(card){const uid=card.dataset.managedStaff,u=userById(uid);if(!u)return;let box=card.querySelector(".northstar-staff-id-tools");if(!box){box=document.createElement("div");box.className="northstar-staff-id-tools";card.querySelector(".managed-staff-identity")?.appendChild(box);}
     const sig=[u.staffId||"",u.staffIdVersion||0,u.status||""].join("|");if(box.dataset.signature===sig)return;box.dataset.signature=sig;
