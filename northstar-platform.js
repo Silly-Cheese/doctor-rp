@@ -76,6 +76,7 @@ const state = {
   unsubscribers: [],
   selectedRoom: null,
   selectedStaff: null,
+  alertFilter: "active",
   renderQueued: false,
   commandQuery: "",
   lastActivity: Date.now(),
@@ -443,34 +444,184 @@ function deriveAlerts() {
   return alerts.sort((a,b) => (a.level === "critical" ? -1 : 0) - (b.level === "critical" ? -1 : 0));
 }
 
+function alertSignalKey(level, title, detail) {
+  return [level || "", title || "", detail || ""].join("|");
+}
+
+function alertSource(id) {
+  if (id.startsWith("emergency-")) return "Emergency Response";
+  if (id.startsWith("result-")) return "Diagnostic Result";
+  if (id.startsWith("stat-")) return "STAT Order";
+  if (id.startsWith("med-overdue-")) return "Medication";
+  if (id.startsWith("spo2-") || id.startsWith("hr-")) return "Patient Monitor";
+  if (id.startsWith("acuity-")) return "Triage";
+  if (id.startsWith("simulation-") || id.startsWith("vnext-condition-")) return "Simulation";
+  return "Clinical Surveillance";
+}
+
 function buildAlert(id, encounter, level, title, detail, persisted, orderId = null) {
   const stored = persisted.get(id) || {};
-  return { id, encounterId: encounter?.id || null, patientId: encounter?.patientId || null, orderId, level, title, detail, acknowledged: stored.acknowledged === true, acknowledgedByName: stored.acknowledgedByName || "" };
+  const signalKey = alertSignalKey(level, title, detail);
+  const acknowledged = stored.acknowledged === true && (!stored.signalKey || stored.signalKey === signalKey);
+  return {
+    id,
+    encounterId: encounter?.id || null,
+    patientId: encounter?.patientId || null,
+    patientName: encounter?.patientName || "",
+    room: encounter?.room || encounter?.triage?.room || "",
+    orderId,
+    level,
+    title,
+    detail,
+    source: alertSource(id),
+    signalKey,
+    acknowledged,
+    acknowledgedAt: stored.acknowledgedAt || null,
+    acknowledgedByName: stored.acknowledgedByName || "",
+    lastSeenAt: stored.lastSeenAt || null
+  };
+}
+
+function filteredAlerts(alerts) {
+  if (state.alertFilter === "critical") return alerts.filter(a => a.level === "critical" && !a.acknowledged);
+  if (state.alertFilter === "urgent") return alerts.filter(a => a.level === "urgent" && !a.acknowledged);
+  if (state.alertFilter === "acknowledged") return alerts.filter(a => a.acknowledged);
+  if (state.alertFilter === "all") return alerts;
+  return alerts.filter(a => !a.acknowledged);
 }
 
 function renderAlerts() {
   const target = document.querySelector("#northstarAlertsSection");
   if (!target || !state.profile) return;
   const alerts = deriveAlerts();
+  const active = alerts.filter(a => !a.acknowledged);
+  const visible = filteredAlerts(alerts);
+  const critical = active.filter(a => a.level === "critical").length;
+  const urgent = active.filter(a => a.level === "urgent").length;
+  const acknowledged = alerts.filter(a => a.acknowledged).length;
   target.innerHTML = `
-    <div class="section-heading"><div><p class="eyebrow">Clinical Surveillance</p><h3>Clinical Alerts</h3><p>Time-sensitive patient changes, results, emergency events, and overdue work.</p></div></div>
-    <div class="alert-center-metrics"><article><span>Critical</span><strong>${alerts.filter(a => a.level === "critical" && !a.acknowledged).length}</strong></article><article><span>Urgent</span><strong>${alerts.filter(a => a.level === "urgent" && !a.acknowledged).length}</strong></article><article><span>Acknowledged</span><strong>${alerts.filter(a => a.acknowledged).length}</strong></article></div>
-    <div class="platform-panel">${alerts.length ? `<div class="alert-center-list">${alerts.map(alertRow).join("")}</div>` : empty("No active clinical alerts", "Northstar is not detecting any active alert conditions.")}</div>`;
+    <div class="alert-center-hero">
+      <div>
+        <p class="eyebrow">Clinical Surveillance</p>
+        <h3>Clinical Alert Center</h3>
+        <p>One place for time-sensitive patient changes, emergency events, diagnostic results, and overdue clinical work.</p>
+      </div>
+      <div class="alert-center-hero-actions">
+        <span class="alert-live-indicator"><i></i> Live surveillance</span>
+        ${active.length ? `<button class="primary-button compact" type="button" data-ack-all-alerts>Acknowledge Active (${active.length})</button>` : ""}
+      </div>
+    </div>
+    <div class="alert-center-metrics">
+      <article class="alert-metric attention"><span>Needs Attention</span><strong>${active.length}</strong><small>unacknowledged</small></article>
+      <article class="alert-metric critical"><span>Critical</span><strong>${critical}</strong><small>immediate review</small></article>
+      <article class="alert-metric urgent"><span>Urgent</span><strong>${urgent}</strong><small>priority review</small></article>
+      <article class="alert-metric acknowledged"><span>Acknowledged</span><strong>${acknowledged}</strong><small>current signals</small></article>
+    </div>
+    <div class="alert-center-toolbar">
+      <div class="alert-filter-group" role="group" aria-label="Filter clinical alerts">
+        ${[["active","Active"],["critical","Critical"],["urgent","Urgent"],["acknowledged","Acknowledged"],["all","All"]].map(([id,name]) => `<button type="button" data-alert-filter="${id}" class="${state.alertFilter === id ? "active" : ""}">${name}</button>`).join("")}
+      </div>
+      <span class="alert-filter-count">${visible.length} ${visible.length === 1 ? "alert" : "alerts"}</span>
+    </div>
+    <div class="platform-panel alert-center-shell">${visible.length ? `<div class="alert-center-list">${visible.map(alertRow).join("")}</div>` : empty(state.alertFilter === "acknowledged" ? "No acknowledged alerts" : "Active queue is clear", state.alertFilter === "acknowledged" ? "Acknowledged alerts for current conditions will appear here." : "No alerts in this view require attention right now.")}</div>`;
+  bindAlertCenterActions(target, alerts);
   persistAlertShells(alerts).catch(() => {});
 }
 
 function alertRow(alert) {
-  return `<article class="alert-center-row ${safe(alert.level)} ${alert.acknowledged ? "acknowledged" : ""}">
-    <span class="alert-center-mark">!</span><div><strong>${safe(alert.title)}</strong><p>${safe(alert.detail)}</p><small>${alert.acknowledged ? `Acknowledged by ${safe(alert.acknowledgedByName || "Northstar Staff")}` : "Acknowledgment required"}</small></div>
-    <div class="alert-center-actions">${alert.patientId ? `<button class="secondary-button compact" type="button" data-open-platform-patient="${safe(alert.patientId)}">Open Patient</button>` : ""}${!alert.acknowledged ? `<button class="primary-button compact" type="button" data-ack-alert="${safe(alert.id)}">Acknowledge</button>` : ""}</div>
+  const encounter = encounterById(alert.encounterId);
+  const patientLabel = alert.patientName || encounter?.patientName || "Clinical signal";
+  const location = alert.room || encounter?.room || "";
+  const ackCopy = alert.acknowledged
+    ? `Acknowledged by ${safe(alert.acknowledgedByName || "Northstar Staff")}${alert.acknowledgedAt ? ` · ${safe(formatDateTime(alert.acknowledgedAt))}` : ""}`
+    : "Acknowledgment required";
+  return `<article class="alert-center-row ${safe(alert.level)} ${alert.acknowledged ? "acknowledged" : ""}" data-alert-card="${safe(alert.id)}">
+    <div class="alert-center-card-head">
+      <span class="alert-center-mark">!</span>
+      <div class="alert-center-copy">
+        <div class="alert-center-kicker"><span class="alert-source-pill">${safe(alert.source)}</span><span class="alert-severity-pill ${safe(alert.level)}">${safe(alert.level)}</span></div>
+        <strong>${safe(alert.title)}</strong>
+        <p>${safe(alert.detail)}</p>
+      </div>
+    </div>
+    <div class="alert-center-context">
+      <span><b>Patient</b>${safe(patientLabel)}</span>
+      ${location ? `<span><b>Location</b>${safe(location)}</span>` : ""}
+      <span><b>Status</b>${safe(ackCopy)}</span>
+    </div>
+    <div class="alert-center-actions">
+      ${alert.patientId ? `<button class="secondary-button compact" type="button" data-alert-open-patient="${safe(alert.patientId)}">Open Patient</button>` : ""}
+      ${alert.encounterId ? `<button class="secondary-button compact" type="button" data-alert-monitor="${safe(alert.encounterId)}">Live Monitor</button>` : ""}
+      ${!alert.acknowledged ? `<button class="primary-button compact" type="button" data-alert-ack="${safe(alert.id)}">Acknowledge</button>` : `<span class="alert-ack-chip">✓ Acknowledged</span>`}
+    </div>
   </article>`;
+}
+
+function bindAlertCenterActions(target, alerts) {
+  target.querySelectorAll("[data-alert-filter]").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      state.alertFilter = button.dataset.alertFilter || "active";
+      renderAlerts();
+    });
+  });
+  target.querySelectorAll("[data-alert-open-patient]").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      openPatient(button.dataset.alertOpenPatient);
+    });
+  });
+  target.querySelectorAll("[data-alert-monitor]").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      window.dispatchEvent(new CustomEvent("northstar:open-monitor", { detail: { encounterId: button.dataset.alertMonitor } }));
+    });
+  });
+  target.querySelectorAll("[data-alert-ack]").forEach(button => {
+    button.addEventListener("click", async event => {
+      event.stopPropagation();
+      await acknowledgeAlert(button.dataset.alertAck, button);
+    });
+  });
+  target.querySelector("[data-ack-all-alerts]")?.addEventListener("click", async event => {
+    event.stopPropagation();
+    const pending = alerts.filter(a => !a.acknowledged);
+    if (!pending.length) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = "Acknowledging…";
+    const results = await Promise.all(pending.map(a => acknowledgeAlert(a.id, null, { silent: true, deferRender: true })));
+    renderAlerts();
+    const success = results.filter(Boolean).length;
+    showToast(success === pending.length ? `${success} alerts acknowledged.` : `${success} of ${pending.length} alerts acknowledged.`);
+  });
 }
 
 async function persistAlertShells(alerts) {
   if (!state.profile || !alerts.length) return;
-  await Promise.all(alerts.map(a => setDoc(doc(db, "clinicalAlerts", a.id), {
-    level: a.level, title: a.title, detail: a.detail, encounterId: a.encounterId, patientId: a.patientId, orderId: a.orderId || null, lastSeenAt: serverTimestamp()
-  }, { merge: true })));
+  const storedById = new Map(state.alerts.map(a => [a.id, a]));
+  await Promise.all(alerts.map(a => {
+    const stored = storedById.get(a.id) || {};
+    const signalChanged = Boolean(stored.signalKey && stored.signalKey !== a.signalKey);
+    const payload = {
+      level: a.level,
+      title: a.title,
+      detail: a.detail,
+      encounterId: a.encounterId,
+      patientId: a.patientId,
+      orderId: a.orderId || null,
+      source: a.source,
+      signalKey: a.signalKey,
+      lastSeenAt: serverTimestamp()
+    };
+    if (signalChanged) {
+      payload.acknowledged = false;
+      payload.acknowledgedAt = null;
+      payload.acknowledgedBy = null;
+      payload.acknowledgedByName = null;
+    }
+    return setDoc(doc(db, "clinicalAlerts", a.id), payload, { merge: true });
+  }));
 }
 
 function alertCompact() {
@@ -626,11 +777,80 @@ async function markMessageRead(id) {
   try { await updateDoc(doc(db, "messages", id), { readBy, readAt: serverTimestamp() }); } catch (_) {}
 }
 
-async function acknowledgeAlert(id) {
+async function acknowledgeAlert(id, button = null, options = {}) {
+  const current = deriveAlerts().find(a => a.id === id);
+  if (!current || !auth.currentUser || !state.profile) {
+    if (!options.silent) showToast("That alert is no longer active.");
+    return false;
+  }
+  const existingIndex = state.alerts.findIndex(a => a.id === id);
+  const previous = existingIndex >= 0 ? { ...state.alerts[existingIndex] } : null;
+  const optimistic = {
+    id,
+    acknowledged: true,
+    acknowledgedAt: new Date(),
+    acknowledgedBy: auth.currentUser.uid,
+    acknowledgedByName: state.profile.displayName || "Northstar Staff",
+    signalKey: current.signalKey,
+    level: current.level,
+    title: current.title,
+    detail: current.detail,
+    encounterId: current.encounterId,
+    patientId: current.patientId,
+    orderId: current.orderId || null,
+    source: current.source
+  };
+
+  if (button) {
+    button.disabled = true;
+    button.dataset.originalLabel = button.textContent;
+    button.textContent = "Acknowledging…";
+  }
+  if (existingIndex >= 0) state.alerts[existingIndex] = { ...state.alerts[existingIndex], ...optimistic };
+  else state.alerts.push(optimistic);
+  if (!options.deferRender) renderAlerts();
+
   try {
-    await setDoc(doc(db, "clinicalAlerts", id), { acknowledged: true, acknowledgedAt: serverTimestamp(), acknowledgedBy: auth.currentUser.uid, acknowledgedByName: state.profile.displayName }, { merge: true });
-    showToast("Alert acknowledged.");
-  } catch (_) { showToast("Unable to acknowledge alert."); }
+    await setDoc(doc(db, "clinicalAlerts", id), {
+      acknowledged: true,
+      acknowledgedAt: serverTimestamp(),
+      acknowledgedBy: auth.currentUser.uid,
+      acknowledgedByName: state.profile.displayName || "Northstar Staff",
+      signalKey: current.signalKey,
+      level: current.level,
+      title: current.title,
+      detail: current.detail,
+      encounterId: current.encounterId,
+      patientId: current.patientId,
+      orderId: current.orderId || null,
+      source: current.source,
+      lastSeenAt: serverTimestamp()
+    }, { merge: true });
+    const auditRef = doc(collection(db, "auditEvents"));
+    await setDoc(auditRef, {
+      type: "clinical-alert-acknowledged",
+      alertId: id,
+      encounterId: current.encounterId,
+      patientId: current.patientId,
+      alertTitle: current.title,
+      actorUid: auth.currentUser.uid,
+      actorName: state.profile.displayName || "Northstar Staff",
+      at: serverTimestamp()
+    }).catch(() => {});
+    if (!options.silent) showToast("Alert acknowledged and moved to history.");
+    return true;
+  } catch (error) {
+    if (previous && existingIndex >= 0) state.alerts[existingIndex] = previous;
+    else if (!previous) state.alerts = state.alerts.filter(a => a.id !== id);
+    if (!options.deferRender) renderAlerts();
+    if (!options.silent) showToast(error?.code === "permission-denied" ? "Your account does not have permission to acknowledge alerts." : "Unable to acknowledge alert. Please try again.");
+    return false;
+  } finally {
+    if (button && button.isConnected) {
+      button.disabled = false;
+      button.textContent = button.dataset.originalLabel || "Acknowledge";
+    }
+  }
 }
 
 async function setFacilityMode(mode) {
