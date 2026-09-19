@@ -1,4 +1,4 @@
-const NORTHSTAR_BUILD = "20260919-1530";
+const NORTHSTAR_BUILD = "20260919-1540";
 const moduleUrl = path => `${path}?v=${NORTHSTAR_BUILD}`;
 window.NorthstarBuild = NORTHSTAR_BUILD;
 const failedModules = [];
