@@ -203,7 +203,7 @@ function decoratePatients(){
   document.querySelectorAll("[data-patient-id]").forEach(function(node){
     const p=map.get(node.dataset.patientId);if(!p)return;const locked=p.profileLocked===true;node.classList.toggle("profile-record-locked",locked);
     const primary=node.querySelector(".patient-primary")||node.querySelector("div:nth-child(2)"),chip=node.querySelector(".record-lock-chip"),reason=node.querySelector(".record-lock-reason");
-    if(locked){if(primary&&!chip){const n=document.createElement("span");n.className="record-lock-chip";n.textContent="LOCK Profile Locked";primary.appendChild(n);}if(primary&&!reason){const n=document.createElement("small");n.className="record-lock-reason";n.textContent="Reason: "+(p.profileLockReason||"Administrative restriction");primary.appendChild(n);}else if(reason)reason.textContent="Reason: "+(p.profileLockReason||"Administrative restriction");node.title="LOCKED: "+(p.profileLockReason||"Administrative restriction");}
+    if(locked){if(primary&&!chip){const n=document.createElement("span");n.className="record-lock-chip";n.textContent="LOCK Profile Locked";primary.appendChild(n);}const reasonText="Reason: "+(p.profileLockReason||"Administrative restriction");if(primary&&!reason){const n=document.createElement("small");n.className="record-lock-reason";n.textContent=reasonText;primary.appendChild(n);}else if(reason&&reason.textContent!==reasonText)reason.textContent=reasonText;const title="LOCKED: "+(p.profileLockReason||"Administrative restriction");if(node.title!==title)node.title=title;}
     else{if(chip)chip.remove();if(reason)reason.remove();if(node.title&&node.title.startsWith("LOCKED:"))node.removeAttribute("title");}
   });
 }
@@ -211,17 +211,23 @@ function decorateStaff(){
   if(!isAdmin())return;const sub=document.querySelector("#staffSection .staff-admin-subhead");
   if(sub&&!sub.querySelector("[data-scan-staff-id]")){const d=document.createElement("div");d.className="staff-admin-id-tools";d.innerHTML='<button class="secondary-button compact" type="button" data-scan-staff-id>Scan Staff ID</button>';sub.appendChild(d);}
   document.querySelectorAll("[data-managed-staff]").forEach(function(card){const uid=card.dataset.managedStaff,u=userById(uid);if(!u)return;let box=card.querySelector(".northstar-staff-id-tools");if(!box){box=document.createElement("div");box.className="northstar-staff-id-tools";card.querySelector(".managed-staff-identity")?.appendChild(box);}
+    const sig=[u.staffId||"",u.staffIdVersion||0,u.status||""].join("|");if(box.dataset.signature===sig)return;box.dataset.signature=sig;
     box.innerHTML='<div class="staff-id-mini">Staff ID <b>'+safe(u.staffId||"Not issued")+'</b></div><div class="staff-id-actions">'+(u.staffId?'<button class="secondary-button compact" type="button" data-view-staff-id="'+safe(uid)+'">View / Print Badge</button><button class="secondary-button compact" type="button" data-reissue-staff-id="'+safe(uid)+'">Reissue Credential</button>':'<button class="primary-button compact" type="button" data-issue-staff-id="'+safe(uid)+'">Issue Staff ID</button>')+'</div>';
   });
 }
-function decorateSelf(){const c=document.querySelector(".user-chip-copy"),u=state.profile;if(!c||!u)return;let n=c.querySelector(".staff-id-mini");if(u.staffId){if(!n){n=document.createElement("span");n.className="staff-id-mini";c.appendChild(n);}n.innerHTML="Staff ID <b>"+safe(u.staffId)+"</b>";}else if(n)n.remove();}
+function decorateSelf(){const c=document.querySelector(".user-chip-copy"),u=state.profile;if(!c||!u)return;let n=c.querySelector(".staff-id-mini");if(u.staffId){if(!n){n=document.createElement("span");n.className="staff-id-mini";c.appendChild(n);}const html="Staff ID <b>"+safe(u.staffId)+"</b>";if(n.innerHTML!==html)n.innerHTML=html;}else if(n)n.remove();}
 function decorateChart(){
   const d=document.querySelector("#patientChartDialog");if(!d||!d.open||!state.selectedPatientId)return;const p=patientById(state.selectedPatientId),body=document.querySelector("#patientChartBody");if(!p||!body)return;
-  body.querySelector("#recordLockChartBanner")?.remove();body.querySelector("[data-lock-profile]")?.remove();body.querySelector("[data-remove-profile-lock]")?.remove();
-  if(p.profileLocked===true){if(!hasAccess(p)){d.close();openVerifier("lock",p);return;}const x=sessionExpiry(p);
-    body.insertAdjacentHTML("afterbegin",'<div id="recordLockChartBanner" class="record-lock-chart-banner"><span class="record-lock-icon">LOCK</span><div><strong>Administratively Locked Profile</strong><span>'+safe(p.profileLockReason||"Administrative restriction")+' / Issued by '+safe(p.profileLockedByName||"Northstar Staff")+' ('+safe(p.profileLockedByStaffId||"Staff ID")+')</span></div><small>Credential session expires '+safe(x?new Date(x).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}):"soon")+'</small></div>');
-    if(isAdmin())body.querySelector(".chart-actions")?.insertAdjacentHTML("beforeend",'<button class="secondary-button record-lock-button" type="button" data-remove-profile-lock="'+safe(p.id)+'">Remove Profile Lock</button>');
-  }else if(isAdmin())body.querySelector(".chart-actions")?.insertAdjacentHTML("beforeend",'<button class="secondary-button record-lock-button" type="button" data-lock-profile="'+safe(p.id)+'">Lock Profile</button>');
+  if(p.profileLocked===true){
+    if(!hasAccess(p)){d.close();openVerifier("lock",p);return;}
+    const x=sessionExpiry(p),sig=["locked",p.profileLockEpoch||0,p.profileLockReason||"",x].join("|"),banner=body.querySelector("#recordLockChartBanner");
+    if(!banner||banner.dataset.signature!==sig){banner?.remove();body.insertAdjacentHTML("afterbegin",'<div id="recordLockChartBanner" data-signature="'+safe(sig)+'" class="record-lock-chart-banner"><span class="record-lock-icon">LOCK</span><div><strong>Administratively Locked Profile</strong><span>'+safe(p.profileLockReason||"Administrative restriction")+' / Issued by '+safe(p.profileLockedByName||"Northstar Staff")+' ('+safe(p.profileLockedByStaffId||"Staff ID")+')</span></div><small>Credential session expires '+safe(x?new Date(x).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}):"soon")+'</small></div>');}
+    body.querySelector("[data-lock-profile]")?.remove();
+    if(isAdmin()&&!body.querySelector("[data-remove-profile-lock]"))body.querySelector(".chart-actions")?.insertAdjacentHTML("beforeend",'<button class="secondary-button record-lock-button" type="button" data-remove-profile-lock="'+safe(p.id)+'">Remove Profile Lock</button>');
+  }else{
+    body.querySelector("#recordLockChartBanner")?.remove();body.querySelector("[data-remove-profile-lock]")?.remove();
+    if(isAdmin()&&!body.querySelector("[data-lock-profile]"))body.querySelector(".chart-actions")?.insertAdjacentHTML("beforeend",'<button class="secondary-button record-lock-button" type="button" data-lock-profile="'+safe(p.id)+'">Lock Profile</button>');
+  }
 }
 function decorate(){if(state.queued)return;state.queued=true;requestAnimationFrame(function(){state.queued=false;decoratePatients();decorateStaff();decorateSelf();decorateChart();});}
 
