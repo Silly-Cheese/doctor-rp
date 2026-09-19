@@ -1,4 +1,4 @@
-const NORTHSTAR_BUILD = "20260919-1540";
+const NORTHSTAR_BUILD = "20260919-1705";
 const moduleUrl = path => `${path}?v=${NORTHSTAR_BUILD}`;
 window.NorthstarBuild = NORTHSTAR_BUILD;
 const failedModules = [];
@@ -45,6 +45,7 @@ async function bootNorthstar() {
     "./northstar-order-ack.js",
     "./northstar-specimen-verification.js",
     "./northstar-breakglass.js",
+    "./northstar-record-lock.js",
     "./northstar-safety-banner.js",
     "./northstar-pwa.js",
     "./session-guard.js"
