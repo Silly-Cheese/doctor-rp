@@ -123,10 +123,11 @@ function showToast(message) {
 }
 
 function ensureStylesheet() {
-  if (document.querySelector('link[href="northstar-platform.css"]')) return;
+  if (document.querySelector("link[data-northstar-platform]")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "northstar-platform.css";
+  link.dataset.northstarPlatform = "1";
+  link.href = `northstar-platform.css?v=${window.NorthstarBuild || "20260919-1530"}`;
   document.head.appendChild(link);
 }
 
