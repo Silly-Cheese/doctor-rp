@@ -821,4 +821,9 @@ function updateSignedOutBadges() {
   document.querySelectorAll(".nx-nav-badge,.nx-top-badge").forEach(function(node){ node.textContent = "Open"; });
 }
 
+window.addEventListener("northstar:open-monitor", event => {
+  const encounterId = event.detail?.encounterId || "";
+  openMonitor(encounterId);
+});
+
 inject();
