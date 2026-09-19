@@ -288,7 +288,20 @@ service cloud.firestore {
       allow read: if isActive();
       allow create: if canManageRegistration()
                     && request.resource.data.get('vitalStatus', 'active') == 'active'
-                    && request.resource.data.get('recordConfidential', false) == false;
+                    && request.resource.data.get('recordConfidential', false) == false
+                    && request.resource.data.get('profileLocked', false) == false
+                    && !request.resource.data.keys().hasAny([
+                      'profileLockReason',
+                      'profileLockedByUid',
+                      'profileLockedByName',
+                      'profileLockedByStaffId',
+                      'profileLockedAt',
+                      'profileLockEpoch',
+                      'profileLockRemovedAt',
+                      'profileLockRemovedBy',
+                      'profileLockRemovedByName',
+                      'profileLockRemovalReason'
+                    ]);
       allow update: if isAdministrator()
                     || (
                       canEditPatients()
