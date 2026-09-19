@@ -616,7 +616,8 @@ async function persistAlertShells(alerts) {
       || (stored.patientId || null) !== (a.patientId || null)
       || (stored.orderId || null) !== (a.orderId || null)
       || stored.source !== a.source
-      || stored.signalKey !== a.signalKey;
+      || stored.signalKey !== a.signalKey
+      || !stored.firstSeenAt;
 
     // Do not write on every render. Firestore snapshots trigger renders, so
     // unconditional timestamp writes create a self-sustaining render loop.
@@ -633,7 +634,7 @@ async function persistAlertShells(alerts) {
       signalKey: a.signalKey,
       lastSeenAt: serverTimestamp()
     };
-    if (!stored) payload.firstSeenAt = serverTimestamp();
+    if (!stored?.firstSeenAt) payload.firstSeenAt = serverTimestamp();
     if (signalChanged) {
       payload.firstSeenAt = serverTimestamp();
       payload.acknowledged = false;
