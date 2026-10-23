@@ -571,6 +571,39 @@ service cloud.firestore {
       }
     }
 
+    // Non-clinical operations register: patient identifiers/medical details are prohibited by UI policy.
+    // This register is not a substitute for patient charts or medication systems.
+    function canManageOps() {
+      return isAdministrator()
+        || (isActive() && permission('manageRooms', false) == true)
+        || (isActive() && permission('siuInvestigations', false) == true);
+    }
+    match /northstarOps/{recordId} {
+      allow read: if isActive();
+      allow create: if canManageOps()
+        && request.resource.data.keys().hasOnly(['module','title','department','priority','summary','dueDate','status','createdBy','updatedBy','createdAt','updatedAt'])
+        && request.resource.data.module in ['beds','transport','shift','quality','credentials','policy','forms']
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 4 && request.resource.data.title.size() <= 120
+        && request.resource.data.department is string
+        && request.resource.data.department.size() > 0 && request.resource.data.department.size() <= 90
+        && request.resource.data.summary is string
+        && request.resource.data.summary.size() >= 5 && request.resource.data.summary.size() <= 2500
+        && request.resource.data.dueDate is string
+        && request.resource.data.priority in ['routine','high','critical']
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageOps()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt','updatedBy'])
+        && request.resource.data.status in ['open','assigned','in-progress','on-hold','completed','cancelled']
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
