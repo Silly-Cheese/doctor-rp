@@ -228,6 +228,27 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Private, non-clinical shift tasks. Only the owning active staff member can access them.
+    match /users/{uid}/workdesk/{taskId} {
+      allow read: if isActive() && request.auth.uid == uid;
+      allow create: if isActive() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['title','category','priority','dueDate','completed','createdAt','updatedAt'])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 3
+        && request.resource.data.title.size() <= 160
+        && request.resource.data.category in ['My tasks','Shift preparation','Administrative follow-up','Training']
+        && request.resource.data.priority in ['normal','high']
+        && request.resource.data.dueDate is string
+        && request.resource.data.completed == false
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isActive() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completed','updatedAt'])
+        && request.resource.data.completed is bool
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isActive() && request.auth.uid == uid;
+    }
+
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isActive());
       allow create: if signedIn()
