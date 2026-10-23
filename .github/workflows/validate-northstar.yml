@@ -36,6 +36,10 @@ jobs:
           cd functions
           npm install --package-lock-only --ignore-scripts
           node --check index.js
+      - name: Load Cloud Functions entrypoint and check callable exports
+        run: |
+          npm --prefix functions install --ignore-scripts
+          GOOGLE_CLOUD_PROJECT=demo-northstar node -e "const f=require('./functions/index.js'); for (const k of ['requestPatientDeletion','approvePatientDeletion','scanOrphanPatientRecords','requestOrphanCleanup','northstarHealth']) { if (typeof f[k]!=='function') throw Error('Missing function: '+k); } console.log('Cloud Functions entrypoint loaded successfully');"
 
   browser-smoke:
     runs-on: ubuntu-latest
