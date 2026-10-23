@@ -1,0 +1,36 @@
+name: Validate Northstar application
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          set -e
+          find . -type f -name '*.js' -not -path './node_modules/*' -print0 | while IFS= read -r -d '' file; do
+            node --check "$file"
+          done
+      - name: Verify index assets exist
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('index.html','utf8');
+          for(const match of html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))(?:\?[^"]*)?"/g)){
+            const local=match[1];
+            if(local.startsWith('http:')||local.startsWith('https:'))continue;
+            if(!fs.existsSync(local)){console.error('Missing file:',local);process.exitCode=1}
+          }
+          NODE
+      - name: Verify new server functions dependencies
+        run: |
+          cd functions
+          npm install --package-lock-only --ignore-scripts
+          node --check index.js
