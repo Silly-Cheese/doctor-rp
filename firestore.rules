@@ -369,6 +369,16 @@ service cloud.firestore {
       ) || validProviderConfidentialUpdate()
         || validFailedAuthorizationAttempt()
         || validAdministratorCaseUnlock();
+      // A Doe identity may be confirmed after an encounter has been sealed or
+      // marked deceased. Only synchronize the verified display name, never the
+      // clinical or confidentiality fields.
+      allow update: if canManageRegistration()
+        && resource.data.patientId is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['patientName','updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && getAfter(/databases/$(database)/documents/patients/$(resource.data.patientId)).data.get('identityStatus', '') == 'verified'
+        && request.resource.data.patientName ==
+          getAfter(/databases/$(database)/documents/patients/$(resource.data.patientId)).data.get('displayName', '');
       allow delete: if isAdministrator();
     }
 
