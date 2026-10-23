@@ -3,7 +3,7 @@ import{getAuth,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/12.19.
 import{getFirestore,collection,doc,getDoc,getDocs,writeBatch,serverTimestamp,query,where}from"https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const db=getFirestore(getApp()),auth=getAuth(getApp()),q=id=>document.getElementById(id);
 let uid=null,profile=null,pending=[],encounters=[];
-const safe=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;":"&quot;","'":"&#39;"}[c]));
+const safe=s=>String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("\'","&#39;");
 const canRegister=()=>["administrator","physician","nurse","registration"].includes(profile?.role)&& (profile?.role==="administrator"||profile?.permissions?.manageRegistration!==false);
 const canProcedure=()=>["administrator","physician","nurse"].includes(profile?.role)&&(profile?.role==="administrator"||(profile?.role==="physician"?profile?.permissions?.providerActions!==false:profile?.permissions?.nursingActions!==false));
 const root=document.createElement("div");root.id="nsEmergency";root.innerHTML=`<button id="nsEmergencyLaunch" hidden type="button">Emergency Intake & Procedures</button>
