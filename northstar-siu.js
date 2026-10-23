@@ -46,7 +46,7 @@ e("#siuReportForm").onsubmit=async(ev)=>{
  const b=e("#siuReportForm").querySelector("button[type=submit]");b.disabled=true;
  try{const f=new FormData(ev.target),payload={reporterUid:user.uid,reporterName:staff.name||[staff.firstName,staff.lastName].filter(Boolean).join(" ")||user.email,category:f.get("category"),priority:f.get("priority"),title:f.get("title").trim(),occurredAt:f.get("occurredAt")||"",location:f.get("location").trim(),involved:f.get("involved").trim(),description:f.get("description").trim(),actions:f.get("actions").trim(),status:"open",assignedUid:"",finding:"",resolution:"",createdAt:serverTimestamp(),updatedAt:serverTimestamp()};
  const d=await addDoc(collection(db,"siuCases"),payload);
- await addDoc(collection(db,"siuCases",d.id,"timeline"),{kind:"report",message:"Incident report submitted",actorUid:user.uid,createdAt:serverTimestamp()});
+
  ev.target.reset();notice("Report submitted. Reference: "+d.id);switchTab("cases");
  }catch(err){notice("Submission failed: "+err.message,true)}finally{b.disabled=false}
 };
@@ -70,7 +70,7 @@ async function showCase(id){
  e("#siuManage").onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target);try{await updateDoc(ref,{status:f.get("status"),assignedUid:f.get("assignedUid").trim(),finding:f.get("finding"),resolution:f.get("resolution").trim(),updatedAt:serverTimestamp()});await addDoc(collection(ref,"timeline"),{kind:"change",message:"Case workflow updated",actorUid:user.uid,createdAt:serverTimestamp()});notice("Investigation updated");showCase(id)}catch(err){notice(err.message,true)}};
  e("#siuNote").onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target);try{await addDoc(collection(ref,"timeline"),{kind:f.get("kind"),message:f.get("message").trim(),actorUid:user.uid,createdAt:serverTimestamp()});notice("Entry appended to case history");showCase(id)}catch(err){notice(err.message,true)}};
  }
- const logs=await getDocs(collection(ref,"timeline"));const div=e("#siuTimeline");div.replaceChildren();
+ if(!investigator()){e("#siuTimeline").textContent="Internal investigative notes are restricted to authorized SIU personnel.";return;} const logs=await getDocs(collection(ref,"timeline"));const div=e("#siuTimeline");div.replaceChildren();
  const entries=logs.docs.map(x=>x.data()).sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));if(!entries.length)div.textContent="No activity yet.";
  for(const l of entries){const item=document.createElement("article");item.className="siu-log";item.innerHTML=`<strong>${escape(l.kind)}</strong><small>${escape(l.createdAt?.toDate?.().toLocaleString()||"Recent")}</small><p class="siu-pre">${escape(l.message)}</p>`;div.append(item)}
  }catch(err){notice("Unable to open case: "+err.message,true)}
