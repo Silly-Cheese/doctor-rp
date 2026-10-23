@@ -13,7 +13,7 @@ root.innerHTML=`<button class="ns-ops-launch" id="nsOpsLaunch" type="button" hid
 document.body.append(root);
 const e=id=>document.getElementById(id);const dialog=e("nsOpsDialog"),formDialog=e("nsOpsFormDialog"),message=s=>e("nsOpsMessage").textContent=s;
 const manager=()=>staff?.role==="administrator";
-const editor=()=>manager()||staff?.permissions?.manageRooms===true||staff?.permissions?.siuInvestigations===true;
+const editor=()=>manager()||(["beds","transport","shift"].includes(tab)&&staff?.permissions?.manageRooms===true);
 function init(){const tabs=e("nsOpsTabs");tabs.replaceChildren();for(const [id,name] of modules){const b=document.createElement("button");b.textContent=name;b.type="button";b.dataset.tab=id;b.onclick=()=>select(id);tabs.append(b)}select("beds")}
 function select(id){tab=id;for(const b of e("nsOpsTabs").querySelectorAll("button"))b.classList.toggle("active",b.dataset.tab===id);e("nsOpsTitle").textContent=byId[id][1];e("nsOpsDescription").textContent=byId[id][3];e("nsOpsNew").hidden=!editor();e("nsOpsSearch").value="";e("nsOpsStatus").value="";load()}
 async function load(){e("nsOpsList").textContent="Loading records…";if(!uid)return;try{const snap=await getDocs(collection(db,"northstarOps"));records=snap.docs.map(d=>({id:d.id,...d.data()})).filter(d=>d.module===tab);render()}catch(err){e("nsOpsList").textContent="Could not load records: "+err.message}}
