@@ -573,14 +573,15 @@ service cloud.firestore {
 
     // Non-clinical operations register: patient identifiers/medical details are prohibited by UI policy.
     // This register is not a substitute for patient charts or medication systems.
-    function canManageOps() {
+    function canManageOps(module) {
       return isAdministrator()
-        || (isActive() && permission('manageRooms', false) == true)
-        || (isActive() && permission('siuInvestigations', false) == true);
+        || (isActive()
+            && module in ['beds','transport','shift']
+            && permission('manageRooms', false) == true);
     }
     match /northstarOps/{recordId} {
       allow read: if isActive();
-      allow create: if canManageOps()
+      allow create: if canManageOps(request.resource.data.module)
         && request.resource.data.keys().hasOnly(['module','title','department','priority','summary','dueDate','status','createdBy','updatedBy','createdAt','updatedAt'])
         && request.resource.data.module in ['beds','transport','shift','quality','credentials','policy','forms']
         && request.resource.data.title is string
@@ -596,7 +597,7 @@ service cloud.firestore {
         && request.resource.data.updatedBy == request.auth.uid
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
-      allow update: if canManageOps()
+      allow update: if canManageOps(resource.data.module)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt','updatedBy'])
         && request.resource.data.status in ['open','assigned','in-progress','on-hold','completed','cancelled']
         && request.resource.data.updatedBy == request.auth.uid
