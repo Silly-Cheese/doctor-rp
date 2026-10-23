@@ -29,6 +29,8 @@ jobs:
             if(!fs.existsSync(local)){console.error('Missing file:',local);process.exitCode=1}
           }
           NODE
+      - name: Audit Firestore collections and dynamically loaded files
+        run: node tests/audit-collections.cjs
       - name: Verify new server functions dependencies
         run: |
           cd functions
