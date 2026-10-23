@@ -4,7 +4,7 @@ import {getAuth,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/12.
 import {getFirestore,doc,getDoc} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const auth=getAuth(getApp()),db=getFirestore(getApp());
 let active=false,profile=null,mode="all";
-const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;":"&quot;","'":"&#39;"}[c]));
+const esc=s=>String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("\'","&#39;");
 const markup=`<button id="nsxTrigger" class="nsx-trigger" type="button" hidden aria-haspopup="dialog" aria-controls="nsxDialog" title="Quick navigation (Ctrl+Shift+K)">⌘ <span>Navigate</span></button>
 <dialog id="nsxDialog" class="nsx-dialog" aria-label="Northstar quick navigation"><div class="nsx-panel">
 <div class="nsx-searchline"><span>⌕</span><input id="nsxSearch" type="search" aria-label="Search accessible workflows" placeholder="Find a workspace or tool…" autocomplete="off"><button id="nsxClose" type="button" aria-label="Close">×</button></div>
