@@ -9,3 +9,20 @@ html,body,.main-view,.workspace,main.content,.content-section,.northstar-platfor
 .nx-command-section :is(.nx-badge,.nx-status){box-shadow:none}
 .content-section :is(input,select,textarea){background:#fff;color:#143348;border-color:#b9cedb}
 @media(max-width:760px){.nx-command-head{padding:18px!important}.content{padding:12px!important}}
+
+/* Workstation canvas: explicitly reset backgrounds and inherited dark text */
+#northstarWorkstationSection,#northstarWorkstationSection.northstar-platform-section,
+#northstarWorkstationSection.content-section,main.content:has(#northstarWorkstationSection:not(.hidden)){
+background:#f2f6fa!important;color:#143348!important}
+#northstarWorkstationSection .workstation-head{background:#fff!important;padding:22px 24px;border-radius:16px;border:1px solid #d5e3ec!important}
+#northstarWorkstationSection .workstation-head h3{color:#13374d!important}
+#northstarWorkstationSection .workstation-head .eyebrow{color:#126387!important}
+#northstarWorkstationSection .workstation-head p:not(.eyebrow){color:#557589!important}
+#northstarWorkstationSection :is(.platform-panel,.workstation-metrics button){background:#fff!important;color:#15364a!important;border:1px solid #d5e3ec!important}
+#northstarWorkstationSection :is(.platform-panel h4,.workstation-metrics strong){color:#13374d!important}
+#northstarWorkstationSection :is(.platform-panel .muted,.workstation-metrics small){color:#607c8d!important}
+#northstarCommandSection,#northstarCommandSection .nx-panel{background:#f2f6fa!important;color:#15364a!important}
+#northstarCommandSection .nx-panel{background:#fff!important;border-color:#d5e3ec!important}
+#northstarCommandSection .nx-command-tabs button{background:#fff!important;color:#19455e!important}
+#northstarCommandSection .nx-command-tabs button.active{background:#dfedf5!important;color:#0b5477!important}
+#northstarCommandSection :is(.nx-attention,.nx-inbox-item,.nx-med-row,.nx-consult-row,.nx-response-row,.nx-staff-row,.nx-command-metrics article){background:#fff!important;color:#15364a!important;border-color:#d5e3ec!important}
