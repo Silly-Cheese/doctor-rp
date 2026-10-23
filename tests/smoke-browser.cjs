@@ -27,6 +27,20 @@ const { chromium } = require("playwright");
     if(errors.length)console.error("Page exceptions:",JSON.stringify(errors));
     if(missing.length)console.error("Failed local asset responses:",JSON.stringify(missing));
     const absent=Object.entries(states).filter(([,ok])=>!ok).map(([name])=>name);
+    // Simulate an authorized module becoming visible after authentication.
+    // The sidebar should reveal and hide the same destination without reloading.
+    const navSync = await page.evaluate(async () => {
+      const launch=document.getElementById("nsEmergencyLaunch");
+      const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
+      if(!launch||!navigation)return false;
+      launch.hidden=false;
+      await new Promise(resolve=>setTimeout(resolve,150));
+      const shown=!navigation.hidden;
+      launch.hidden=true;
+      await new Promise(resolve=>setTimeout(resolve,150));
+      return shown&&navigation.hidden;
+    });
+    if(!navSync)absent.push("Sidebar permission visibility synchronization");
     if(absent.length || missing.length || errors.some(x=>/SyntaxError|Unexpected token|is not defined|No Firebase App|Cannot access .* before initialization/i.test(x))) {
       console.error("Smoke test failed",JSON.stringify({absent,missing,errors}));
       process.exitCode=1;
