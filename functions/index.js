@@ -92,3 +92,8 @@ exports.requestOrphanCleanup=onCall({region:"us-central1",timeoutSeconds:540,mem
  await ref.create({patientId,patientMrn:"MISSING RECORD",patientName:"Orphaned records",orphan:true,recordSummary:found.collections,recordCount:found.recordCount,reason,status:"pending",requestedBy:actor.uid,requestedAt:admin.firestore.FieldValue.serverTimestamp(),approvedBy:null,completedAt:null});
  return {requestId:ref.id,status:"pending",recordCount:found.recordCount};
 });
+
+exports.northstarHealth=onCall({region:"us-central1",timeoutSeconds:20},async request=>{
+ const actor=await requireUser(request);
+ return {service:"northstar-backend",status:"ready",version:"2026-10-22-audit",role:actor.role};
+});
