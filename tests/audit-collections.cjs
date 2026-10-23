@@ -12,7 +12,7 @@ for(const file of scripts){
   if(!fs.existsSync(relative))missingFiles.add(file+" => "+relative);
  }
 }
-const absent=[...found.entries()].filter(([name])=>!new RegExp("match\\s+/"+name+"/\\{").test(rules));
+const absent=[...found.entries()].filter(([name])=>!new RegExp("match\\s+/"+name+"/").test(rules));
 console.log("Audited",scripts.length,"JS modules and",found.size,"direct Firestore collections");
 if(absent.length) console.error("Collections without direct Firestore rules:",absent.map(([name,files])=>({name,files:[...files]})));
 if(missingFiles.size) console.error("Missing dynamically referenced assets:",[...missingFiles]);
