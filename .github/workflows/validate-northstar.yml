@@ -34,3 +34,22 @@ jobs:
           cd functions
           npm install --package-lock-only --ignore-scripts
           node --check index.js
+
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser runner
+        run: |
+          npm install --no-save playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Start local static server
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/northstar-http.log 2>&1 &
+          sleep 2
+      - name: Verify browser modules initialize
+        run: node tests/smoke-browser.cjs
