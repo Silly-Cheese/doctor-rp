@@ -531,7 +531,8 @@ service cloud.firestore {
         ])
         && request.resource.data.status in ['open','triage','investigating','review','closed']
         && request.resource.data.finding in ['', 'substantiated', 'unsubstantiated','inconclusive','referred','withdrawn']
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.updatedAt == request.time
+        && (request.resource.data.status != 'closed' || (request.resource.data.finding != '' && request.resource.data.resolution is string && request.resource.data.resolution.size() >= 5));
       allow delete: if false;
 
       // Private append-only investigator record; submitters cannot view SIU notes.
