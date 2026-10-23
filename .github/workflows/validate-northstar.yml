@@ -53,3 +53,20 @@ jobs:
           sleep 2
       - name: Verify browser modules initialize
         run: node tests/smoke-browser.cjs
+
+  firestore-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Firebase emulator and rules testing SDK
+        run: npm install --no-save firebase-tools@14 @firebase/rules-unit-testing@5 firebase@12
+      - name: Run Firestore security rules regression tests
+        run: npx firebase emulators:exec --only firestore --project demo-northstar "node tests/firestore-rules.cjs"
