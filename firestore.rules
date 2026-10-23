@@ -366,6 +366,13 @@ service cloud.firestore {
                     && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.get('currentStatus', '') != 'deceased';
       allow update: if (
         canManageRegistration() && !confidentialEncounterFieldsChanged()
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientName'])
+          || (
+            resource.data.patientId is string
+            && getAfter(/databases/$(database)/documents/patients/$(resource.data.patientId)).data.get('identityStatus', '') == 'verified'
+            && request.resource.data.patientName ==
+              getAfter(/databases/$(database)/documents/patients/$(resource.data.patientId)).data.get('displayName', '')
+          ))
       ) || validProviderConfidentialUpdate()
         || validFailedAuthorizationAttempt()
         || validAdministratorCaseUnlock();
