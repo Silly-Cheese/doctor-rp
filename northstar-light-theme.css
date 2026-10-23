@@ -1,0 +1,11 @@
+/* Northstar light workspace restoration: override dark vNext surfaces */
+:root{--nx-bg:#f2f6fa;--nx-panel:#fff;--nx-panel-2:#edf4f8;--nx-line:#d5e3ec;--nx-soft:#eef5f9;--nx-text:#143348;--nx-muted:#526f80;--nx-blue:#08658e;--nx-green:#21734f;--nx-amber:#99621b;--nx-red:#a53443;--nx-shadow:0 8px 28px rgba(11,48,71,.07)}
+html,body,.main-view,.workspace,main.content,.content-section,.northstar-platform-section,.nx-command-section{background:#f2f6fa!important;color:#143348}
+.nx-command-head,.nx-workstation-head,.nx-hero,.nx-dashboard-hero,.workstation-head,.nx-command-section .nx-command-head{background:linear-gradient(130deg,#fff,#edf5fa)!important;color:#143348!important;border:1px solid #d5e3ec!important;box-shadow:0 8px 28px rgba(11,48,71,.06)!important}
+.nx-command-head :is(h1,h2,h3,p,strong,span,small),.nx-workstation-head :is(h1,h2,h3,p,strong,span),.nx-command-section :is(h1,h2,h3){color:#143348}
+.nx-command-section :is(.nx-card,.nx-panel,.nx-stat,.nx-metric,.nx-kpi,.nx-tile,.nx-summary,.nx-queue,.nx-alert-card),.northstar-platform-section :is(.panel,.metric-card,.workstation-panel),.content-section :is(.panel,.metric-card){background:#fff;color:#143348;border-color:#d5e3ec;box-shadow:0 4px 20px rgba(11,48,71,.05)}
+.nx-command-section :is(.nx-muted,.nx-subtitle),.workstation-head p:not(.eyebrow){color:#587386!important}
+.nx-command-section :is(.nx-tab,.nx-action,.nx-shortcut){color:#143348}
+.nx-command-section :is(.nx-badge,.nx-status){box-shadow:none}
+.content-section :is(input,select,textarea){background:#fff;color:#143348;border-color:#b9cedb}
+@media(max-width:760px){.nx-command-head{padding:18px!important}.content{padding:12px!important}}
