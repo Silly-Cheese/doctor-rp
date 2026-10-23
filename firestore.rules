@@ -491,6 +491,64 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+
+    // SIU reports: staff can file and see only their own. Investigators must be
+    // explicitly authorized by an administrator through users.permissions.
+    function isSIU() {
+      return isAdministrator() || (isActive() && permission('siuInvestigations', false) == true);
+    }
+
+    match /siuCases/{caseId} {
+      allow get, list: if isSIU() || (isActive() && resource.data.reporterUid == request.auth.uid);
+      allow create: if isActive()
+        && request.resource.data.keys().hasOnly([
+          'reporterUid','reporterName','category','priority','title','occurredAt',
+          'location','involved','description','actions','status','assignedUid',
+          'finding','resolution','createdAt','updatedAt'
+        ])
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.assignedUid == ''
+        && request.resource.data.finding == ''
+        && request.resource.data.resolution == ''
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 5
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 20
+        && request.resource.data.description.size() <= 8000
+        && request.resource.data.category in [
+          'Patient safety','Staff misconduct','Medication discrepancy',
+          'Record or privacy concern','Fraud or falsification',
+          'Harassment or retaliation','Equipment or facility','Other'
+        ]
+        && request.resource.data.priority in ['routine','high','critical'];
+      allow update: if isSIU()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status','assignedUid','finding','resolution','updatedAt'
+        ])
+        && request.resource.data.status in ['open','triage','investigating','review','closed']
+        && request.resource.data.finding in ['', 'substantiated', 'unsubstantiated','inconclusive','referred','withdrawn']
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+
+      // Private append-only investigator record; submitters cannot view SIU notes.
+      match /timeline/{eventId} {
+        allow read: if isSIU();
+        allow create: if isSIU()
+          && request.resource.data.keys().hasOnly(['kind','message','actorUid','createdAt'])
+          && request.resource.data.actorUid == request.auth.uid
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.kind in ['note','interview','evidence','action','change']
+          && request.resource.data.message is string
+          && request.resource.data.message.size() >= 5
+          && request.resource.data.message.size() <= 5000;
+        allow update, delete: if false;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
