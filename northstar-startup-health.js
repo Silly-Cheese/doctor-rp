@@ -1,5 +1,5 @@
 // Visible startup diagnostics so missing modules are not mistaken for missing deployments.
-const failures=[];const banner=document.createElement("div");banner.id="nmcStartupAlert";banner.hidden=true;banner.setAttribute("role","alert");
+const failures=[];window.NorthstarRuntimeErrors=failures;const banner=document.createElement("div");banner.id="nmcStartupAlert";banner.hidden=true;banner.setAttribute("role","alert");
 banner.innerHTML='<strong>Northstar started with errors</strong><span id="nmcStartupSummary"></span><button type="button" id="nmcStartupDetails">Details</button><button type="button" id="nmcStartupDismiss">Dismiss</button>';
 document.body.append(banner);
 function report(message){if(!message||failures.includes(message))return;failures.push(String(message).slice(0,300));banner.hidden=false;document.getElementById("nmcStartupSummary").textContent=failures.length+" startup error(s) detected. Some features may not load.";console.error("Northstar startup issue:",message)}
