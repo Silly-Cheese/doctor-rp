@@ -45,7 +45,8 @@ const PERMISSIONS = [
   ["messages", "Clinical Messaging", "Send and receive Northstar messages"],
   ["emergencyEvents", "Emergency Events", "Start and participate in emergency responses"],
   ["restrictedCases", "Restricted Cases", "Use authorization codes for confidential cases"],
-  ["printWristbands", "Patient Wristbands", "Print and scan patient wristbands"]
+  ["printWristbands", "Patient Wristbands", "Print and scan patient wristbands"],
+  ["siuInvestigations", "Special Investigations", "Review confidential incident reports and investigate SIU cases"]
 ];
 
 const ROLE_DEFAULTS = {
