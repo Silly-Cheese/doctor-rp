@@ -2,7 +2,7 @@ import {getApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js
 import {getAuth,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {getFirestore,collection,addDoc,getDocs,doc,updateDoc,deleteDoc,query,orderBy,serverTimestamp,getDoc} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const db=getFirestore(getApp()),auth=getAuth(getApp());
-const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;":"&quot;","'":"&#39;"}[c]));
+const esc=s=>String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("\'","&#39;");
 let uid=null,items=[],filter="open";
 const root=document.createElement("div");root.id="northstarWorkdesk";root.innerHTML=`
 <button class="ns-workdesk-launch" id="nsWorkdeskOpen" hidden type="button" aria-haspopup="dialog" aria-controls="nsWorkdeskDialog">My Shift Workspace</button>
