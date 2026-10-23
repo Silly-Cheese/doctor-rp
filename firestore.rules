@@ -356,7 +356,7 @@ service cloud.firestore {
         && request.resource.data.get('vitalStatus', '') == 'deceased'
         && request.resource.data.get('recordConfidential', false) == resource.data.get('recordConfidential', false)
         && request.resource.data.get('deceasedAccessUids', []) == resource.data.get('deceasedAccessUids', []);
-      allow delete: if isAdministrator();
+      allow delete: if false; // Cloud Function only, after independent approval
     }
 
     match /encounters/{encounterId} {
@@ -618,6 +618,15 @@ service cloud.firestore {
         && request.resource.data.updatedBy == request.auth.uid
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
+    }
+
+    match /patientDeletionRequests/{requestId} {
+      allow read: if isAdministrator();
+      allow create, update, delete: if false;
+    }
+    match /patientDeletionAudit/{auditId} {
+      allow read: if isAdministrator();
+      allow create, update, delete: if false;
     }
 
     match /{document=**} {
