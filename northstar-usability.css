@@ -1,0 +1,26 @@
+/* Northstar interface refinement: additive, preserves existing component layouts */
+:root{--radius:14px;--shadow:0 5px 22px rgba(10,41,64,.055)}
+button,input,select,textarea{font-family:Inter,system-ui,sans-serif}
+button{touch-action:manipulation}
+:where(button,a,input,select,textarea):focus-visible{outline:3px solid #4a9dc5;outline-offset:2px}
+:where(.panel,.metric-card,.status-card,.auth-panel){box-shadow:var(--shadow)}
+:where(.panel,.metric-card,.status-card){border-radius:14px}
+:where(.content-section,.workspace,.content,.panel){min-width:0}
+:where(.panel,.metric-card){overflow-wrap:anywhere}
+:where(.section-heading,.panel-header,.welcome-row){gap:14px;flex-wrap:wrap}
+:where(.primary-button,.secondary-button,.danger-button){min-height:40px;transition:background .16s ease,box-shadow .16s ease,transform .16s ease}
+:where(.primary-button,.secondary-button,.danger-button):active{transform:translateY(1px)}
+:where(input,textarea,select){max-width:100%}
+:where(dialog,.modal){max-width:calc(100vw - 20px)}
+:where(table){max-width:100%}
+:where(.nav-item){min-height:42px}
+:where(.toast){max-width:min(420px,calc(100vw - 24px))}
+@media(max-width:760px){
+  :where(.content){padding:clamp(12px,3vw,22px)}
+  :where(.panel){padding:clamp(13px,3vw,20px)}
+  :where(.metric-grid){grid-template-columns:repeat(2,minmax(0,1fr))}
+  :where(.topbar-actions){flex-wrap:wrap}
+  :where(.modal-card){max-width:calc(100vw - 16px)}
+}
+@media(max-width:400px){:where(.metric-grid){grid-template-columns:1fr 1fr}:where(.metric-card){padding:12px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
