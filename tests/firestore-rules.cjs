@@ -1,6 +1,6 @@
 const fs=require("fs");
 const {initializeTestEnvironment,assertFails,assertSucceeds}=require("@firebase/rules-unit-testing");
-const {doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp}=require("firebase/firestore");
+const {doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,serverTimestamp}=require("firebase/firestore");
 (async()=>{
  const environment=await initializeTestEnvironment({
   projectId:"demo-northstar",
@@ -13,7 +13,7 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp}=require("firebase/
    await setDoc(doc(firestore,"users","siumember"),{uid:"siumember",role:"staff",status:"active",permissions:{siuInvestigations:true}});
    await setDoc(doc(firestore,"patients","testpatient"),{firstName:"Example",lastName:"Patient",displayName:"Example Patient",mrn:"NMC-TEST",vitalStatus:"active",currentStatus:"not-checked-in"});
    await setDoc(doc(firestore,"users","registrar"),{uid:"registrar",role:"registration",status:"active",permissions:{manageRegistration:true}});
-   await setDoc(doc(firestore,"patients","deceaseddoe"),{firstName:"Jane",lastName:"Identified",displayName:"Jane Identified",identityStatus:"verified",vitalStatus:"deceased",recordConfidential:true,deceasedAccessUids:[]});
+   await setDoc(doc(firestore,"patients","deceaseddoe"),{firstName:"Jane",lastName:"Doe",displayName:"Jane Doe",identityStatus:"unidentified",vitalStatus:"deceased",recordConfidential:true,deceasedAccessUids:[]});
    await setDoc(doc(firestore,"encounters","priorvisit"),{patientId:"deceaseddoe",patientName:"Jane Doe",status:"discharged",recordConfidential:true});
   });
   const admin=environment.authenticatedContext("adminstaff").firestore();
@@ -29,7 +29,14 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp}=require("firebase/
    summary:"Check renewal documentation.",dueDate:"",status:"open",createdBy:"siumember",updatedBy:"siumember",
    createdAt:serverTimestamp(),updatedAt:serverTimestamp()
   }));
-  await assertSucceeds(updateDoc(doc(registrar,"encounters","priorvisit"),{patientName:"Jane Identified",updatedAt:serverTimestamp()}));
+  const identityBatch=writeBatch(registrar);
+  identityBatch.update(doc(registrar,"patients","deceaseddoe"),{
+    firstName:"Jane",lastName:"Identified",displayName:"Jane Identified",
+    identityStatus:"verified",identityResolvedAt:serverTimestamp(),identityResolvedBy:"registrar",
+    identityResolutionReason:"Verified identity using documented records",updatedAt:serverTimestamp()
+  });
+  identityBatch.update(doc(registrar,"encounters","priorvisit"),{patientName:"Jane Identified",updatedAt:serverTimestamp()});
+  await assertSucceeds(identityBatch.commit());
   await assertFails(updateDoc(doc(registrar,"encounters","priorvisit"),{patientName:"Wrong name",updatedAt:serverTimestamp()}));
   console.log("Firestore safety regression tests passed.");
  } finally {await environment.cleanup();}
