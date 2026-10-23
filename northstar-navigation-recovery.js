@@ -1,23 +1,67 @@
-// Persistent navigation entries for independently loaded feature modules.
-(function(){
- const entries=[["nsEmergencyLaunch","Emergency Intake & Procedures","Care"],["siuLaunch","Incident Reporting & SIU","Administration"],["nsOpsLaunch","Operations Center","Operations"],["nsWorkdeskOpen","My Shift Tasks","Care"],["nmcDeleteOpen","Patient Deletion Approvals","Administration"],["nsPrefsLaunch","Display Preferences","Administration"]];
- function sync(){
-  const nav=document.querySelector(".nav-list");if(!nav)return;
-  for(const [id,title,group]of entries){
-   const original=document.getElementById(id),existing=document.getElementById("nsNav-"+id);
-   if(!original){if(existing)existing.hidden=true;continue}
-   let btn=existing;
-   if(!btn){
-    btn=document.createElement("button");btn.type="button";btn.className="nav-item ns-feature-nav";btn.id="nsNav-"+id;btn.textContent=title;
-    btn.onclick=()=>{original.click();if(window.innerWidth<800)document.querySelector(".sidebar")?.classList.remove("open")};
-    const groups=[...nav.querySelectorAll(".nav-group")];
-    const target=groups.find(x=>x.querySelector(".nav-group-title")?.textContent?.trim()===group);
-    (target||nav).append(btn);
-   }
-   btn.hidden=original.hidden;
+// Keep role-appropriate feature destinations visible even when modules mount late.
+(function () {
+  "use strict";
+  const entries = [
+    ["nsEmergencyLaunch", "Emergency Intake & Procedures", "Care"],
+    ["siuLaunch", "Incident Reporting & SIU", "Administration"],
+    ["nsOpsLaunch", "Operations Center", "Operations"],
+    ["nsWorkdeskOpen", "My Shift Tasks", "Care"],
+    ["nmcDeleteOpen", "Patient Deletion Approvals", "Administration"],
+    ["nsPrefsLaunch", "Display Preferences", "Administration"]
+  ];
+  let scheduled = false;
+  function sync() {
+    scheduled = false;
+    const nav = document.querySelector(".nav-list");
+    if (!nav) return;
+    // The enterprise module rebuilds navigation groups at boot; do not race it.
+    if (!nav.dataset.organized && document.documentElement.dataset.northstarBoot === "loading") return;
+    for (const [id, title, group] of entries) {
+      const origin = document.getElementById(id);
+      let button = document.getElementById("nsNav-" + id);
+      if (!origin) {
+        if (button) button.hidden = true;
+        continue;
+      }
+      if (!button) {
+        button = document.createElement("button");
+        button.type = "button";
+        button.id = "nsNav-" + id;
+        button.className = "nav-item ns-feature-nav";
+        button.textContent = title;
+        button.addEventListener("click", () => {
+          if (!origin.hidden) origin.click();
+          document.querySelector(".sidebar")?.classList.remove("open");
+        });
+      }
+      const target = [...nav.querySelectorAll(".nav-group")].find(g =>
+        g.querySelector(".nav-group-title")?.textContent?.trim() === group
+      ) || nav;
+      if (button.parentElement !== target) target.appendChild(button);
+      if (button.hidden !== origin.hidden) button.hidden = origin.hidden;
+      button.disabled = origin.hidden;
+      button.title = origin.hidden ? "Unavailable for this account" : title;
+    }
   }
- }
- window.addEventListener("northstar:boot-complete",sync);
- document.addEventListener("DOMContentLoaded",sync);
- let attempts=0;const interval=setInterval(()=>{sync();if(++attempts>=15)clearInterval(interval)},1000);
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    queueMicrotask(sync);
+  }
+  const targets = new Set(entries.map(x => x[0]));
+  new MutationObserver(changes => {
+    if (changes.some(change =>
+      (change.type === "attributes" && (targets.has(change.target.id) ||
+        (change.target.classList?.contains("nav-list") && change.attributeName === "data-organized"))) ||
+      (change.type === "childList" && [...change.addedNodes].some(node =>
+        node.nodeType === 1 && (
+          targets.has(node.id) ||
+          node.classList?.contains("nav-group") ||
+          node.classList?.contains("nav-list")
+        )))
+    )) schedule();
+  }).observe(document.documentElement, {subtree:true,childList:true,attributes:true,attributeFilter:["hidden","data-organized"]});
+  window.addEventListener("northstar:boot-complete",schedule);
+  document.addEventListener("DOMContentLoaded",schedule);
+  schedule();
 })();
