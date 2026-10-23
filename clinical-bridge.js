@@ -63,6 +63,14 @@ async function bootNorthstar() {
   // vNext connects the existing clinical, operational, and simulation surfaces into one command experience.
   await loadNorthstarModule("./northstar-vnext.js");
 
+  // Dynamically loaded modules insert stylesheets after the original document styles.
+  // Keep the hospital-wide light theme last so dark module defaults cannot override it.
+  const lightTheme = document.querySelector('link[href^="northstar-light-theme.css"]');
+  if (lightTheme) {
+    lightTheme.href = "northstar-light-theme.css?v=20261022-stable";
+    document.head.appendChild(lightTheme);
+  }
+
   document.documentElement.dataset.northstarBoot = failedModules.length ? "degraded" : "ready";
   document.documentElement.dataset.northstarBootMs = String(Math.round(performance.now() - startedAt));
 
