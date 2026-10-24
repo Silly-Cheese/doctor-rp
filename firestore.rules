@@ -509,6 +509,92 @@ service cloud.firestore {
       allow delete: if isAdministrator();
     }
 
+    // Simulated patient financial records; never authorizes real collections, claims or payments.
+    function isBillingReader() {
+      return isActive() && (
+        isAdministrator() || currentUser().role in ['physician','registration']
+        || permission('billingAccess', false) == true
+      );
+    }
+    function isBillingManager() {
+      return isActive() && (isAdministrator() || permission('billingManage', false) == true);
+    }
+    function billingInvariant(data, accountId) {
+      return data.encounterId == accountId
+        && data.patientId is string
+        && data.patientName is string
+        && data.invoiceNumber is string
+        && data.simulated == true
+        && data.lineItems is list && data.lineItems.size() > 0 && data.lineItems.size() <= 100
+        && data.chargeCents is int && data.chargeCents >= 0 && data.chargeCents <= 1000000000
+        && data.insuranceEstimatedCents is int && data.insuranceEstimatedCents >= 0
+        && data.insuranceReceivedCents is int && data.insuranceReceivedCents >= 0
+        && data.waivedCents is int && data.waivedCents >= 0
+        && data.patientPaidCents is int && data.patientPaidCents >= 0
+        && data.patientResponsibilityCents is int && data.patientResponsibilityCents >= 0
+        && data.patientBalanceCents is int && data.patientBalanceCents >= 0
+        && data.insurerBalanceCents is int && data.insurerBalanceCents >= 0
+        && data.insuranceEstimatedCents + data.waivedCents <= data.chargeCents
+        && data.insuranceReceivedCents <= data.insuranceEstimatedCents
+        && data.patientPaidCents <= data.patientResponsibilityCents
+        && data.patientResponsibilityCents == data.chargeCents - data.insuranceEstimatedCents - data.waivedCents
+        && data.patientBalanceCents == data.patientResponsibilityCents - data.patientPaidCents
+        && data.insurerBalanceCents == data.insuranceEstimatedCents - data.insuranceReceivedCents
+        && data.billingMode in ['patient','insurance','split','waived']
+        && data.claimStatus in ['not-applicable','not-submitted','submitted','pending','approved','denied','paid','partially-paid']
+        && data.status in ['open','insurance-pending','partially-paid','paid','waived']
+        && data.insuranceProvider is string && data.insuranceProvider.size() <= 100
+        && data.waiverReason is string && data.waiverReason.size() <= 500
+        && data.notes is string && data.notes.size() <= 1500
+        && (data.waivedCents == 0 || data.waiverReason.size() >= 5)
+        && (data.insuranceEstimatedCents == 0 || data.insuranceProvider.size() >= 1);
+    }
+    match /billingAccounts/{encounterId} {
+      allow read: if isBillingReader();
+      allow create: if (isProvider() || isBillingManager())
+        && request.resource.data.keys().hasOnly([
+          'encounterId','patientId','patientName','invoiceNumber','lineItems',
+          'chargeCents','insuranceEstimatedCents','insuranceReceivedCents',
+          'waivedCents','patientPaidCents','patientResponsibilityCents',
+          'patientBalanceCents','insurerBalanceCents','insuranceProvider',
+          'claimStatus','waiverReason','notes','billingMode','status',
+          'createdBy','updatedBy','createdAt','updatedAt','source','simulated'
+        ])
+        && billingInvariant(request.resource.data, encounterId)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && getAfter(/databases/$(database)/documents/encounters/$(encounterId)).data.patientId == request.resource.data.patientId
+        && getAfter(/databases/$(database)/documents/encounters/$(encounterId)).data.status == 'discharged';
+      allow update: if isBillingManager()
+        && billingInvariant(request.resource.data, encounterId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'lineItems','chargeCents','insuranceEstimatedCents','insuranceReceivedCents',
+          'waivedCents','patientPaidCents','patientResponsibilityCents',
+          'patientBalanceCents','insurerBalanceCents','claimStatus','waiverReason',
+          'notes','status','updatedBy','updatedAt'
+        ])
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+      match /events/{eventId} {
+        allow read: if isBillingReader();
+        allow create: if isBillingManager()
+          && request.resource.data.keys().hasOnly(['action','amountCents','detail','reason','actorUid','createdAt','simulated'])
+          && request.resource.data.actorUid == request.auth.uid
+          && request.resource.data.simulated == true
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.action in ['patient-payment','insurance-payment','coverage','waiver','charge','claim','note']
+          && request.resource.data.amountCents is int
+          && request.resource.data.amountCents >= 0
+          && request.resource.data.detail is string && request.resource.data.detail.size() <= 250
+          && request.resource.data.reason is string
+          && request.resource.data.reason.size() >= 5 && request.resource.data.reason.size() <= 750;
+        allow update, delete: if false;
+      }
+    }
+
     match /dischargePlans/{planId} {
       allow read: if isActive();
       allow create, update: if isProvider();
