@@ -544,6 +544,7 @@ service cloud.firestore {
         && data.claimStatus in ['not-applicable','not-submitted','submitted','pending','approved','denied','paid','partially-paid']
         && data.status in ['open','insurance-pending','partially-paid','paid','waived']
         && data.insuranceProvider is string && data.insuranceProvider.size() <= 100
+        && data.get("paymentDueDate", "") is string && data.get("paymentDueDate", "").size() <= 10
         && data.waiverReason is string && data.waiverReason.size() <= 500
         && data.notes is string && data.notes.size() <= 1500
         && (data.waivedCents == 0 || data.waiverReason.size() >= 5)
@@ -556,7 +557,7 @@ service cloud.firestore {
           'encounterId','patientId','patientName','invoiceNumber','lineItems',
           'chargeCents','insuranceEstimatedCents','insuranceReceivedCents',
           'waivedCents','patientPaidCents','patientResponsibilityCents',
-          'patientBalanceCents','insurerBalanceCents','insuranceProvider',
+          'patientBalanceCents','insurerBalanceCents','insuranceProvider','paymentDueDate',
           'claimStatus','waiverReason','notes','billingMode','status',
           'createdBy','updatedBy','createdAt','updatedAt','source','simulated'
         ])
@@ -574,7 +575,7 @@ service cloud.firestore {
           'lineItems','chargeCents','insuranceEstimatedCents','insuranceReceivedCents',
           'waivedCents','patientPaidCents','patientResponsibilityCents',
           'patientBalanceCents','insurerBalanceCents','claimStatus','waiverReason',
-          'notes','status','updatedBy','updatedAt'
+          'notes','status','insuranceProvider','paymentDueDate','updatedBy','updatedAt'
         ])
         && request.resource.data.updatedBy == request.auth.uid
         && request.resource.data.updatedAt == request.time;
@@ -586,7 +587,7 @@ service cloud.firestore {
           && request.resource.data.actorUid == request.auth.uid
           && request.resource.data.simulated == true
           && request.resource.data.createdAt == request.time
-          && request.resource.data.action in ['patient-payment','insurance-payment','coverage','waiver','charge','claim','note']
+          && request.resource.data.action in ['patient-payment','insurance-payment','patient-refund','insurance-refund','coverage','waiver','charge','charge-correction','insurer','due-date','claim','note']
           && request.resource.data.amountCents is int
           && request.resource.data.amountCents >= 0
           && request.resource.data.detail is string && request.resource.data.detail.size() <= 250
