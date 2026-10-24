@@ -17,8 +17,9 @@ The script targets **doctor-rp** explicitly, validates the frontend project ID a
 
 In Northstar, open **System Status** using **Quick actions**. Under **Firebase Functions**, the status should show **Connected** and a server version when the authenticated health function is deployed. If the endpoint cannot be contacted, it displays a diagnostic error instead.
 
-## Destructive operations
-Patient deletion and orphan cleanup require a request from one administrator and independent approval by a second administrator. These operations are irreversible. Test with disposable simulation data and retain appropriate backups before using them with important records. Firestore Rules do **not** prevent a project owner from deleting documents directly in Firebase Console or with privileged server credentials. Missing parent patient documents can be detected via the Orphan Record scan, but not all undocumented custom references are discoverable.
+## Patient record protection
+
+Client-side deletion of patient documents remains denied in Firestore. Existing patient records and historical data are unaffected by the removal of retired administration controls. Removing a frontend feature does not automatically remove previously deployed Cloud Functions; follow the deployment instructions for retiring old function endpoints.
 
 ## Validation boundaries
 Passing browser startup and emulator tests does not prove every authenticated clinical workflow. Verify patient registration, identity resolution, procedures, staff permission editing, SIU submissions and approvals in a staging/demo account.
