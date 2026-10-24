@@ -13,6 +13,7 @@ const { chromium } = require("playwright");
     await page.waitForTimeout(12000);
     const expected = {
       "SIU":"#northstarSIU",
+      "Billing navigation":"#enterprise-billing",
       "Staff workdesk":"#northstarWorkdesk",
       "Workflow navigator":"#northstarExperience",
       "Operations Center":"#nsOperationsRoot",
@@ -29,6 +30,8 @@ const { chromium } = require("playwright");
     const absent=Object.entries(states).filter(([,ok])=>!ok).map(([name])=>name);
     // Simulate an authorized module becoming visible after authentication.
     // The sidebar should reveal and hide the same destination without reloading.
+    const billingPanel=await page.locator("#dischargeForm .nmc-bill-fields").count()>0;
+    if(!billingPanel)absent.push("Mandatory discharge billing form");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
