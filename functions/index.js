@@ -2,7 +2,7 @@ const {onCall,HttpsError}=require("firebase-functions/v2/https");
 const admin=require("firebase-admin");
 admin.initializeApp();
 const db=admin.firestore();
-const COLLECTIONS=["encounters","orders","results","clinicalNotes","noteAddenda","observations","medicationAdministrations","handoffs","tasks","messages","clinicalAlerts","emergencyEvents","labSpecimens","imagingStudies","admissions","emsArrivals","dischargePlans","procedures","bloodBankRequests","breakGlassEvents","auditEvents","northstarOps"];
+const COLLECTIONS=["encounters","orders","results","clinicalNotes","noteAddenda","observations","medicationAdministrations","handoffs","tasks","messages","clinicalAlerts","emergencyEvents","labSpecimens","imagingStudies","admissions","emsArrivals","dischargePlans","procedures","bloodBankRequests","breakGlassEvents","auditEvents","northstarOps","billingAccounts"];
 const requireUser=async request=>{if(!request.auth)throw new HttpsError("unauthenticated","Please sign in.");const uid=request.auth.uid;const snap=await db.doc("users/"+uid).get();if(!snap.exists||snap.get("status")!=="active")throw new HttpsError("permission-denied","An active staff account is required.");return {uid,role:snap.get("role"),permissions:snap.get("permissions")||{}}};
 const adminUser=u=>u.role==="administrator";
 const validId=x=>typeof x==="string"&&/^[a-zA-Z0-9_-]{8,150}$/.test(x);
