@@ -565,6 +565,7 @@ service cloud.firestore {
         && request.resource.data.updatedBy == request.auth.uid
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time
+        && existsAfter(/databases/$(database)/documents/patients/$(request.resource.data.patientId))
         && getAfter(/databases/$(database)/documents/encounters/$(encounterId)).data.patientId == request.resource.data.patientId
         && getAfter(/databases/$(database)/documents/encounters/$(encounterId)).data.status == 'discharged';
       allow update: if isBillingManager()
