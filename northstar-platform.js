@@ -46,16 +46,18 @@ const PERMISSIONS = [
   ["emergencyEvents", "Emergency Events", "Start and participate in emergency responses"],
   ["restrictedCases", "Restricted Cases", "Use authorization codes for confidential cases"],
   ["printWristbands", "Patient Wristbands", "Print and scan patient wristbands"],
-  ["siuInvestigations", "Special Investigations", "Review confidential incident reports and investigate SIU cases"]
+  ["siuInvestigations", "Special Investigations", "Review confidential incident reports and investigate SIU cases"],
+  ["billingAccess", "Billing & Revenue", "View encounter invoices and balances"],
+  ["billingManage", "Billing Management", "Post simulated payments, coverage and waivers"]
 ];
 
 const ROLE_DEFAULTS = {
   administrator: Object.fromEntries(PERMISSIONS.map(([key]) => [key, true])),
-  physician: { manageRegistration: true, editPatients: true, providerActions: true, nursingActions: false, diagnosticActions: false, manageRooms: true, messages: true, emergencyEvents: true, restrictedCases: true, printWristbands: true },
-  nurse: { manageRegistration: true, editPatients: true, providerActions: false, nursingActions: true, diagnosticActions: false, manageRooms: true, messages: true, emergencyEvents: true, restrictedCases: true, printWristbands: true },
-  registration: { manageRegistration: true, editPatients: true, providerActions: false, nursingActions: false, diagnosticActions: false, manageRooms: false, messages: true, emergencyEvents: false, restrictedCases: false, printWristbands: true },
-  technician: { manageRegistration: false, editPatients: false, providerActions: false, nursingActions: false, diagnosticActions: true, manageRooms: false, messages: true, emergencyEvents: true, restrictedCases: true, printWristbands: false },
-  staff: { manageRegistration: false, editPatients: false, providerActions: false, nursingActions: false, diagnosticActions: false, manageRooms: false, messages: true, emergencyEvents: false, restrictedCases: false, printWristbands: false }
+  physician: { billingAccess: true, billingManage: false, manageRegistration: true, editPatients: true, providerActions: true, nursingActions: false, diagnosticActions: false, manageRooms: true, messages: true, emergencyEvents: true, restrictedCases: true, printWristbands: true },
+  nurse: { billingAccess: false, billingManage: false, manageRegistration: true, editPatients: true, providerActions: false, nursingActions: true, diagnosticActions: false, manageRooms: true, messages: true, emergencyEvents: true, restrictedCases: true, printWristbands: true },
+  registration: { billingAccess: true, billingManage: true, manageRegistration: true, editPatients: true, providerActions: false, nursingActions: false, diagnosticActions: false, manageRooms: false, messages: true, emergencyEvents: false, restrictedCases: false, printWristbands: true },
+  technician: { billingAccess: false, billingManage: false, manageRegistration: false, editPatients: false, providerActions: false, nursingActions: false, diagnosticActions: true, manageRooms: false, messages: true, emergencyEvents: true, restrictedCases: true, printWristbands: false },
+  staff: { billingAccess: false, billingManage: false, manageRegistration: false, editPatients: false, providerActions: false, nursingActions: false, diagnosticActions: false, manageRooms: false, messages: true, emergencyEvents: false, restrictedCases: false, printWristbands: false }
 };
 
 const state = {
