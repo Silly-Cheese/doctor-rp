@@ -93,10 +93,10 @@ function access(profile){return profile?.status==="active"&&(profile.role==="adm
 function manage(profile){return profile?.status==="active"&&(profile.role==="administrator"||profile.permissions?.billingManage===true);}
 export function billingCanAccess(profile){return access(profile);}
 export function billingCanManage(profile){return manage(profile);}
-let current={records:[],encounters:[],profile:null,target:null};
+let current={records:[],encounters:[],patients:[],profile:null,target:null};
 function statusLabel(x){return x.replaceAll("-"," ").replace(/\b\w/g,c=>c.toUpperCase());}
-export function renderBillingPage({target,records,encounters,profile}){
- current={records,encounters,profile,target};
+export function renderBillingPage({target,records,encounters,patients=[],profile}){
+ current={records,encounters,patients,profile,target};
  if(!target)return;
  if(!access(profile)){target.innerHTML='<div class="panel"><h3>Billing access restricted</h3><p>Contact an administrator for billing access.</p></div>';return;}
  const total=records.reduce((a,x)=>a+(x.chargeCents||0),0),remaining=records.reduce((a,x)=>a+(x.patientBalanceCents||0),0),payer=records.reduce((a,x)=>a+(x.insurerBalanceCents||0),0);
@@ -107,9 +107,9 @@ export function renderBillingPage({target,records,encounters,profile}){
  const search=target.querySelector("#nmcBillingSearch"),filter=target.querySelector("#nmcBillingFilter");
  const draw=()=>{
   const needle=search.value.trim().toLowerCase(),status=filter.value;
-  const matches=records.filter(x=>(!status||x.status===status)&&[x.patientName,x.invoiceNumber,x.insuranceProvider,x.encounterId].some(v=>String(v||"").toLowerCase().includes(needle)));
+  const matches=records.filter(x=>(!status||x.status===status)&&[x.patientName,patients.find(p=>p.id===x.patientId)?.displayName,x.invoiceNumber,x.insuranceProvider,x.encounterId].some(v=>String(v||"").toLowerCase().includes(needle)));
   const list=target.querySelector("#nmcBillingRows");
-  list.innerHTML=matches.length?matches.map(x=>'<article class="nmc-bill-row"><div><strong>'+esc(x.patientName)+'</strong><small>'+esc(x.invoiceNumber)+' · '+esc(statusLabel(x.status||"open"))+'</small></div><div><span>Charged '+money(x.chargeCents)+'</span><small>Patient '+money(x.patientBalanceCents)+' · Insurer '+money(x.insurerBalanceCents)+'</small></div><button type="button" data-nmc-invoice="'+esc(x.encounterId)+'">View invoice</button></article>').join(""):'<p class="nmc-bill-empty">No matching invoices.</p>';
+  list.innerHTML=matches.length?matches.map(x=>'<article class="nmc-bill-row"><div><strong>'+esc(patients.find(p=>p.id===x.patientId)?.displayName||x.patientName)+'</strong><small>'+esc(x.invoiceNumber)+' · '+esc(statusLabel(x.status||"open"))+'</small></div><div><span>Charged '+money(x.chargeCents)+'</span><small>Patient '+money(x.patientBalanceCents)+' · Insurer '+money(x.insurerBalanceCents)+'</small></div><button type="button" data-nmc-invoice="'+esc(x.encounterId)+'">View invoice</button></article>').join(""):'<p class="nmc-bill-empty">No matching invoices.</p>';
  };
  search.addEventListener("input",draw);filter.addEventListener("change",draw);draw();
  const existing=new Set(records.map(x=>x.encounterId));
@@ -125,6 +125,7 @@ async function openInvoice(id){
  const app=getApp(),db=getFirestore(app),auth=getAuth(app),accountRef=doc(db,"billingAccounts",id);
  const snap=await getDoc(accountRef);if(!snap.exists())return alert("Invoice was not found.");
  const a={...snap.data(),encounterId:id};
+ const livePatient=await getDoc(doc(db,"patients",a.patientId));if(livePatient.exists())a.patientName=livePatient.get("displayName")||a.patientName;
  const events=await getDocs(query(collection(db,"billingAccounts",id,"events"),orderBy("createdAt","desc")));
  const writable=manage(current.profile);
  const d=document.createElement("dialog");d.className="nmc-billing-dialog";
@@ -173,6 +174,7 @@ export async function postBillingActivity({accountId,action,amount,detail,reason
 export async function openBillingDialogForEncounter({encounter,plan=null,retroactive=false}){
  if(!encounter?.id||!encounter?.patientId)throw Error("A valid patient encounter is required.");
  const db=getFirestore(getApp()),auth=getAuth(getApp());
+ const patientExists=await getDoc(doc(db,"patients",encounter.patientId));if(!patientExists.exists())throw Error("The patient record is missing. Resolve the orphan record before billing.");
  const currentInvoice=await getDoc(doc(db,"billingAccounts",encounter.id));
  if(currentInvoice.exists())throw Error("This encounter already has a billing invoice.");
  const d=document.createElement("dialog");d.className="nmc-billing-dialog";
