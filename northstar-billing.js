@@ -153,7 +153,7 @@ async function openInvoice(id){
 export async function postBillingActivity({accountId,action,amount,detail,reason,actorUid}){
  if(!actorUid||reason.length<5)throw Error("A signed-in billing user and documented reason are required.");
  const db=getFirestore(getApp()),accountRef=doc(db,"billingAccounts",accountId),eventRef=doc(collection(db,"billingAccounts",accountId,"events"));
- const cents=["claim","note"].includes(action)?0:moneyValue(amount,true);
+ const cents=["claim","note","insurer","due-date"].includes(action)?0:moneyValue(amount,true);
  await runTransaction(db,async tx=>{
   const snap=await tx.get(accountRef);if(!snap.exists())throw Error("Invoice not found.");
   const a={...snap.data()};let changedAmount=cents;
