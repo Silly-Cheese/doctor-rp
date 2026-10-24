@@ -40,7 +40,7 @@ On an insurer denial, the unreceived estimated coverage is moved into the patien
 These settings are exposed in Northstar's staff permissions area. Existing account permissions may need explicit updating to grant billing management.
 
 ## Data
-`billingAccounts/{encounterId}` tracks the unique invoice, itemized charges, insurer estimate/received amounts, authorized write-offs, patient responsibility, payments, outstanding balances, claim status, waiver authorization and simulated status. `billingAccounts/{encounterId}/events/{eventId}` is the append-only financial activity log. Patient/encounter IDs link the records for full approved patient removal via the server-side cascading deletion flow.
+`billingAccounts/{encounterId}` tracks the unique invoice, itemized charges, insurer estimate/received amounts, authorized write-offs, patient responsibility, payments, outstanding balances, claim status, waiver authorization and simulated status. `billingAccounts/{encounterId}/events/{eventId}` is the append-only financial activity log. Patient and encounter IDs link records for accurate invoice and clinical history. Direct patient deletion remains restricted.
 
 ## Deployment
 Publishing to GitHub Pages updates the website **only**. You must also deploy new Firestore rules for the billing page to read, create or update records:
