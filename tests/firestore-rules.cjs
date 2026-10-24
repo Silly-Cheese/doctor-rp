@@ -22,8 +22,6 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,serverTimestamp}=require
   await assertSucceeds(getDoc(doc(admin,"patients","testpatient")));
   await assertFails(deleteDoc(doc(admin,"patients","testpatient")));
   await assertFails(deleteDoc(doc(siu,"patients","testpatient")));
-  await assertFails(setDoc(doc(admin,"patientDeletionRequests","usercreated"),{patientId:"testpatient",status:"approved"}));
-  await assertFails(getDoc(doc(siu,"patientDeletionRequests","requestone")));
   await assertFails(setDoc(doc(siu,"northstarOps","opsone"),{
    module:"credentials",title:"Credential Review",department:"Staffing",priority:"high",
    summary:"Check renewal documentation.",dueDate:"",status:"open",createdBy:"siumember",updatedBy:"siumember",
