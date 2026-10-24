@@ -18,9 +18,9 @@ const { chromium } = require("playwright");
       "Workflow navigator":"#northstarExperience",
       "Operations Center":"#nsOperationsRoot",
       "Emergency intake":"#nsEmergency",
-      "Deletion administration":"#nmcDeleteUi",
       "Navigation recovery":"#nsNav-nsEmergencyLaunch"
     };
+    const retiredVisible=await page.locator("#nmcDeleteUi, #nmcDeleteOpen, #nsNav-nmcDeleteOpen").count();
     const states = {};
     for(const [name,selector] of Object.entries(expected))
       states[name] = await page.locator(selector).count() > 0;
@@ -28,6 +28,7 @@ const { chromium } = require("playwright");
     if(errors.length)console.error("Page exceptions:",JSON.stringify(errors));
     if(missing.length)console.error("Failed local asset responses:",JSON.stringify(missing));
     const absent=Object.entries(states).filter(([,ok])=>!ok).map(([name])=>name);
+    if(retiredVisible)absent.push("Retired patient deletion control still exists");
     // Simulate an authorized module becoming visible after authentication.
     // The sidebar should reveal and hide the same destination without reloading.
     const billingPanel=await page.locator("#dischargeForm .nmc-bill-fields").count()>0;
