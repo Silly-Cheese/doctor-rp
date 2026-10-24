@@ -46,3 +46,5 @@
 @media(max-width:800px){.nmc-bill-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.nmc-bill-row{grid-template-columns:1fr;gap:10px}}
 @media(max-width:530px){.nmc-bill-two,.nmc-bill-invoice-totals{grid-template-columns:1fr}.nmc-bill-row{padding:13px}.nmc-bill-fields{padding:12px}}
 @media print{.nmc-billing-dialog-inner form,.nmc-bill-dialog-actions,.nmc-bill-close{display:none!important}.nmc-billing-dialog-inner{overflow:visible;max-height:none}}
+
+#nmcBillingAction label[hidden]{display:none!important}
