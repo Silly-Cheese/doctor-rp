@@ -22,6 +22,8 @@ import {
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
+import {billingFieldsMarkup,bindBillingPreview,buildBillingRecord} from "./northstar-billing.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyBPtNWvmmYl-6hFb7NlmNszapMwQH4Xm7I",
   authDomain: "doctor-rp.firebaseapp.com",
@@ -1048,6 +1050,7 @@ function openDischarge(encounterId) {
   if (!encounter || !encounterIsActive(encounter)) return;
   selectedEncounterId = encounterId;
   els.dischargeForm.reset();
+  els.dischargeForm.dispatchEvent(new Event("change",{bubbles:true}));
   els.dischargePatientName.textContent = `Discharge ${encounter.patientName || "Patient"}`;
   els.dischargeDialog.showModal();
 }
@@ -1068,7 +1071,10 @@ async function dischargePatient(event) {
     const dischargeInstructions = document.querySelector("#dischargeInstructions").value.trim();
     const patientStatus = ["admitted", "observation"].includes(disposition) ? disposition : "not-checked-in";
 
+    const billing=buildBillingRecord(els.dischargeForm,encounter,auth.currentUser.uid);
+    if((await getDoc(doc(db,"billingAccounts",encounter.id))).exists())throw Error("This encounter already has a billing record; review the invoice before attempting discharge.");
     const batch = writeBatch(db);
+    batch.set(doc(db,"billingAccounts",encounter.id),billing);
     batch.update(doc(db, "encounters", encounter.id), {
       status: "discharged",
       disposition,
@@ -1132,6 +1138,8 @@ els.patientSearchInput.addEventListener("input", renderPatientSearch);
 els.patientRegistrationForm.addEventListener("submit", registerPatient);
 els.checkInForm.addEventListener("submit", checkInPatient);
 els.triageForm.addEventListener("submit", saveTriage);
+els.dischargeForm.querySelector(".modal-body").insertAdjacentHTML("beforeend",billingFieldsMarkup());
+bindBillingPreview(els.dischargeForm);
 els.dischargeForm.addEventListener("submit", dischargePatient);
 document.querySelector("#newPatientButton").addEventListener("click", () => {
   if (canRegisterPatients()) {
