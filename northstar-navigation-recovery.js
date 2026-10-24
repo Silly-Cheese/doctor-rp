@@ -6,7 +6,6 @@
     ["siuLaunch", "Incident Reporting & SIU", "Administration"],
     ["nsOpsLaunch", "Operations Center", "Operations"],
     ["nsWorkdeskOpen", "My Shift Tasks", "Care"],
-    ["nmcDeleteOpen", "Patient Deletion Approvals", "Administration"],
     ["nsPrefsLaunch", "Display Preferences", "Administration"]
   ];
   let scheduled = false;
