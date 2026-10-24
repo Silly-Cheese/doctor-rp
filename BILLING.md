@@ -23,7 +23,9 @@ The invoice is created in the **same Firestore batch** as the encounter closure 
 - Record **simulated** patient payments and insurer remittances with amounts and reasons.
 - Change expected insurance coverage or mark claim submitted, pending, approved, denied or paid.
 - Apply authorized waivers and adjust patient balances.
-- Add itemized charges and internal financial notes.
+- Add itemized charges, reverse erroneous charges with an audited correction, and add internal financial notes.
+- Correct the insurer name and set a patient payment due date.
+- Record simulated insurer/patient refunds, without permitting refunds larger than recorded receipts.
 - Review append-only ledger events.
 - Generate an invoice for older discharged encounters that lack one.
 
