@@ -725,15 +725,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /patientDeletionRequests/{requestId} {
-      allow read: if isAdministrator();
-      allow create, update, delete: if false;
-    }
-    match /patientDeletionAudit/{auditId} {
-      allow read: if isAdministrator();
-      allow create, update, delete: if false;
-    }
-
     match /{document=**} {
       allow read, write: if false;
     }
