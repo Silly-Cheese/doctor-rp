@@ -32,6 +32,27 @@ const { chromium } = require("playwright");
     // The sidebar should reveal and hide the same destination without reloading.
     const billingPanel=await page.locator("#dischargeForm .nmc-bill-fields").count()>0;
     if(!billingPanel)absent.push("Mandatory discharge billing form");
+    const billingModels=await page.evaluate(async ()=>{
+      const {billingFieldsMarkup,buildBillingRecord}=await import("./northstar-billing.js");
+      function run(mode,charge,insurer="",covered="",waiver="",reason=""){
+        const form=document.createElement("form");form.innerHTML=billingFieldsMarkup();
+        for(const [name,value] of Object.entries({billingMode:mode,billingCharge:charge,billingInsurer:insurer,billingInsurance:covered,billingWaiver:waiver,billingWaiverReason:reason})){
+          const input=form.querySelector('[name="'+name+'"]');if(input)input.value=value;
+        }
+        return buildBillingRecord(form,{id:"encounter123",patientId:"patient123",patientName:"Example Patient"},"doctor123");
+      }
+      const patient=run("patient","300");
+      const insurer=run("insurance","300","Example Plan");
+      const split=run("split","300","Example Plan","150","50","Charity award");
+      const waived=run("waived","300","","","","Uninsured assistance");
+      let rejected=false;
+      try{run("split","300","Example Plan","250","100","Not permitted");}catch(e){rejected=true}
+      return patient.patientBalanceCents===30000
+        && insurer.insurerBalanceCents===30000 && insurer.patientBalanceCents===0
+        && split.patientBalanceCents===10000 && split.waivedCents===5000
+        && waived.status==="waived" && waived.patientBalanceCents===0 && rejected;
+    });
+    if(!billingModels)absent.push("Billing insurance, patient, split and waiver calculation");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
