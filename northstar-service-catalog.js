@@ -8,7 +8,17 @@ const cash=c=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).f
 const normalize=s=>String(s??"").toLowerCase().replace(/\s+/g," ").trim();
 const readPrice=v=>{if(!/^(?:0|[1-9]\d{0,6})(?:\.\d{1,2})?$/.test(String(v).trim()))throw Error("Enter a valid price from $0.00 to $9,999,999.99.");return Math.round(Number(v)*100)};
 const canEdit=p=>p?.status==="active"&&(p.role==="administrator"||p.permissions?.billingManage===true);
-const kindTitle={visit:"Encounter / facility",order:"Clinical order",procedure:"Procedure"};
+const kindTitle={visit:"Encounter / facility",order:"Clinical orders & diagnostics",procedure:"Procedures",ems:"EMS",room:"Room costs",service:"Hospital services"};
+const TEMPLATES={
+ visit:["Emergency Visit","Urgent Care Visit","Observation Visit","Trauma Evaluation","Inpatient Consultation","Outpatient Consultation"],
+ order:["CBC with Differential","Comprehensive Metabolic Panel","Troponin","Lactate","Blood Cultures","12-Lead ECG","Chest X-Ray — 2 Views","CT Head without Contrast","CT Abdomen/Pelvis with Contrast","Telemetry","Oxygen","Normal Saline","Aspirin","Acetaminophen","Ondansetron","Albuterol","NPO","Fall Precautions"],
+ procedure:["Wound Repair","Laceration Repair","Suture Removal","Splint Application","Fracture Reduction","Intubation","Cardiopulmonary Resuscitation","Central Line Placement","Arterial Line Placement","Chest Tube Placement","Lumbar Puncture","Abscess Drainage","IV Access","Urinary Catheter Placement","Blood Transfusion","Sedation","Procedural Ultrasound"],
+ ems:["EMS Transport","Advanced Life Support Transport","Basic Life Support Transport","EMS Critical Care Transport"],
+ room:["Emergency Room","Trauma Room","Observation Room","Med/Surg Room","ICU Room","Pediatric Room"],
+ service:["Med/Surg Services","ICU Services","Pediatric Services","Observation Services","Respiratory Therapy","Physical Therapy","Occupational Therapy","Consultation Services","Patient Transport","Pharmacy Services","Diagnostic Services","Surgical Services","Nursing Services"]
+};
+const serviceNameOptions=kind=>TEMPLATES[kind]||[];
+
 export async function listCatalog(){
  const snap=await getDocs(collection(db(),"serviceCatalog"));
  return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));
@@ -19,8 +29,8 @@ export function renderServiceCatalog({target,records,profile}){
  const rows=records||[];
  target.innerHTML='<section class="nmc-billing-page nmc-catalog"><header><div><p class="eyebrow">Northstar Medical Center · Administration</p><h2>Service Prices & Charge Master</h2><p>Set prices for visits, procedures and clinical orders. Future invoices use the active rates; old invoices keep their original amounts.</p></div></header>'+
  '<div class="nmc-bill-metrics"><article><span>Catalog services</span><strong>'+rows.length+'</strong></article><article><span>Active rates</span><strong>'+rows.filter(r=>r.active!==false).length+'</strong></article></div>'+
- '<form id="nmcCatalogForm" class="nmc-catalog-form"><h3>Add a service price</h3><div class="nmc-bill-two"><label>Service name<input name="name" minlength="2" maxlength="120" required placeholder="e.g. Chest X-Ray"></label><label>Source<select name="kind"><option value="visit">Encounter / facility fee</option><option value="order">Clinical order</option><option value="procedure">Completed procedure</option></select></label><label>Unit price ($)<input name="price" type="number" min="0" max="9999999.99" step="0.01" required placeholder="125.00"></label><label>Service code (optional)<input name="code" maxlength="40" placeholder="XR-001"></label></div><p>Use the exact service name documented in Northstar orders or procedures to match automatic charges. Only one active price per service name and source is allowed.</p><button type="submit">Save service price</button><p id="nmcCatalogNotice" role="status"></p></form>'+
- '<div class="nmc-bill-tools"><input id="nmcCatalogSearch" type="search" placeholder="Search service rates" aria-label="Search service rates"><select id="nmcCatalogStatus"><option value="all">All rates</option><option value="active">Active only</option><option value="archived">Archived only</option></select></div><div id="nmcCatalogRows"></div></section>';
+ '<form id="nmcCatalogForm" class="nmc-catalog-form"><h3>Add or update service pricing</h3><div class="nmc-bill-two"><label>Service category<select name="kind" id="nmcCatalogKind"><option value="visit">Encounter / facility</option><option value="order">Clinical orders & diagnostics</option><option value="procedure">Procedures</option><option value="ems">EMS</option><option value="room">Room costs</option><option value="service">Hospital services</option></select></label><label>Service name<select name="templateName" id="nmcCatalogTemplate" required></select></label><label id="nmcCatalogCustomWrap" hidden>Custom service name<input name="customName" minlength="2" maxlength="120" placeholder="Name of new service"></label><label>Unit price ($)<input name="price" type="number" min="0" max="9999999.99" step="0.01" required placeholder="125.00"></label><label>Service code (optional)<input name="code" maxlength="40" placeholder="Unique internal service code"></label></div><p>Pick an existing Northstar service; names match its clinical workflows automatically. For a new service not listed, choose Custom service. EMS charges apply to EMS arrivals, room fees to occupied room types, and inpatient services to applicable admissions.</p><button type="submit">Save service price</button><p id="nmcCatalogNotice" role="status"></p></form>'+
+'<div class="nmc-bill-tools"><input id="nmcCatalogSearch" type="search" placeholder="Search service rates" aria-label="Search service rates"><select id="nmcCatalogStatus"><option value="all">All rates</option><option value="active">Active only</option><option value="archived">Archived only</option></select></div><div id="nmcCatalogRows"></div></section>';
  const list=target.querySelector("#nmcCatalogRows"),input=target.querySelector("#nmcCatalogSearch"),status=target.querySelector("#nmcCatalogStatus");
  const draw=()=>{
   const needle=input.value.toLowerCase(),filter=status.value;
@@ -41,16 +51,27 @@ export function renderServiceCatalog({target,records,profile}){
  };
  input.oninput=draw;status.onchange=draw;draw();
  const form=target.querySelector("#nmcCatalogForm");
+ const kindControl=form.querySelector("#nmcCatalogKind"),nameControl=form.querySelector("#nmcCatalogTemplate"),customWrap=form.querySelector("#nmcCatalogCustomWrap");
+ const refreshNames=()=>{
+   const options=serviceNameOptions(kindControl.value);
+   nameControl.replaceChildren();
+   for(const name of options){const option=document.createElement("option");option.value=name;option.textContent=name;nameControl.append(option)}
+   const option=document.createElement("option");option.value="__custom__";option.textContent="Custom service / not listed…";nameControl.append(option);
+   customWrap.hidden=nameControl.value!=="__custom__";customWrap.querySelector("input").required=!customWrap.hidden;
+ };
+ const nameChanged=()=>{customWrap.hidden=nameControl.value!=="__custom__";customWrap.querySelector("input").required=!customWrap.hidden};
+ kindControl.addEventListener("change",refreshNames);nameControl.addEventListener("change",nameChanged);refreshNames();
  form.onsubmit=async e=>{
-  e.preventDefault();const f=new FormData(form);const name=String(f.get("name")).trim(),kind=String(f.get("kind")),priceCents=readPrice(f.get("price")),code=String(f.get("code")||"").trim();
+  e.preventDefault();const f=new FormData(form);const name=String(f.get("templateName")==="__custom__"?f.get("customName"):f.get("templateName")).trim(),kind=String(f.get("kind")),priceCents=readPrice(f.get("price")),code=String(f.get("code")||"").trim();
   const notice=target.querySelector("#nmcCatalogNotice");
+  if(name.length<2){notice.textContent="Choose a service or enter a custom service name.";return;}
   const same=rows.find(r=>r.kind===kind&&(normalize(r.name)===normalize(name)||(code&&normalize(r.code)===normalize(code))));
   if(same){notice.textContent="This service already exists. Edit its price or reactivate its archived entry.";return;}
   const button=form.querySelector('[type="submit"]');button.disabled=true;
   try{const ref=doc(collection(db(),"serviceCatalog")),batch=writeBatch(db());
    batch.set(ref,{name,kind,code,priceCents,active:true,version:1,createdBy:auth().currentUser.uid,createdAt:serverTimestamp(),updatedBy:auth().currentUser.uid,updatedAt:serverTimestamp()});
    batch.set(doc(collection(db(),"serviceCatalog",ref.id,"revisions")),{action:"created",priceCents,name,actorUid:auth().currentUser.uid,at:serverTimestamp()});
-   await batch.commit();notice.textContent="Price saved.";form.reset();
+   await batch.commit();notice.textContent="Price saved.";form.reset();refreshNames();
   }catch(err){notice.textContent=err.message;}finally{button.disabled=false;}
  };
  async function saveChange(r,changes){
