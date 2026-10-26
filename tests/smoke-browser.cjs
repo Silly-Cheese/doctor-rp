@@ -40,6 +40,8 @@ const { chromium } = require("playwright");
         for(const [name,value] of Object.entries({billingMode:mode,billingCharge:charge,billingInsurer:insurer,billingInsurance:covered,billingWaiver:waiver,billingWaiverReason:reason})){
           const input=form.querySelector('[name="'+name+'"]');if(input)input.value=value;
         }
+        const item={serviceId:"visit",description:"Emergency Visit",sourceType:"visit",sourceId:"visit:encounter123",quantity:1,unitPriceCents:Math.round(Number(charge)*100),amountCents:Math.round(Number(charge)*100),rateVersion:1};
+        form.dataset.billingReady="yes";form.dataset.billingLines=JSON.stringify([item]);
         return buildBillingRecord(form,{id:"encounter123",patientId:"patient123",patientName:"Example Patient"},"doctor123");
       }
       const patient=run("patient","300");
@@ -54,6 +56,24 @@ const { chromium } = require("playwright");
         && waived.status==="waived" && waived.patientBalanceCents===0 && rejected;
     });
     if(!billingModels)absent.push("Billing insurance, patient, split and waiver calculation");
+    const fullPage=await page.evaluate(()=>{
+      const dialog=document.getElementById("nsOpsDialog");
+      const section=document.getElementById("nmcPage-nsOpsDialog");
+      if(!dialog||!section||typeof dialog.showModal!=="function")return false;
+      dialog.showModal();
+      const good=!section.classList.contains("hidden")&&dialog.open&&!dialog.matches(":modal");
+      dialog.close();
+      return good;
+    });
+    if(!fullPage)absent.push("Operations navigation must open a full page");
+    const catalogPage=await page.evaluate(async ()=>{
+      const {renderServiceCatalog}=await import("./northstar-service-catalog.js");
+      const container=document.createElement("div");document.body.append(container);
+      renderServiceCatalog({target:container,records:[{id:"test",name:"Emergency Visit",kind:"visit",priceCents:15000,active:true,version:1}],profile:{role:"administrator",status:"active"}});
+      const good=!!container.querySelector("#nmcCatalogForm")&&container.textContent.includes("Emergency Visit");
+      container.remove();return good;
+    });
+    if(!catalogPage)absent.push("Full-page service price editor");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
