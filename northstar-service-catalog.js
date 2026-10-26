@@ -70,12 +70,7 @@ export function renderServiceCatalog({target,records,profile}){
   };
  }
 }
-export async function collectEncounterCharges(encounterId){
- const [catalog,orders,procedures]=await Promise.all([
-   listCatalog(),
-   getDocs(query(collection(db(),"orders"),where("encounterId","==",encounterId))),
-   getDocs(query(collection(db(),"procedures"),where("encounterId","==",encounterId)))
- ]);
+export function buildCatalogQuote({encounterId,catalog,orders,procedures}){
  const rate=new Map(catalog.filter(x=>x.active!==false).map(x=>[x.kind+":"+normalize(x.name),x]));
  const lines=[],unpriced=[];
  const push=(type,name,sourceId,qty=1)=>{
@@ -87,7 +82,20 @@ export async function collectEncounterCharges(encounterId){
  const defaultVisit=visits.find(x=>normalize(x.name)==="emergency visit")||(visits.length===1?visits[0]:null);
  if(defaultVisit)push("visit",defaultVisit.name,"visit:"+encounterId);
  else if(visits.length>1)unpriced.push({kind:"visit",name:"Multiple facility rates configured — use a rate named Emergency Visit",sourceId:encounterId});
- for(const d of orders.docs){const item=d.data();if(["cancelled","canceled","void"].includes(String(item.status||"").toLowerCase()))continue;push("order",item.name||item.orderName||"Unnamed order",d.id);}
- for(const d of procedures.docs){const item=d.data();if(!["complete","completed","done"].includes(String(item.status||"").toLowerCase()))continue;push("procedure",item.name||"Unnamed procedure",d.id);}
+ for(const d of orders){const item=d.data||{};if(["cancelled","canceled","void"].includes(String(item.status||"").toLowerCase()))continue;push("order",item.name||item.orderName||"Unnamed order",d.id);}
+ for(const d of procedures){const item=d.data||{};if(!["complete","completed","done"].includes(String(item.status||"").toLowerCase()))continue;push("procedure",item.name||"Unnamed procedure",d.id);}
  return {lines,unpriced,catalog:catalog.filter(x=>x.active!==false),totalCents:lines.reduce((a,x)=>a+x.amountCents,0)};
+}
+
+
+export async function collectEncounterCharges(encounterId){
+ const [catalog,orders,procedures]=await Promise.all([
+  listCatalog(),
+  getDocs(query(collection(db(),"orders"),where("encounterId","==",encounterId))),
+  getDocs(query(collection(db(),"procedures"),where("encounterId","==",encounterId)))
+ ]);
+ return buildCatalogQuote({encounterId,catalog,
+  orders:orders.docs.map(d=>({id:d.id,data:d.data()})),
+  procedures:procedures.docs.map(d=>({id:d.id,data:d.data()}))
+ });
 }
