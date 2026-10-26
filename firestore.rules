@@ -559,7 +559,7 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 2
         && request.resource.data.name.size() <= 120
-        && request.resource.data.kind in ['visit','order','procedure']
+        && request.resource.data.kind in ['visit','order','procedure','ems','room','service']
         && request.resource.data.code is string
         && request.resource.data.code.size() <= 40
         && request.resource.data.priceCents is int
