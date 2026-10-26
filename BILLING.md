@@ -5,7 +5,7 @@ Northstar Billing & Revenue is a **simulation** accounting workflow for the hosp
 
 ## Editable service prices and automatic charges
 
-In **Administration → Service Prices**, an authorized billing manager can create, edit, archive or reactivate a catalog service and its unit price. Choose Encounter / facility, Clinical order or Completed procedure. Match catalog names to the corresponding clinical orders/procedures for automatic charging. If multiple visit rates are defined, name the intended default **Emergency Visit**.
+In **Administration → Service Prices**, an authorized billing manager can create, edit, archive or reactivate a catalog service and its unit price. Choose from the category dropdown: Encounter / facility, Clinical orders & diagnostics, Procedures, EMS, Room costs, or Hospital services. Choose an exact Northstar service name from the dropdown, including live names from documented orders/procedures, or choose Custom service. Match rates by existing order/procedure name or code. If multiple visit rates are defined, name the intended default **Emergency Visit**.
 
 At discharge, Northstar reads the encounter's placed non-canceled orders and completed procedures, matches them with current active prices, and generates itemized charges automatically. Unmatched services are identified, and the discharge must not finalize until their missing prices are resolved. Authorized staff can add additional catalog-priced services to the invoice. The total is calculated from item prices, not typed manually.
 
