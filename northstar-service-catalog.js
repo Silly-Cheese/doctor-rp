@@ -1,7 +1,7 @@
 // Editable simulation charge master. Historic invoices store frozen item prices.
 import {getApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {getAuth} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import {getFirestore,collection,doc,getDocs,query,where,writeBatch,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import {getFirestore,collection,doc,getDoc,getDocs,query,where,writeBatch,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const app=getApp(),db=getFirestore(app),auth=getAuth(app);
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 const cash=c=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format((Number(c)||0)/100);
@@ -44,8 +44,8 @@ export function renderServiceCatalog({target,records,profile}){
  form.onsubmit=async e=>{
   e.preventDefault();const f=new FormData(form);const name=String(f.get("name")).trim(),kind=String(f.get("kind")),priceCents=readPrice(f.get("price")),code=String(f.get("code")||"").trim();
   const notice=target.querySelector("#nmcCatalogNotice");
-  const same=rows.find(r=>r.active!==false&&r.kind===kind&&normalize(r.name)===normalize(name));
-  if(same){notice.textContent="This service already has an active price. Use Edit price.";return;}
+  const same=rows.find(r=>r.kind===kind&&normalize(r.name)===normalize(name));
+  if(same){notice.textContent="This service already exists. Edit its price or reactivate its archived entry.";return;}
   const button=form.querySelector('[type="submit"]');button.disabled=true;
   try{const ref=doc(collection(db,"serviceCatalog")),batch=writeBatch(db);
    batch.set(ref,{name,kind,code,priceCents,active:true,version:1,createdBy:auth.currentUser.uid,createdAt:serverTimestamp(),updatedBy:auth.currentUser.uid,updatedAt:serverTimestamp()});
@@ -83,7 +83,10 @@ export async function collectEncounterCharges(encounterId){
   if(!item){unpriced.push({kind:type,name,sourceId});return;}
   lines.push({serviceId:item.id,serviceName:item.name,description:item.name,sourceType:type,sourceId,quantity:qty,unitPriceCents:item.priceCents,amountCents:item.priceCents*qty,rateVersion:item.version||1});
  };
- for(const p of catalog.filter(x=>x.active!==false&&x.kind==="visit"))push("visit",p.name,"visit:"+encounterId);
+ const visits=catalog.filter(x=>x.active!==false&&x.kind==="visit");
+ const defaultVisit=visits.find(x=>normalize(x.name)==="emergency visit")||(visits.length===1?visits[0]:null);
+ if(defaultVisit)push("visit",defaultVisit.name,"visit:"+encounterId);
+ else if(visits.length>1)unpriced.push({kind:"visit",name:"Multiple facility rates configured — use a rate named Emergency Visit",sourceId:encounterId});
  for(const d of orders.docs){const item=d.data();if(["cancelled","canceled","void"].includes(String(item.status||"").toLowerCase()))continue;push("order",item.name||item.orderName||"Unnamed order",d.id);}
  for(const d of procedures.docs){const item=d.data();if(!["complete","completed","done"].includes(String(item.status||"").toLowerCase()))continue;push("procedure",item.name||"Unnamed procedure",d.id);}
  return {lines,unpriced,catalog:catalog.filter(x=>x.active!==false),totalCents:lines.reduce((a,x)=>a+x.amountCents,0)};
