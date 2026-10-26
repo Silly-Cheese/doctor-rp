@@ -45,6 +45,13 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp}=require("firebase/
    action:"patient-payment",amountCents:1000,detail:"Cash (simulated)",reason:"Payment recorded",actorUid:"billingclerk",createdAt:serverTimestamp(),simulated:true
   }));
   await assertFails(deleteDoc(doc(clerk,"billingAccounts","billingencounter","events","paymentone")));
+  const rate={name:"Emergency Visit",kind:"visit",code:"ER-01",priceCents:15000,active:true,version:1,createdBy:"billingadmin",updatedBy:"billingadmin",createdAt:serverTimestamp(),updatedAt:serverTimestamp()};
+  await assertSucceeds(setDoc(doc(admin,"serviceCatalog","visit_emergency-visit"),rate));
+  await assertFails(setDoc(doc(staff,"serviceCatalog","order_x-ray"),{...rate,name:"X-Ray",kind:"order",createdBy:"billingstaff",updatedBy:"billingstaff"}));
+  await assertSucceeds(updateDoc(doc(admin,"serviceCatalog","visit_emergency-visit"),{priceCents:18000,version:2,updatedBy:"billingadmin",updatedAt:serverTimestamp()}));
+  await assertFails(updateDoc(doc(clerk,"serviceCatalog","visit_emergency-visit"),{priceCents:-25,version:3,updatedBy:"billingclerk",updatedAt:serverTimestamp()}));
+  await assertFails(deleteDoc(doc(admin,"serviceCatalog","visit_emergency-visit")));
+  await assertFails(deleteDoc(doc(admin,"billingAccounts","billingencounter")));
   console.log("Billing simulation security rules passed.");
  } finally {await env.cleanup();}
 })().catch(err=>{console.error(err);process.exitCode=1});
