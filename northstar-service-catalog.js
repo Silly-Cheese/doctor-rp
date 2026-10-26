@@ -1,7 +1,7 @@
 // Editable simulation charge master. Historic invoices store frozen item prices.
 import {getApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {getAuth} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import {getFirestore,collection,doc,getDoc,getDocs,query,where,writeBatch,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import {getFirestore,collection,doc,getDoc,getDocs,query,where,limit,writeBatch,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const db=()=>getFirestore(getApp()),auth=()=>getAuth(getApp());
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 const cash=c=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format((Number(c)||0)/100);
@@ -17,7 +17,7 @@ const TEMPLATES={
  room:["Emergency Room","Trauma Room","Observation Room","Operating Room","Med/Surg Room","ICU Room","Pediatric Room"],
  service:["Med/Surg Services","ICU Services","Pediatric Services","Observation Services","Respiratory Therapy","Physical Therapy","Occupational Therapy","Consultation Services","Patient Transport","Pharmacy Services","Diagnostic Services","Surgical Services","Nursing Services"]
 };
-const serviceNameOptions=kind=>TEMPLATES[kind]||[];
+const serviceNameOptions=(kind,observed=[])=>[...new Set([...(TEMPLATES[kind]||[]),...observed])].sort((a,b)=>a.localeCompare(b));
 
 export async function listCatalog(){
  const snap=await getDocs(collection(db(),"serviceCatalog"));
@@ -51,9 +51,23 @@ export function renderServiceCatalog({target,records,profile}){
  };
  input.oninput=draw;status.onchange=draw;draw();
  const form=target.querySelector("#nmcCatalogForm");
+ const observed={order:[],procedure:[]};
+ // Supplement the curated list with exact names already documented in Northstar.
+ Promise.all([
+   getDocs(query(collection(db(),"orders"),limit(250))),
+   getDocs(query(collection(db(),"procedures"),limit(250)))
+ ]).then(([orders,procedures])=>{
+   observed.order=[...new Set(orders.docs.map(d=>d.data().name||d.data().orderName||"").filter(Boolean))];
+   observed.procedure=[...new Set(procedures.docs.map(d=>d.data().name||"").filter(Boolean))];
+   refreshNames();
+ }).catch(err=>{
+   const info=target.querySelector("#nmcCatalogNotice");
+   if(info&&!info.textContent)info.textContent="Showing standard Northstar services; recorded-name suggestions could not load.";
+ });
  const kindControl=form.querySelector("#nmcCatalogKind"),nameControl=form.querySelector("#nmcCatalogTemplate"),customWrap=form.querySelector("#nmcCatalogCustomWrap");
  const refreshNames=()=>{
-   const options=serviceNameOptions(kindControl.value);
+   const options=serviceNameOptions(kindControl.value,observed[kindControl.value]||[]);
+   const previous=nameControl.value;
    nameControl.replaceChildren();
    for(const name of options){const option=document.createElement("option");option.value=name;option.textContent=name;nameControl.append(option)}
    const option=document.createElement("option");option.value="__custom__";option.textContent="Custom service / not listed…";nameControl.append(option);
