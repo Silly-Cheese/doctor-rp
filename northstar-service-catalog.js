@@ -44,7 +44,7 @@ export function renderServiceCatalog({target,records,profile}){
  form.onsubmit=async e=>{
   e.preventDefault();const f=new FormData(form);const name=String(f.get("name")).trim(),kind=String(f.get("kind")),priceCents=readPrice(f.get("price")),code=String(f.get("code")||"").trim();
   const notice=target.querySelector("#nmcCatalogNotice");
-  const same=rows.find(r=>r.kind===kind&&normalize(r.name)===normalize(name));
+  const same=rows.find(r=>r.kind===kind&&(normalize(r.name)===normalize(name)||(code&&normalize(r.code)===normalize(code))));
   if(same){notice.textContent="This service already exists. Edit its price or reactivate its archived entry.";return;}
   const button=form.querySelector('[type="submit"]');button.disabled=true;
   try{const ref=doc(collection(db(),"serviceCatalog")),batch=writeBatch(db());
@@ -71,10 +71,12 @@ export function renderServiceCatalog({target,records,profile}){
  }
 }
 export function buildCatalogQuote({encounterId,catalog,orders,procedures}){
- const rate=new Map(catalog.filter(x=>x.active!==false).map(x=>[x.kind+":"+normalize(x.name),x]));
+ const activeRates=catalog.filter(x=>x.active!==false);
+ const rate=new Map(activeRates.map(x=>[x.kind+":"+normalize(x.name),x]));
+ const codeRate=new Map(activeRates.filter(x=>x.code).map(x=>[x.kind+":"+normalize(x.code),x]));
  const lines=[],unpriced=[];
- const push=(type,name,sourceId,qty=1)=>{
-  const item=rate.get(type+":"+normalize(name));
+ const push=(type,name,sourceId,qty=1,code="")=>{
+  const item=rate.get(type+":"+normalize(name))||(code?codeRate.get(type+":"+normalize(code)):undefined);
   if(!item){unpriced.push({kind:type,name,sourceId});return;}
   lines.push({serviceId:item.id,serviceName:item.name,description:item.name,sourceType:type,sourceId,quantity:qty,unitPriceCents:item.priceCents,amountCents:item.priceCents*qty,rateVersion:item.version||1});
  };
@@ -82,8 +84,8 @@ export function buildCatalogQuote({encounterId,catalog,orders,procedures}){
  const defaultVisit=visits.find(x=>normalize(x.name)==="emergency visit")||(visits.length===1?visits[0]:null);
  if(defaultVisit)push("visit",defaultVisit.name,"visit:"+encounterId);
  else if(visits.length>1)unpriced.push({kind:"visit",name:"Multiple facility rates configured — use a rate named Emergency Visit",sourceId:encounterId});
- for(const d of orders){const item=d.data||{};if(["cancelled","canceled","void"].includes(String(item.status||"").toLowerCase()))continue;push("order",item.name||item.orderName||"Unnamed order",d.id);}
- for(const d of procedures){const item=d.data||{};if(!["complete","completed","done"].includes(String(item.status||"").toLowerCase()))continue;push("procedure",item.name||"Unnamed procedure",d.id);}
+ for(const d of orders){const item=d.data||{};if(["cancelled","canceled","void"].includes(String(item.status||"").toLowerCase()))continue;push("order",item.name||item.orderName||"Unnamed order",d.id,1,item.serviceCode||item.orderCode||item.code||"");}
+ for(const d of procedures){const item=d.data||{};if(!["complete","completed","done"].includes(String(item.status||"").toLowerCase()))continue;push("procedure",item.name||"Unnamed procedure",d.id,1,item.serviceCode||item.procedureCode||item.code||"");}
  return {lines,unpriced,catalog:catalog.filter(x=>x.active!==false),totalCents:lines.reduce((a,x)=>a+x.amountCents,0)};
 }
 
