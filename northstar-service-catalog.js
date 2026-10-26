@@ -82,7 +82,7 @@ export function renderServiceCatalog({target,records,profile}){
   const same=rows.find(r=>r.kind===kind&&(normalize(r.name)===normalize(name)||(code&&normalize(r.code)===normalize(code))));
   if(same){notice.textContent="This service already exists. Edit its price or reactivate its archived entry.";return;}
   const button=form.querySelector('[type="submit"]');button.disabled=true;
-  try{const ref=doc(collection(db(),"serviceCatalog")),batch=writeBatch(db());
+  try{const key=kind+"_"+normalize(name).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,140);if(key.length<4)throw Error("Enter a descriptive service name.");const ref=doc(db(),"serviceCatalog",key);if((await getDoc(ref)).exists())throw Error("This service already exists. Edit its price or reactivate it.");const batch=writeBatch(db());
    batch.set(ref,{name,kind,code,priceCents,active:true,version:1,createdBy:auth().currentUser.uid,createdAt:serverTimestamp(),updatedBy:auth().currentUser.uid,updatedAt:serverTimestamp()});
    batch.set(doc(collection(db(),"serviceCatalog",ref.id,"revisions")),{action:"created",priceCents,name,actorUid:auth().currentUser.uid,at:serverTimestamp()});
    await batch.commit();notice.textContent="Price saved.";form.reset();refreshNames();
@@ -121,7 +121,10 @@ export function buildCatalogQuote({encounterId,catalog,orders,procedures,encount
  else if(visits.length>1)unpriced.push({kind:"visit",name:"Multiple facility rates configured — use a rate named Emergency Visit",sourceId:encounterId});
  const arrival=normalize(encounter.arrivalMethod);
  if(arrival==="ems"||arrival==="ambulance"){
-   push("ems","EMS Transport","arrival:"+encounterId);
+   const ems=activeRates.filter(x=>x.kind==="ems");
+   const emsRate=ems.find(x=>normalize(x.name)==="ems transport")||(ems.length===1?ems[0]:null);
+   if(emsRate)push("ems",emsRate.name,"arrival:"+encounterId);
+   else unpriced.push({kind:"ems",name:"EMS Transport",sourceId:"arrival:"+encounterId});
  }
  const admission=admissions.find(a=>a.data?.status!=="cancelled");
  const department=normalize(admission?.data?.service||encounter.department||"");
