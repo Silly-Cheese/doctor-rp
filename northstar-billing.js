@@ -1,4 +1,5 @@
 // Northstar billing is a simulation ledger: no payment processing, claims submission, or payer verification.
+import {collectEncounterCharges} from "./northstar-service-catalog.js";
 import {getApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {getAuth} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {getFirestore,collection,doc,getDoc,getDocs,query,orderBy,writeBatch,runTransaction,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -33,13 +34,13 @@ export function billingFieldsMarkup(){
  return '<div class="nmc-bill-fields"><h4>Discharge billing decision <span class="nmc-bill-required">Required</span></h4>'+
  '<p>Simulation only. An insurance estimate is not verified coverage; this form does not charge a card or transmit claims.</p>'+
  '<div class="nmc-bill-two"><label>Billing arrangement<select name="billingMode" required><option value="">Choose how this encounter will be handled</option><option value="patient">Bill patient</option><option value="insurance">Expected insurance coverage</option><option value="split">Insurance + patient / waiver</option><option value="waived">Waive entire bill</option></select></label>'+
- '<label>Total encounter charges ($)<input name="billingCharge" inputmode="decimal" type="number" min="0" max="9999999.99" step="0.01" placeholder="0.00" required></label></div>'+
+ '<label>Automatically calculated charges ($)<input name="billingCharge" inputmode="decimal" type="number" min="0" max="9999999.99" step="0.01" placeholder="0.00" readonly required></label></div>'+
  '<div class="nmc-bill-two"><label>Insurance provider (if applicable)<input name="billingInsurer" maxlength="100" placeholder="e.g. Northstar Mutual"></label>'+
  '<label>Expected insurance payment ($)<input name="billingInsurance" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></label>'+
  '<label>Waived amount ($)<input name="billingWaiver" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></label>'+
  '<label>Waiver authorization / reason<input name="billingWaiverReason" maxlength="500" placeholder="Required for any waiver"></label></div>'+
  '<label>Billing notes (optional)<textarea name="billingNotes" maxlength="1500" rows="2" placeholder="Internal simulation notes; avoid card and account numbers"></textarea></label>'+
- '<div class="nmc-bill-preview" aria-live="polite">Select an arrangement and enter a charge to preview balances.</div></div>';
+ '<div class="nmc-auto-lines"><strong>Priced encounter services</strong><p>Loading itemized charges…</p></div><div class="nmc-bill-preview" aria-live="polite">Select a billing arrangement to preview balances.</div></div>';
 }
 export function bindBillingPreview(form){
  if(form.dataset.billingBound==="1")return;form.dataset.billingBound="1";
@@ -65,10 +66,58 @@ export function bindBillingPreview(form){
  };
  form.addEventListener("input",update);form.addEventListener("change",update);update();
 }
+
+function checkedLines(form){
+ if(form.dataset.billingReady!=="yes")throw Error("Service charges have not been loaded. Reopen discharge and resolve the pricing warnings.");
+ const lines=JSON.parse(form.dataset.billingLines||"[]");
+ if(!Array.isArray(lines)||!lines.length)throw Error("No chargeable services were found. Add an active encounter or clinical service price before discharge.");
+ if(lines.length>100)throw Error("Too many line items for one invoice; divide the services into appropriate encounters.");
+ return lines;
+}
+export async function prepareEncounterBilling(form,encounter){
+ const box=form.querySelector(".nmc-auto-lines"),charge=form.querySelector('[name="billingCharge"]');
+ if(!box||!charge)throw Error("Billing form was not initialized.");
+ form.dataset.billingReady="no";
+ box.textContent="Loading services and current prices…";
+ const quote=await collectEncounterCharges(encounter.id);
+ const manual=[];
+ const render=()=>{
+  const lines=[...quote.lines,...manual],total=lines.reduce((n,x)=>n+x.amountCents,0);
+  const missing=quote.unpriced;
+  charge.value=(total/100).toFixed(2);
+  form.dataset.billingLines=JSON.stringify(lines);
+  form.dataset.billingReady=String(lines.length>0&&missing.length===0?"yes":"no");
+  box.replaceChildren();
+  const title=document.createElement("strong");title.textContent="Itemized services · "+lines.length+" · "+money(total);box.append(title);
+  for(const item of lines){
+   const row=document.createElement("div");row.className="nmc-priced-row";
+   const label=document.createElement("span");label.textContent=item.description+" · "+money(item.unitPriceCents);
+   row.append(label);
+   if(item.sourceType==="manual"){const remove=document.createElement("button");remove.type="button";remove.textContent="Remove";remove.onclick=()=>{manual.splice(manual.indexOf(item),1);render()};row.append(remove)}
+   box.append(row);
+  }
+  if(!lines.length){const p=document.createElement("p");p.textContent="No chargeable service was found. Define an Encounter / Facility rate under Service Prices, or add a priced service.";box.append(p)}
+  if(missing.length){const p=document.createElement("p");p.className="nmc-bill-error";p.textContent=missing.length+" clinical service(s) have no matching active price: "+missing.map(x=>x.name).join(", ")+". Create those rates in Service Prices before closing this encounter.";box.append(p)}
+  const options=quote.catalog.filter(x=>x.kind!=="visit");
+  if(options.length){
+   const bar=document.createElement("div");bar.className="nmc-priced-add";
+   const sel=document.createElement("select");sel.setAttribute("aria-label","Add a catalog service");
+   for(const item of options){const opt=document.createElement("option");opt.value=item.id;opt.textContent=item.name+" — "+money(item.priceCents);sel.append(opt)}
+   const add=document.createElement("button");add.type="button";add.textContent="Add priced service";
+   add.onclick=()=>{const item=options.find(x=>x.id===sel.value);if(!item)return;manual.push({serviceId:item.id,serviceName:item.name,description:item.name,sourceType:"manual",sourceId:"manual:"+item.id,quantity:1,unitPriceCents:item.priceCents,amountCents:item.priceCents,rateVersion:item.version||1});render()};
+   bar.append(sel,add);box.append(bar);
+  }
+  form.dispatchEvent(new Event("change",{bubbles:true}));
+ };
+ render();
+ return quote;
+}
 export function buildBillingRecord(form,encounter,userId,extra={}){
  const f=new FormData(form),mode=String(f.get("billingMode")||"");
  if(!["patient","insurance","split","waived"].includes(mode))throw Error("Choose patient billing, insurance, split payment, or waived.");
- const charge=moneyValue(f.get("billingCharge"),true);
+ const lineItems=checkedLines(form);
+ const charge=lineItems.reduce((n,item)=>n+item.amountCents,0);
+ if(charge!==moneyValue(f.get("billingCharge"),true))throw Error("The calculated service total has changed; reload the quote.");
  const insurance=mode==="insurance"?charge:mode==="split"?moneyValue(f.get("billingInsurance")):0;
  const waived=mode==="waived"?charge:mode==="split"?moneyValue(f.get("billingWaiver")):0;
  if(insurance+waived>charge)throw Error("Insurance coverage and waivers cannot exceed the charge.");
@@ -79,7 +128,7 @@ export function buildBillingRecord(form,encounter,userId,extra={}){
  const a={
   encounterId:encounter.id,patientId:encounter.patientId,patientName:encounter.patientName||extra.patientName||"Patient",
   invoiceNumber:"NMC-"+encounter.id.slice(0,10).toUpperCase(),
-  lineItems:[{description:"Encounter and clinical services",quantity:1,unitPriceCents:charge,amountCents:charge}],
+  lineItems,
   chargeCents:charge,insuranceEstimatedCents:insurance,insuranceReceivedCents:0,
   waivedCents:waived,patientPaidCents:0,patientResponsibilityCents:0,patientBalanceCents:0,insurerBalanceCents:0,
   insuranceProvider:insurer,paymentDueDate:"",claimStatus:insurance>0?"not-submitted":"not-applicable",
@@ -185,6 +234,8 @@ export async function openBillingDialogForEncounter({encounter,plan=null,retroac
  const d=document.createElement("dialog");d.className="nmc-billing-dialog";
  d.innerHTML='<form class="nmc-billing-dialog-inner nmc-enterprise-billing"><header><div><p class="eyebrow">Required before '+(retroactive?"creating invoice":"discharge")+'</p><h2>Billing · '+esc(encounter.patientName||"Patient")+'</h2></div><button type="button" class="nmc-bill-close">×</button></header>'+billingFieldsMarkup()+'<div class="nmc-bill-footer"><button type="button" class="nmc-bill-cancel">Cancel</button><button type="submit">'+(retroactive?"Create invoice":"Finalize discharge & billing")+'</button></div><p class="nmc-bill-error" role="status"></p></form>';
  document.body.append(d);const form=d.querySelector("form");bindBillingPreview(form);
+ const submitButton=form.querySelector('button[type="submit"]');submitButton.disabled=true;
+ try{await prepareEncounterBilling(form,encounter);submitButton.disabled=false;}catch(err){form.querySelector(".nmc-bill-error").textContent="Unable to load service prices: "+err.message;}
  const close=()=>d.close();d.querySelector(".nmc-bill-close").onclick=close;d.querySelector(".nmc-bill-cancel").onclick=close;
  d.addEventListener("close",()=>d.remove());d.showModal();
  return new Promise(resolve=>{
