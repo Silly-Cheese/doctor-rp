@@ -74,6 +74,20 @@ const { chromium } = require("playwright");
       container.remove();return good;
     });
     if(!catalogPage)absent.push("Full-page service price editor");
+    const catalogQuote=await page.evaluate(async ()=>{
+      const {buildCatalogQuote}=await import("./northstar-service-catalog.js");
+      const q=buildCatalogQuote({encounterId:"e123",
+        catalog:[
+          {id:"fee",name:"Emergency Visit",kind:"visit",priceCents:12000,active:true,version:3},
+          {id:"lab",name:"CBC",kind:"order",priceCents:4500,active:true,version:2},
+          {id:"proc",name:"Wound Repair",kind:"procedure",priceCents:9500,active:true,version:1}
+        ],
+        orders:[{id:"o1",data:{name:"CBC",status:"ordered"}},{id:"o2",data:{name:"Cancelled Service",status:"cancelled"}}],
+        procedures:[{id:"p1",data:{name:"Wound Repair",status:"complete"}},{id:"p2",data:{name:"Not Performed",status:"planned"}}]
+      });
+      return q.totalCents===26000&&q.unpriced.length===0&&q.lines.length===3&&q.lines.find(x=>x.serviceId==="lab")?.rateVersion===2;
+    });
+    if(!catalogQuote)absent.push("Automatic line item quote and rate snapshot");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
