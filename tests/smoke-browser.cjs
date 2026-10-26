@@ -88,6 +88,31 @@ const { chromium } = require("playwright");
       return q.totalCents===26000&&q.unpriced.length===0&&q.lines.length===3&&q.lines.find(x=>x.serviceId==="lab")?.rateVersion===2;
     });
     if(!catalogQuote)absent.push("Automatic line item quote and rate snapshot");
+    const extendedPricing=await page.evaluate(async ()=>{
+      const {buildCatalogQuote,renderServiceCatalog}=await import("./northstar-service-catalog.js");
+      const catalog=[
+        {id:"a",kind:"visit",name:"Emergency Visit",priceCents:12000,active:true,version:1},
+        {id:"e",kind:"ems",name:"EMS Transport",priceCents:35000,active:true,version:1},
+        {id:"r",kind:"room",name:"Trauma Room",priceCents:25000,active:true,version:1},
+        {id:"o",kind:"order",name:"CBC with Differential",priceCents:2000,active:true,version:1}
+      ];
+      const q=buildCatalogQuote({encounterId:"case1",catalog,encounter:{arrivalMethod:"EMS",room:"TR-01",department:"Emergency Department"},
+       orders:[{id:"o1",data:{name:"CBC with Differential",status:"ordered"}}],procedures:[],admissions:[]});
+      const container=document.createElement("div");document.body.append(container);
+      renderServiceCatalog({target:container,records:[],profile:{status:"active",role:"administrator"}});
+      const type=container.querySelector("#nmcCatalogKind"),name=container.querySelector("#nmcCatalogTemplate");
+      type.value="ems";type.dispatchEvent(new Event("change"));
+      const ems=[...name.options].map(x=>x.value);
+      type.value="room";type.dispatchEvent(new Event("change"));
+      const room=[...name.options].map(x=>x.value);
+      type.value="order";type.dispatchEvent(new Event("change"));
+      const clinical=[...name.options].map(x=>x.value);
+      container.remove();
+      return q.totalCents===74000&&q.unpriced.length===0
+        && q.lines.length===4&&ems.includes("EMS Transport")
+        && room.includes("Trauma Room")&&clinical.includes("CBC with Differential");
+    });
+    if(!extendedPricing)absent.push("EMS and room automatic charges or service dropdown");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
