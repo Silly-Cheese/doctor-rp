@@ -22,7 +22,7 @@ import {
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-import {billingFieldsMarkup,bindBillingPreview,buildBillingRecord} from "./northstar-billing.js";
+import {billingFieldsMarkup,bindBillingPreview,buildBillingRecord,prepareEncounterBilling} from "./northstar-billing.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBPtNWvmmYl-6hFb7NlmNszapMwQH4Xm7I",
@@ -1044,7 +1044,7 @@ async function saveTriage(event) {
   }
 }
 
-function openDischarge(encounterId) {
+async function openDischarge(encounterId) {
   if (!canDischargePatients()) return;
   const encounter = encounters.find((item) => item.id === encounterId);
   if (!encounter || !encounterIsActive(encounter)) return;
@@ -1053,6 +1053,10 @@ function openDischarge(encounterId) {
   els.dischargeForm.dispatchEvent(new Event("change",{bubbles:true}));
   els.dischargePatientName.textContent = `Discharge ${encounter.patientName || "Patient"}`;
   els.dischargeDialog.showModal();
+  const button=els.dischargeForm.querySelector('[type="submit"]');button.disabled=true;
+  try { await prepareEncounterBilling(els.dischargeForm,encounter);button.disabled=false; }
+  catch (err) { showToast("Could not load service charges: "+err.message); }
+
 }
 
 async function dischargePatient(event) {
