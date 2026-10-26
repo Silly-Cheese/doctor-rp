@@ -1,0 +1,8 @@
+.nmc-fullpage-section{min-height:70vh!important;background:#f2f6fa!important;color:#15384d!important;padding:clamp(12px,2vw,24px);width:100%;max-width:100%;box-sizing:border-box}
+.nmc-fullpage-heading{margin-bottom:15px}.nmc-fullpage-heading h2{margin:6px 0;font-size:clamp(1.5rem,2.2vw,2rem);color:#12394f}
+.nmc-fullpage-section>dialog[open]{display:block!important;position:static!important;inset:auto!important;margin:0!important;width:100%!important;min-width:0!important;max-width:none!important;max-height:none!important;height:auto!important;overflow:visible!important;border:none!important;padding:0!important;background:transparent!important;box-shadow:none!important;transform:none!important}
+.nmc-fullpage-section>dialog:not([open]){display:none!important}
+.nmc-fullpage-section :is(.siu-shell,.ns-workdesk-inner,.ns-ops-shell,.ns-emergency-shell,.ns-prefs-inner){max-height:none!important;height:auto!important;overflow:visible!important;background:#fff!important;border-radius:16px!important;border:1px solid #dbe6ed!important;box-shadow:0 8px 26px rgba(10,48,72,.055);padding:clamp(14px,2vw,27px)}
+.nmc-fullpage-section .ns-ops-body{min-height:450px}
+.nmc-fullpage-section :is(.siu-toolbar,.ns-ops-filter){flex-wrap:wrap}
+@media(max-width:680px){.nmc-fullpage-section{padding:10px}.nmc-fullpage-section .ns-ops-body{display:block}.nmc-fullpage-section .ns-ops-body aside{display:flex;flex-direction:row;overflow:auto}}
