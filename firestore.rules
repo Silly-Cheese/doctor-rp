@@ -512,7 +512,7 @@ service cloud.firestore {
     // Simulated patient financial records; never authorizes real collections, claims or payments.
     function isBillingReader() {
       return isActive() && (
-        isAdministrator() || currentUser().role in ['physician','registration']
+        isAdministrator() || permission('billingManage', false) == true || currentUser().role in ['physician','registration']
         || permission('billingAccess', false) == true
       );
     }
