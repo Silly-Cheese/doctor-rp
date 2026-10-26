@@ -3,6 +3,14 @@
 ## Scope
 Northstar Billing & Revenue is a **simulation** accounting workflow for the hospital roleplay platform. It **does not** charge payment cards, verify eligibility, submit real insurance claims, move funds, issue tax receipts, or replace a real medical billing application.
 
+## Editable service prices and automatic charges
+
+In **Administration → Service Prices**, an authorized billing manager can create, edit, archive or reactivate a catalog service and its unit price. Choose Encounter / facility, Clinical order or Completed procedure. Match catalog names to the corresponding clinical orders/procedures for automatic charging. If multiple visit rates are defined, name the intended default **Emergency Visit**.
+
+At discharge, Northstar reads the encounter's placed non-canceled orders and completed procedures, matches them with current active prices, and generates itemized charges automatically. Unmatched services are identified, and the discharge must not finalize until their missing prices are resolved. Authorized staff can add additional catalog-priced services to the invoice. The total is calculated from item prices, not typed manually.
+
+Each issued invoice freezes the service names, unit prices, original source IDs and pricing versions. Updating prices affects only future invoices. Catalog edits are audited and require reasons for changed prices.
+
 ## Where to find it
 After signing in with an authorized account, select **Administration → Billing & Revenue** in the left sidebar. Permission-controlled roles can search encounter-linked invoices, review outstanding patient/insurer balances, examine itemized charges and audit entries, print a simulated invoice, and discover older discharged encounters that have no invoice.
 
@@ -13,7 +21,7 @@ A provider closing an encounter from the patient chart is prompted for a **requi
 - **Split:** expected insurance share, waiver and patient responsibility are apportioned; their sum cannot exceed the encounter charge.
 - **Fully waived:** zero patient responsibility with a mandatory documented waiver reason.
 
-The invoice is created in the **same Firestore batch** as the encounter closure and patient status update. The independent Discharge Center's Finalize action also requires the billing dialogue and commits the discharge, plan status and invoice together. Cancelling this dialogue does not close the encounter.
+The itemized invoice is created in the **same Firestore batch** as the encounter closure and patient status update. The independent Discharge Center's Finalize action also requires the billing dialogue and commits the discharge, plan status and invoice together. Cancelling this dialogue does not close the encounter.
 
 ### Billing page
 - Search by patient, invoice, insurer and encounter ID.
@@ -41,6 +49,10 @@ These settings are exposed in Northstar's staff permissions area. Existing accou
 
 ## Data
 `billingAccounts/{encounterId}` tracks the unique invoice, itemized charges, insurer estimate/received amounts, authorized write-offs, patient responsibility, payments, outstanding balances, claim status, waiver authorization and simulated status. `billingAccounts/{encounterId}/events/{eventId}` is the append-only financial activity log. Patient and encounter IDs link records for accurate invoice and clinical history. Direct patient deletion remains restricted.
+
+## Full-page navigation
+
+Primary navigation destinations open as full-page workspaces, including Billing & Revenue, Service Prices, SIU, Operations Center, Emergency Intake, Shift Tasks and Display Preferences. Modals remain only for discrete actions such as editing prices or individual invoice details.
 
 ## Deployment
 Publishing to GitHub Pages updates the website **only**. You must also deploy new Firestore rules for the billing page to read, create or update records:
