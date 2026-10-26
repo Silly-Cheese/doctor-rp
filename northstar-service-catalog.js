@@ -14,7 +14,7 @@ const TEMPLATES={
  order:["CBC with Differential","Comprehensive Metabolic Panel","Troponin","Lactate","Blood Cultures","12-Lead ECG","Chest X-Ray — 2 Views","CT Head without Contrast","CT Abdomen/Pelvis with Contrast","Telemetry","Oxygen","Normal Saline","Aspirin","Acetaminophen","Ondansetron","Albuterol","NPO","Fall Precautions"],
  procedure:["Wound Repair","Laceration Repair","Suture Removal","Splint Application","Fracture Reduction","Intubation","Cardiopulmonary Resuscitation","Central Line Placement","Arterial Line Placement","Chest Tube Placement","Lumbar Puncture","Abscess Drainage","IV Access","Urinary Catheter Placement","Blood Transfusion","Sedation","Procedural Ultrasound"],
  ems:["EMS Transport","Advanced Life Support Transport","Basic Life Support Transport","EMS Critical Care Transport"],
- room:["Emergency Room","Trauma Room","Observation Room","Med/Surg Room","ICU Room","Pediatric Room"],
+ room:["Emergency Room","Trauma Room","Observation Room","Operating Room","Med/Surg Room","ICU Room","Pediatric Room"],
  service:["Med/Surg Services","ICU Services","Pediatric Services","Observation Services","Respiratory Therapy","Physical Therapy","Occupational Therapy","Consultation Services","Patient Transport","Pharmacy Services","Diagnostic Services","Surgical Services","Nursing Services"]
 };
 const serviceNameOptions=kind=>TEMPLATES[kind]||[];
@@ -91,7 +91,7 @@ export function renderServiceCatalog({target,records,profile}){
   };
  }
 }
-export function buildCatalogQuote({encounterId,catalog,orders,procedures}){
+export function buildCatalogQuote({encounterId,catalog,orders,procedures,encounter={},admissions=[]}){
  const activeRates=catalog.filter(x=>x.active!==false);
  const rate=new Map(activeRates.map(x=>[x.kind+":"+normalize(x.name),x]));
  const codeRate=new Map(activeRates.filter(x=>x.code).map(x=>[x.kind+":"+normalize(x.code),x]));
@@ -105,6 +105,24 @@ export function buildCatalogQuote({encounterId,catalog,orders,procedures}){
  const defaultVisit=visits.find(x=>normalize(x.name)==="emergency visit")||(visits.length===1?visits[0]:null);
  if(defaultVisit)push("visit",defaultVisit.name,"visit:"+encounterId);
  else if(visits.length>1)unpriced.push({kind:"visit",name:"Multiple facility rates configured — use a rate named Emergency Visit",sourceId:encounterId});
+ const arrival=normalize(encounter.arrivalMethod);
+ if(arrival==="ems"||arrival==="ambulance"){
+   push("ems","EMS Transport","arrival:"+encounterId);
+ }
+ const admission=admissions.find(a=>a.data?.status!=="cancelled");
+ const department=normalize(admission?.data?.service||encounter.department||"");
+ const room=normalize(admission?.data?.bed||encounter.room||"");
+ let roomType="";
+ if(room.startsWith("or-")||room.includes("operating"))roomType="Operating Room";
+ else if(room.startsWith("tr-")||room.includes("trauma"))roomType="Trauma Room";
+ else if(room.startsWith("obs-")||room.includes("observ"))roomType="Observation Room";
+ else if(room.startsWith("icu")||department==="icu")roomType="ICU Room";
+ else if(room.startsWith("ped")||department.includes("pediatr"))roomType="Pediatric Room";
+ else if(room.startsWith("er-")||room.startsWith("ed-")||room.includes("emergency"))roomType="Emergency Room";
+ else if(room||["med/surg","medical","surgical"].includes(department))roomType="Med/Surg Room";
+ if(roomType&&room)push("room",roomType,"room:"+encounterId);
+ const deptServices={"med/surg":"Med/Surg Services","icu":"ICU Services","pediatrics":"Pediatric Services","observation":"Observation Services"};
+ if(deptServices[department])push("service",deptServices[department],"service:"+encounterId);
  for(const d of orders){const item=d.data||{};if(["cancelled","canceled","void"].includes(String(item.status||"").toLowerCase()))continue;push("order",item.name||item.orderName||"Unnamed order",d.id,1,item.serviceCode||item.orderCode||item.code||"");}
  for(const d of procedures){const item=d.data||{};if(!["complete","completed","done"].includes(String(item.status||"").toLowerCase()))continue;push("procedure",item.name||"Unnamed procedure",d.id,1,item.serviceCode||item.procedureCode||item.code||"");}
  return {lines,unpriced,catalog:catalog.filter(x=>x.active!==false),totalCents:lines.reduce((a,x)=>a+x.amountCents,0)};
@@ -112,12 +130,16 @@ export function buildCatalogQuote({encounterId,catalog,orders,procedures}){
 
 
 export async function collectEncounterCharges(encounterId){
- const [catalog,orders,procedures]=await Promise.all([
+ const [catalog,orders,procedures,encounterSnap,admissionsSnap]=await Promise.all([
   listCatalog(),
   getDocs(query(collection(db(),"orders"),where("encounterId","==",encounterId))),
-  getDocs(query(collection(db(),"procedures"),where("encounterId","==",encounterId)))
+  getDocs(query(collection(db(),"procedures"),where("encounterId","==",encounterId))),
+  getDoc(doc(db(),"encounters",encounterId)),
+  getDocs(query(collection(db(),"admissions"),where("encounterId","==",encounterId)))
  ]);
- return buildCatalogQuote({encounterId,catalog,
+ if(!encounterSnap.exists())throw Error("Encounter is missing; cannot calculate charges.");
+ return buildCatalogQuote({encounterId,catalog,encounter:encounterSnap.data(),
+  admissions:admissionsSnap.docs.map(d=>({id:d.id,data:d.data()})),
   orders:orders.docs.map(d=>({id:d.id,data:d.data()})),
   procedures:procedures.docs.map(d=>({id:d.id,data:d.data()}))
  });
