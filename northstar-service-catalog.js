@@ -2,7 +2,7 @@
 import {getApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {getAuth} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {getFirestore,collection,doc,getDoc,getDocs,query,where,writeBatch,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-const app=getApp(),db=getFirestore(app),auth=getAuth(app);
+const db=()=>getFirestore(getApp()),auth=()=>getAuth(getApp());
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 const cash=c=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format((Number(c)||0)/100);
 const normalize=s=>String(s??"").toLowerCase().replace(/\s+/g," ").trim();
@@ -10,7 +10,7 @@ const readPrice=v=>{if(!/^(?:0|[1-9]\d{0,6})(?:\.\d{1,2})?$/.test(String(v).trim
 const canEdit=p=>p?.status==="active"&&(p.role==="administrator"||p.permissions?.billingManage===true);
 const kindTitle={visit:"Encounter / facility",order:"Clinical order",procedure:"Procedure"};
 export async function listCatalog(){
- const snap=await getDocs(collection(db,"serviceCatalog"));
+ const snap=await getDocs(collection(db(),"serviceCatalog"));
  return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));
 }
 export function renderServiceCatalog({target,records,profile}){
@@ -47,24 +47,24 @@ export function renderServiceCatalog({target,records,profile}){
   const same=rows.find(r=>r.kind===kind&&normalize(r.name)===normalize(name));
   if(same){notice.textContent="This service already exists. Edit its price or reactivate its archived entry.";return;}
   const button=form.querySelector('[type="submit"]');button.disabled=true;
-  try{const ref=doc(collection(db,"serviceCatalog")),batch=writeBatch(db);
-   batch.set(ref,{name,kind,code,priceCents,active:true,version:1,createdBy:auth.currentUser.uid,createdAt:serverTimestamp(),updatedBy:auth.currentUser.uid,updatedAt:serverTimestamp()});
-   batch.set(doc(collection(db,"serviceCatalog",ref.id,"revisions")),{action:"created",priceCents,name,actorUid:auth.currentUser.uid,at:serverTimestamp()});
+  try{const ref=doc(collection(db(),"serviceCatalog")),batch=writeBatch(db());
+   batch.set(ref,{name,kind,code,priceCents,active:true,version:1,createdBy:auth().currentUser.uid,createdAt:serverTimestamp(),updatedBy:auth().currentUser.uid,updatedAt:serverTimestamp()});
+   batch.set(doc(collection(db(),"serviceCatalog",ref.id,"revisions")),{action:"created",priceCents,name,actorUid:auth().currentUser.uid,at:serverTimestamp()});
    await batch.commit();notice.textContent="Price saved.";form.reset();
   }catch(err){notice.textContent=err.message;}finally{button.disabled=false;}
  };
  async function saveChange(r,changes){
-  const batch=writeBatch(db);
-  batch.update(doc(db,"serviceCatalog",r.id),{...changes,version:(r.version||1)+1,updatedBy:auth.currentUser.uid,updatedAt:serverTimestamp()});
-  batch.set(doc(collection(db,"serviceCatalog",r.id,"revisions")),{action:changes.active===false?"archived":changes.active===true?"reactivated":"price-updated",priceCents:changes.priceCents??r.priceCents,name:r.name,actorUid:auth.currentUser.uid,at:serverTimestamp()});
+  const batch=writeBatch(db());
+  batch.update(doc(db(),"serviceCatalog",r.id),{...changes,version:(r.version||1)+1,updatedBy:auth().currentUser.uid,updatedAt:serverTimestamp()});
+  batch.set(doc(collection(db(),"serviceCatalog",r.id,"revisions")),{action:changes.active===false?"archived":changes.active===true?"reactivated":"price-updated",priceCents:changes.priceCents??r.priceCents,name:r.name,actorUid:auth().currentUser.uid,at:serverTimestamp()});
   await batch.commit();
  }
  function editRate(r){
   const modal=document.createElement("dialog");modal.className="nmc-billing-dialog";modal.innerHTML='<form class="nmc-billing-dialog-inner"><h2>Edit price</h2><p>'+esc(r.name)+' · '+esc(kindTitle[r.kind]||"Service")+'</p><label>New rate ($)<input name="price" type="number" min="0" max="9999999.99" step="0.01" required value="'+(r.priceCents/100).toFixed(2)+'"></label><label>Reason for price change<textarea name="reason" minlength="5" maxlength="250" required></textarea></label><div class="nmc-bill-footer"><button type="button" class="nmc-close-rate">Cancel</button><button type="submit">Save updated price</button></div><p class="nmc-rate-error" role="status"></p></form>';
   document.body.append(modal);modal.showModal();modal.addEventListener("close",()=>modal.remove());modal.querySelector(".nmc-close-rate").onclick=()=>modal.close();
   modal.querySelector("form").onsubmit=async ev=>{ev.preventDefault();const priceCents=readPrice(new FormData(ev.target).get("price"));const reason=String(new FormData(ev.target).get("reason")).trim();const button=ev.target.querySelector('[type="submit"]');button.disabled=true;
-   try{const batch=writeBatch(db);batch.update(doc(db,"serviceCatalog",r.id),{priceCents,version:(r.version||1)+1,updatedBy:auth.currentUser.uid,updatedAt:serverTimestamp()});
-   batch.set(doc(collection(db,"serviceCatalog",r.id,"revisions")),{action:"price-updated",priceCents,previousPriceCents:r.priceCents,reason,actorUid:auth.currentUser.uid,at:serverTimestamp()});
+   try{const batch=writeBatch(db());batch.update(doc(db(),"serviceCatalog",r.id),{priceCents,version:(r.version||1)+1,updatedBy:auth().currentUser.uid,updatedAt:serverTimestamp()});
+   batch.set(doc(collection(db(),"serviceCatalog",r.id,"revisions")),{action:"price-updated",priceCents,previousPriceCents:r.priceCents,reason,actorUid:auth().currentUser.uid,at:serverTimestamp()});
    await batch.commit();modal.close();
    }catch(err){modal.querySelector(".nmc-rate-error").textContent=err.message;button.disabled=false;}
   };
@@ -73,8 +73,8 @@ export function renderServiceCatalog({target,records,profile}){
 export async function collectEncounterCharges(encounterId){
  const [catalog,orders,procedures]=await Promise.all([
    listCatalog(),
-   getDocs(query(collection(db,"orders"),where("encounterId","==",encounterId))),
-   getDocs(query(collection(db,"procedures"),where("encounterId","==",encounterId)))
+   getDocs(query(collection(db(),"orders"),where("encounterId","==",encounterId))),
+   getDocs(query(collection(db(),"procedures"),where("encounterId","==",encounterId)))
  ]);
  const rate=new Map(catalog.filter(x=>x.active!==false).map(x=>[x.kind+":"+normalize(x.name),x]));
  const lines=[],unpriced=[];
