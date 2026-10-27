@@ -1,4 +1,5 @@
 // Editable simulation charge master. Historic invoices store frozen item prices.
+import {mountBulkPricing} from "./northstar-bulk-pricing.js";
 import {getApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {getAuth} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {getFirestore,collection,doc,getDoc,getDocs,query,where,limit,writeBatch,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -66,6 +67,7 @@ export function renderServiceCatalog({target,records,profile}){
    observed.order=[...new Set(orders.docs.map(d=>d.data().name||d.data().orderName||"").filter(Boolean))];
    observed.procedure=[...new Set(procedures.docs.map(d=>d.data().name||"").filter(Boolean))];
    refreshNames();
+   mountBulkPricing({target:target.querySelector(".nmc-catalog"),records:rows,observed:[...observed.order.map(name=>({kind:"order",name,group:"other-order"})),...observed.procedure.map(name=>({kind:"procedure",name,group:"procedures"}))]});
  }).catch(err=>{
    const info=target.querySelector("#nmcCatalogNotice");
    if(info&&!info.textContent)info.textContent="Showing standard Northstar services; recorded-name suggestions could not load.";
@@ -81,6 +83,7 @@ export function renderServiceCatalog({target,records,profile}){
  };
  const nameChanged=()=>{customWrap.hidden=nameControl.value!=="__custom__";customWrap.querySelector("input").required=!customWrap.hidden};
  kindControl.addEventListener("change",refreshNames);nameControl.addEventListener("change",nameChanged);refreshNames();
+ mountBulkPricing({target:target.querySelector(".nmc-catalog"),records:rows,observed:[]});
  form.onsubmit=async e=>{
   e.preventDefault();const f=new FormData(form);const name=String(f.get("templateName")==="__custom__"?f.get("customName"):f.get("templateName")).trim(),kind=String(f.get("kind")),priceCents=readPrice(f.get("price")),code=String(f.get("code")||"").trim();
   const notice=target.querySelector("#nmcCatalogNotice");
