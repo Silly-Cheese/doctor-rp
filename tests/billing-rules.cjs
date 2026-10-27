@@ -73,6 +73,33 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,serverTimestamp}=require
   await assertFails(deleteDoc(doc(admin,"serviceCatalogDeletions","auditone")));
   await assertSucceeds(getDoc(doc(admin,"billingAccounts","billingencounter")));
   await assertFails(deleteDoc(doc(admin,"billingAccounts","billingencounter")));
+  // Several service prices can be created together, each with a price history.
+  const bulk=writeBatch(clerk);
+  for(const [id,name,price] of [
+    ["order_amoxicillin","Amoxicillin",4200],
+    ["order_ceftriaxone","Ceftriaxone",6500],
+    ["order_vancomycin","Vancomycin",9700]
+  ]){
+    bulk.set(doc(clerk,"serviceCatalog",id),{name,kind:"order",code:"",priceCents:price,active:true,
+      version:1,createdBy:"billingclerk",createdAt:serverTimestamp(),updatedBy:"billingclerk",updatedAt:serverTimestamp()});
+    bulk.set(doc(clerk,"serviceCatalog",id,"revisions","first"),{
+      action:"created",priceCents:price,name,actorUid:"billingclerk",at:serverTimestamp()
+    });
+  }
+  await assertSucceeds(bulk.commit());
+  const bulkResult=await getDoc(doc(admin,"serviceCatalog","order_ceftriaxone"));
+  if(!bulkResult.exists()||bulkResult.data().priceCents!==6500)throw Error("Bulk pricing failed");
+  const massUpdate=writeBatch(clerk);
+  massUpdate.update(doc(clerk,"serviceCatalog","order_amoxicillin"),{
+    priceCents:4800,version:2,updatedBy:"billingclerk",updatedAt:serverTimestamp()
+  });
+  massUpdate.set(doc(clerk,"serviceCatalog","order_amoxicillin","revisions","bulksecond"),{
+    action:"price-updated",priceCents:4800,previousPriceCents:4200,name:"Amoxicillin",
+    reason:"Bulk pricing change",actorUid:"billingclerk",at:serverTimestamp()
+  });
+  await assertSucceeds(massUpdate.commit());
+  const unchanged=await getDoc(doc(admin,"serviceCatalog","order_ceftriaxone"));
+  if(unchanged.data().priceCents!==6500)throw Error("Other rates should remain unchanged");
   console.log("Billing simulation security rules passed.");
  } finally {await env.cleanup();}
 })().catch(err=>{console.error(err);process.exitCode=1});
