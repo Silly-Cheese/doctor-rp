@@ -258,6 +258,40 @@ const { chromium } = require("playwright");
       return filtered.length===1&&filtered[0].encounterId==="1";
     });
     if(!billingOps)absent.push("Admin waiver and line override arithmetic / patient grouping filters");
+    // The order catalog contains long medication and diagnostic lists.
+    // Verify its scrollable body works without clipping the header at both desktop and mobile sizes.
+    const orderScroll=await page.evaluate(()=>{
+      const dialog=document.querySelector("#orderCatalogDialog"),body=dialog?.querySelector(".order-catalog-body");
+      const rows=dialog?.querySelector("#orderCatalogList");
+      if(!dialog||!body||!rows)return false;
+      const original=rows.innerHTML;
+      rows.innerHTML=Array.from({length:65},(_,i)=>'<article class="order-catalog-row"><div><strong>Order '+(i+1)+'</strong><small>Test catalog entry</small></div><button type="button">Select</button></article>').join("");
+      dialog.showModal();
+      const header=dialog.querySelector(".modal-header"),before=header.getBoundingClientRect();
+      const scrollable=body.scrollHeight>body.clientHeight+150&&getComputedStyle(body).overflowY==="auto";
+      body.scrollTop=body.scrollHeight;
+      const moved=body.scrollTop>150;
+      const after=header.getBoundingClientRect();
+      const stable=Math.abs(after.y-before.y)<2;
+      window.__nmcOrderScrollCleanup=()=>{dialog.close();rows.innerHTML=original;};
+      return scrollable&&moved&&stable;
+    });
+    if(!orderScroll)absent.push("Desktop order catalog vertical scrolling");
+    await page.setViewportSize({width:390,height:650});
+    const mobileOrderScroll=await page.evaluate(()=>{
+      const dialog=document.querySelector("#orderCatalogDialog"),body=dialog?.querySelector(".order-catalog-body");
+      if(!dialog?.open||!body)return false;
+      body.scrollTop=0;
+      const height=dialog.getBoundingClientRect().height;
+      body.scrollTop=700;
+      const moved=body.scrollTop>150;
+      const withinScreen=height<=window.innerHeight-8;
+      window.__nmcOrderScrollCleanup?.();
+      delete window.__nmcOrderScrollCleanup;
+      return moved&&withinScreen;
+    });
+    if(!mobileOrderScroll)absent.push("Mobile order catalog vertical scrolling");
+    await page.setViewportSize({width:1365,height:900});
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
