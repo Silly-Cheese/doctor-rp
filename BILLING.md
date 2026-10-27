@@ -66,6 +66,12 @@ For manual additions during discharge, Northstar blocks adding a service already
 ## Where to find it
 After signing in with an authorized account, select **Administration → Billing & Revenue** in the left sidebar. Permission-controlled roles can search encounter-linked invoices, review outstanding patient/insurer balances, examine itemized charges and audit entries, print a simulated invoice, and discover older discharged encounters that have no invoice.
 
+### Edit and remove individual discharge charges
+
+Every item in the **Priced encounter services** list now has an **Edit** and **Remove** action, including automatically matched emergency visit, EMS, room, medication, and procedure charges. Edit changes the unit price and/or quantity **for this encounter only** and requires a short adjustment reason. Remove excludes the line from that patient's invoice without deleting the original clinical order or the hospital-wide price. Removed lines remain visible with **Undo** until the discharge is finalized.
+
+The form recalculates the encounter charge, insurance estimate preview, waived amount and expected patient balance after each change. Adjustments and exclusions are preserved in the invoice's internal billing notes, with original line prices kept in item metadata. Existing issued invoices are not modified from the discharge page. At least one service line is required for a valid invoice; to reduce a single remaining charge to zero, use Edit.
+
 ### At discharge
 A provider closing an encounter from the patient chart is prompted for a **required billing disposition**:
 - **Patient billed:** total charge is assigned to the patient.
