@@ -149,6 +149,36 @@ const { chromium } = require("playwright");
       return all&&ready&&priced.length>10;
     });
     if(!bulkPricing)absent.push("Bulk medication/antibiotic pricing category and CSV workflow");
+    const clinicalAndBilling=await page.evaluate(async ()=>{
+      const {ORDER_GROUPS,buildClinicalChoices,selectOrderChoice}=await import("./northstar-clinical-order-data.js");
+      const {buildCatalogQuote}=await import("./northstar-service-catalog.js");
+      const {summarizeBilling,exportBillingCSV}=await import("./northstar-billing-insights.js");
+      const rate={id:"order_ceftriaxone",name:"Ceftriaxone",kind:"order",priceCents:7300,code:"AB-CF",active:true,version:5};
+      const choices=buildClinicalChoices([rate]);
+      const antibiotics=selectOrderChoice(choices,"antibiotics","Ceftriaxone");
+      const labs=selectOrderChoice(choices,"laboratory","CBC with Differential");
+      const imaging=selectOrderChoice(choices,"imaging","Chest X-Ray — 2 Views");
+      const groups=new Set(ORDER_GROUPS.map(g=>g.id));
+      if(!antibiotics||antibiotics.category!=="medication"||antibiotics.serviceCode!=="AB-CF"||antibiotics.catalogId!==rate.id)return false;
+      if(!labs||!imaging||!groups.has("fluids")||!groups.has("monitoring"))return false;
+      const quoted=buildCatalogQuote({encounterId:"testenc",catalog:[rate],encounter:{},
+        orders:[{id:"order1",data:{name:"Renamed Service",category:"medication",orderGroup:"antibiotics",serviceCode:"AB-CF",catalogRateId:rate.id,status:"ordered"}}],
+        procedures:[],admissions:[]});
+      if(quoted.totalCents!==7300||quoted.unpriced.length||quoted.lines[0].clinicalGroup!=="antibiotics")return false;
+      const accounts=[{encounterId:"testenc",patientId:"patient",patientName:"Demo",chargeCents:10000,
+        patientPaidCents:1200,insuranceReceivedCents:2500,waivedCents:1000,
+        patientBalanceCents:2300,insurerBalanceCents:3000,paymentDueDate:"2026-01-01",claimStatus:"pending"}];
+      const stats=summarizeBilling(accounts,[{id:"oldenc",patientId:"patient",status:"discharged"}],new Date("2026-10-26T15:00:00"));
+      if(stats.overdue!==1||stats.unbilled!==1||stats.claimsToReview!==1||stats.collected!==3700||stats.waived!==1000)return false;
+      const csv=exportBillingCSV(accounts,[]);
+      if(!csv.includes("invoice")||!csv.includes("testenc"))return false;
+      const standard=document.querySelector("#clinicalOrderForm");
+      if(standard&&(!standard.querySelector("#orderGroup")||standard.querySelector("#orderName")?.tagName!=="SELECT"))return false;
+      const advanced=document.querySelector("#orderCatalogDialog");
+      if(advanced&&(!advanced.querySelector("#nmcCatalogOrderGroup")||!advanced.querySelector("#nmcCatalogOrderName")))return false;
+      return true;
+    });
+    if(!clinicalAndBilling)absent.push("Matched clinical order groups and improved billing analytics");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
