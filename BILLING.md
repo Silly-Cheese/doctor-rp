@@ -11,6 +11,22 @@ At discharge, Northstar reads the encounter's placed non-canceled orders and com
 
 Each issued invoice freezes the service names, unit prices, original source IDs and pricing versions. Updating prices affects only future invoices. Catalog edits are audited and require reasons for changed prices.
 
+## Bulk Price Setup (Labs, antibiotics, medications and more)
+
+The **Service Prices** page now includes a **Bulk Service Pricing** workspace, above the existing rate list. It offers curated simulation-service templates for labs, imaging, diagnostics, antibiotics, other medications, IV fluids, procedures, EMS, room categories, facility visits, monitoring and general hospital services. It also includes additional exact names observed in Northstar's documented orders and procedures.
+
+To set up a large category quickly:
+1. Select a category (for example, **Antibiotics**).
+2. Use **Select filtered** to select unpriced services in that category.
+3. Enter a category-level unit price and choose **Apply price to selected (preview)**.
+4. Adjust individual prices as desired; select **Save selected prices** to write the rates.
+
+Bulk actions **skip existing prices by default**. Existing rates change only when **Explicitly update existing prices** is enabled. Each created or updated rate receives an audit revision. Changes to rates affect future invoices only, since historical invoices contain frozen line-item prices.
+
+**CSV workflow:** Download the full template, enter prices for the services you want to configure, and import it. The columns are `category,kind,serviceName,price,code`. Blank prices are ignored. CSV imports are previews and do not change Firestore until **Save selected prices** is used. You can also export existing service prices for backup or updates. CSV size is limited to 2 MB and 1,500 rows; writes are committed in batches.
+
+Northstar does **not** invent or automatically approve financial prices: staff set their own simulated rates. The medication/antibiotic name list is only a billing reference and does **not** create medication orders, default doses, or prescribing instructions.
+
 ## Where to find it
 After signing in with an authorized account, select **Administration → Billing & Revenue** in the left sidebar. Permission-controlled roles can search encounter-linked invoices, review outstanding patient/insurer balances, examine itemized charges and audit entries, print a simulated invoice, and discover older discharged encounters that have no invoice.
 
