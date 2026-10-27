@@ -71,3 +71,41 @@
 .nmc-catalog-delete-dialog .nmc-confirm-delete{background:#a43140;color:white;border-color:#a43140;font-weight:750}
 .nmc-catalog-delete-dialog .nmc-confirm-delete:hover{background:#892432}
 .nmc-catalog-delete-dialog .nmc-confirm-delete:disabled{opacity:.55;cursor:wait}
+
+
+/* Bulk Price Manager — embedded full-page rate setup, no modal required */
+.nmc-bulk-panel{margin:26px 0;padding:clamp(16px,2vw,25px);border:1px solid #d4e4ec;background:white;border-radius:16px;box-shadow:0 5px 22px #15354d0e;color:#14364b}
+.nmc-bulk-panel header h3{font-size:1.4rem;margin:8px 0}
+.nmc-bulk-panel header p:not(.eyebrow){color:#5b7689;line-height:1.5}
+.nmc-bulk-toolbar{display:grid;grid-template-columns:minmax(175px,1fr) minmax(200px,1.5fr) auto;align-items:end;gap:13px;margin:22px 0 11px}
+.nmc-bulk-toolbar label,.nmc-bulk-apply label{display:grid;gap:7px;font-weight:700;font-size:.87rem}
+.nmc-bulk-toolbar input[type=search],.nmc-bulk-toolbar select,.nmc-bulk-apply input{background:#fff;color:#173a50;border:1px solid #bfd2de;padding:11px;border-radius:9px;min-width:0;width:100%;box-sizing:border-box}
+.nmc-bulk-toolbar .nmc-bulk-check,.nmc-bulk-controls .nmc-bulk-check{display:flex;gap:8px;align-items:center;font-weight:600;font-size:.86rem;color:#476a80}
+.nmc-bulk-check input{accent-color:#146588;width:17px;height:17px;flex:none}
+.nmc-bulk-controls,.nmc-bulk-apply,.nmc-bulk-footer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:11px 0}
+.nmc-bulk-controls>button,.nmc-bulk-apply>button,.nmc-bulk-footer>button,.nmc-bulk-pages button{border:1px solid #b9d0dc;background:#f2f8fb;color:#164b69;font-weight:700;border-radius:9px;padding:10px 13px}
+.nmc-bulk-controls .nmc-bulk-check{margin-left:auto}
+.nmc-bulk-apply{border-top:1px solid #e0ebf0;margin-top:4px;padding-top:15px}
+.nmc-bulk-apply label{max-width:270px;flex:1}
+.nmc-bulk-apply>button{align-self:end}
+.nmc-bulk-summary{font-size:.86rem;color:#557488;background:#f1f7fb;padding:12px 14px;border-radius:9px;border:1px solid #deebf2}
+.nmc-bulk-table-wrap{max-width:100%;overflow:auto;border-radius:10px;border:1px solid #e0e9ef}
+.nmc-bulk-table{width:100%;border-collapse:collapse;text-align:left;min-width:540px}
+.nmc-bulk-table thead{background:#ebf4f9}
+.nmc-bulk-table th{font-size:.75rem;letter-spacing:.035em;text-transform:uppercase;color:#476779}
+.nmc-bulk-table th,.nmc-bulk-table td{border-bottom:1px solid #dfe9ef;padding:12px;vertical-align:middle}
+.nmc-bulk-table tr:last-child td{border-bottom:0}
+.nmc-bulk-table td strong{font-size:.9rem;color:#14384e}
+.nmc-bulk-table td small{display:block;color:#688395;margin-top:4px;font-size:.75rem}
+.nmc-bulk-table input[type=checkbox]{height:18px;width:18px;accent-color:#13658c}
+.nmc-bulk-rate{width:132px;max-width:100%;border:1px solid #c1d3df;border-radius:8px;padding:10px;background:#fff;color:#173850}
+.nmc-bulk-rate:disabled{background:#f0f5f7;color:#698192}
+.nmc-bulk-pages{display:flex;justify-content:center;align-items:center;gap:15px;padding:15px 0;color:#557a8d}
+.nmc-bulk-pages button:disabled,.nmc-bulk-footer button:disabled{opacity:.4;cursor:not-allowed}
+.nmc-bulk-footer{margin-top:4px;justify-content:space-between;border-top:1px solid #e0eaf0}
+.nmc-bulk-import{position:relative;display:flex;align-items:center;border:1px solid #b9d0dc;background:#f2f8fb;color:#164b69;border-radius:9px;padding:10px 13px;font-weight:700;cursor:pointer}
+.nmc-bulk-import input{position:absolute;opacity:0;inset:0;width:100%;height:100%;cursor:pointer}
+.nmc-bulk-primary{background:#0c5f88!important;color:#fff!important;border-color:#0c5f88!important}
+.nmc-bulk-notice{min-height:1.2em;font-size:.86rem;font-weight:650;color:#235873}
+@media(max-width:850px){.nmc-bulk-toolbar{grid-template-columns:1fr 1fr}.nmc-bulk-toolbar .nmc-bulk-check{grid-column:1/-1}}
+@media(max-width:600px){.nmc-bulk-toolbar{grid-template-columns:1fr}.nmc-bulk-toolbar .nmc-bulk-check{grid-column:1}.nmc-bulk-controls .nmc-bulk-check{margin:0}.nmc-bulk-footer{align-items:stretch}.nmc-bulk-footer>button,.nmc-bulk-import{flex:1;justify-content:center}.nmc-bulk-panel{padding:12px}}
