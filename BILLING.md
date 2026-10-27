@@ -37,6 +37,22 @@ Bulk actions **skip existing prices by default**. Existing rates change only whe
 
 Northstar does **not** invent or automatically approve financial prices: staff set their own simulated rates. The medication/antibiotic name list is only a billing reference and does **not** create medication orders, default doses, or prescribing instructions.
 
+## Patient Accounts, Advanced Filters and Administrative Waivers
+
+Billing & Revenue groups **all invoices under each patient** by default, with a toggle for a flat invoice list. Search by patient name, invoice, insurer or encounter; filter by patient, payment status, overdue and insurer follow-up, date cutoff, minimum charges, and whether a remaining balance is owed. You can sort and export filtered invoices to CSV. Unbilled discharged encounters appear under the same patient account instead of in a separate unrelated list.
+
+### Automatic waivers (administrators only)
+
+Select one or more invoices or unbilled discharges with the checkboxes, or apply your filters and use **Review automatic waivers** for the filtered set. Choose whether to clear only patient balances or also unreceived insurer estimates. Review the preview, provide a written reason, and type the exact waiver confirmation shown. The client processes up to **100 records per operation**, each atomically and with an immutable audit event; partial failures are reported individually. Already received patient or insurer payments are never erased.
+
+For a discharged encounter that has no invoice, the waiver workflow first generates a retrospective itemized invoice from its clinical services, then waives its full amount. Encounters lacking a patient record, eligible priced services, or required service catalog rates are **skipped with an explanation**, rather than silently creating invented amounts.
+
+### Charge overrides (administrators only)
+
+Open an invoice and choose **Override invoice charges** to replace the invoice total or correct a particular service line. Corrections appear as additional itemized entries, preserving all original services and rate snapshots. Every override requires an explanation and creates a financial audit event. Reductions below already recorded payments are rejected; recorded insurer/patient receipts are preserved and any estimates/waivers adjusted within the remaining allocated total.
+
+Bulk waiver and charge override permissions require updated Firestore rules. A backend security check also links privileged adjustments to their immutable audit events. This is only simulation accounting, not actual medical debt adjustment.
+
 ## Printable patient statements and internal financial reports
 
 The invoice's **Print patient statement** action now opens a self-contained, letter-sized branded statement with itemized services, quantities, rates, total charges, insurer estimate, waiver adjustment, recorded payments, and current patient responsibility. It can be printed or saved as PDF from the browser. The patient copy intentionally excludes internal notes, user IDs, and waiver-authorization reasons.
