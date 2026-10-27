@@ -159,12 +159,14 @@ export function renderServiceCatalog({target,records,profile}){
 export function buildCatalogQuote({encounterId,catalog,orders,procedures,encounter={},admissions=[]}){
  const activeRates=catalog.filter(x=>x.active!==false);
  const rate=new Map(activeRates.map(x=>[x.kind+":"+normalize(x.name),x]));
+ const idRate=new Map(activeRates.map(x=>[x.id,x]));
  const codeRate=new Map(activeRates.filter(x=>x.code).map(x=>[x.kind+":"+normalize(x.code),x]));
  const lines=[],unpriced=[];
- const push=(type,name,sourceId,qty=1,code="")=>{
-  const item=rate.get(type+":"+normalize(name))||(code?codeRate.get(type+":"+normalize(code)):undefined);
+ const push=(type,name,sourceId,qty=1,code="",rateId="",clinicalGroup="")=>{
+  const idMatch=rateId?idRate.get(rateId):null;
+  const item=(idMatch?.kind===type?idMatch:null)||rate.get(type+":"+normalize(name))||(code?codeRate.get(type+":"+normalize(code)):undefined);
   if(!item){unpriced.push({kind:type,name,sourceId});return;}
-  lines.push({serviceId:item.id,serviceName:item.name,description:item.name,sourceType:type,sourceId,quantity:qty,unitPriceCents:item.priceCents,amountCents:item.priceCents*qty,rateVersion:item.version||1});
+  lines.push({serviceId:item.id,serviceName:item.name,description:item.name,sourceType:type,sourceId,quantity:qty,unitPriceCents:item.priceCents,amountCents:item.priceCents*qty,rateVersion:item.version||1,clinicalGroup});
  };
  const visits=catalog.filter(x=>x.active!==false&&x.kind==="visit");
  const defaultVisit=visits.find(x=>normalize(x.name)==="emergency visit")||(visits.length===1?visits[0]:null);
@@ -191,7 +193,7 @@ export function buildCatalogQuote({encounterId,catalog,orders,procedures,encount
  if(roomType&&room)push("room",roomType,"room:"+encounterId);
  const deptServices={"med/surg":"Med/Surg Services","icu":"ICU Services","pediatrics":"Pediatric Services","observation":"Observation Services"};
  if(deptServices[department])push("service",deptServices[department],"service:"+encounterId);
- for(const d of orders){const item=d.data||{};if(["cancelled","canceled","void"].includes(String(item.status||"").toLowerCase()))continue;push("order",item.name||item.orderName||"Unnamed order",d.id,1,item.serviceCode||item.orderCode||item.code||"");}
+ for(const d of orders){const item=d.data||{};if(["cancelled","canceled","void"].includes(String(item.status||"").toLowerCase()))continue;push("order",item.name||item.orderName||"Unnamed order",d.id,1,item.serviceCode||item.orderCode||item.code||"",item.catalogRateId||"",item.orderGroup||item.category||"");}
  for(const d of procedures){const item=d.data||{};if(!["complete","completed","done"].includes(String(item.status||"").toLowerCase()))continue;push("procedure",item.name||"Unnamed procedure",d.id,1,item.serviceCode||item.procedureCode||item.code||"");}
  return {lines,unpriced,catalog:catalog.filter(x=>x.active!==false),totalCents:lines.reduce((a,x)=>a+x.amountCents,0)};
 }
