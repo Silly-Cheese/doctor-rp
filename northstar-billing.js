@@ -107,10 +107,15 @@ export function dischargeChargeMemo(currentLines,removedLines){
  return adjustments.join("; ");
 }
 export async function prepareEncounterBilling(form,encounter){
- const box=form.querySelector(".nmc-auto-lines"),charge=form.querySelector('[name="billingCharge"]');
- if(!box||!charge)throw Error("Billing form was not initialized.");
+ const box=form.querySelector(".nmc-auto-lines");
+ if(!box)throw Error("Billing form was not initialized.");
  form.dataset.billingReady="no";box.textContent="Loading services and current prices…";
  const quote=await collectEncounterCharges(encounter.id);
+ return renderDischargeChargeReview(form,quote);
+}
+export function renderDischargeChargeReview(form,quote){
+ const box=form.querySelector(".nmc-auto-lines"),charge=form.querySelector('[name="billingCharge"]');
+ if(!box||!charge)throw Error("Billing form was not initialized.");
  // A local copy guarantees edits do not modify clinical orders or global service prices.
  let active=quote.lines.map(x=>({...x})),removed=[];
  const render=()=>{
