@@ -1,4 +1,4 @@
-import {ORDER_GROUPS,buildClinicalChoices,selectOrderChoice,orderStatusLabel} from "./northstar-clinical-order-data.js";
+import {ORDER_GROUPS,buildClinicalChoices,selectOrderChoice} from "./northstar-clinical-order-data.js";
 import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
@@ -6,6 +6,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   serverTimestamp,
   setDoc,
