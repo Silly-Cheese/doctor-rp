@@ -292,6 +292,48 @@ const { chromium } = require("playwright");
     });
     if(!mobileOrderScroll)absent.push("Mobile order catalog vertical scrolling");
     await page.setViewportSize({width:1365,height:900});
+    const editableDischargeCharges=await page.evaluate(async()=>{
+      const {billingFieldsMarkup,bindBillingPreview,renderDischargeChargeReview,buildBillingRecord}=await import("./northstar-billing.js");
+      const form=document.createElement("form");form.innerHTML=billingFieldsMarkup();document.body.append(form);
+      form.querySelector('[name="billingMode"]').value="patient";
+      bindBillingPreview(form);
+      const sample=[
+        ["Emergency Visit",77500,"visit"],
+        ["EMS Transport",92500,"ems"],
+        ["Observation Room",92500,"room"],
+        ["Morphine",14000,"order"],
+        ["EMERGENCY SURGERY",1650000,"procedure"]
+      ].map(([description,price,kind],i)=>({description,serviceId:"srv"+i,sourceId:"source"+i,sourceType:kind,
+        unitPriceCents:price,amountCents:price,quantity:1,rateVersion:1}));
+      renderDischargeChargeReview(form,{lines:sample,unpriced:[],catalog:[]});
+      const initial=1926500,charge=form.querySelector('[name="billingCharge"]');
+      if(Number(charge.value)!==initial/100||form.querySelectorAll(".nmc-discharge-charge-row").length!==5)return false;
+      // Every automatically added line (not just a manual addition) must have both actions.
+      if(form.querySelectorAll(".nmc-discharge-remove").length!==5)return false;
+      const remove=form.querySelectorAll(".nmc-discharge-remove")[1];remove.click();
+      if(Number(charge.value)!==(initial-92500)/100||form.dataset.billingReady!=="yes")return false;
+      const undo=form.querySelector(".nmc-discharge-removed-row button");if(!undo)return false;undo.click();
+      if(Number(charge.value)!==initial/100)return false;
+      form.querySelectorAll(".nmc-discharge-charge-row")[0].querySelector("button").click();
+      const editor=form.querySelector(".nmc-discharge-edit");
+      if(!editor)return false;
+      editor.querySelector('[name="unitPrice"]').value="500";
+      editor.querySelector('[name="quantity"]').value="2";
+      editor.querySelector('[name="reason"]').value="Corrected facility billing";
+      let accidentalSubmit=false;form.addEventListener("submit",e=>{e.preventDefault();accidentalSubmit=true});
+      editor.querySelector(".nmc-discharge-save").click();
+      if(accidentalSubmit||Number(charge.value)!==(initial-77500+100000)/100)return false;
+      const record=buildBillingRecord(form,{id:"encounter123",patientId:"patient123",patientName:"Example Patient"},"doctor123");
+      if(record.chargeCents!==initial-77500+100000||record.lineItems[0].unitPriceCents!==50000||
+          record.lineItems[0].quantity!==2||!record.notes.includes("Corrected facility billing"))return false;
+      form.querySelectorAll(".nmc-discharge-remove")[3].click();
+      const finalRecord=buildBillingRecord(form,{id:"encounter123",patientId:"patient123",patientName:"Example Patient"},"doctor123");
+      const ok=finalRecord.lineItems.length===4&&finalRecord.notes.includes("Excluded")&&
+        finalRecord.lineItems.every(x=>x.description!=="Morphine");
+      form.remove();
+      return ok;
+    });
+    if(!editableDischargeCharges)absent.push("Discharge edit/remove, undo, live recalculation or invoice audit notes");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
