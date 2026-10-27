@@ -100,6 +100,59 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,serverTimestamp}=require
   await assertSucceeds(massUpdate.commit());
   const unchanged=await getDoc(doc(admin,"serviceCatalog","order_ceftriaxone"));
   if(unchanged.data().priceCents!==6500)throw Error("Other rates should remain unchanged");
+  // Administrator override requires a matching, immutable transaction audit event.
+  await assertFails(updateDoc(doc(clerk,"billingAccounts","billingencounter"),{
+    adjustmentAuditId:"no-audit",updatedBy:"billingclerk",updatedAt:serverTimestamp()
+  }));
+  const overrideBatch=writeBatch(admin);
+  overrideBatch.set(doc(admin,"billingAccounts","billingencounter","events","overrideaudit"),{
+    action:"charge-override",amountCents:2000,detail:"Correction to invoice total",reason:"Administrator correction",
+    actorUid:"billingadmin",createdAt:serverTimestamp(),simulated:true
+  });
+  overrideBatch.update(doc(admin,"billingAccounts","billingencounter"),{
+    chargeCents:12000,
+    lineItems:[{description:"Encounter services",quantity:1,unitPriceCents:10000,amountCents:10000},
+      {description:"Administrative charge correction",quantity:1,unitPriceCents:2000,amountCents:2000,sourceType:"override"}],
+    patientResponsibilityCents:5000,patientBalanceCents:4000,insurerBalanceCents:5000,
+    adjustmentAuditId:"overrideaudit",updatedBy:"billingadmin",updatedAt:serverTimestamp()
+  });
+  await assertSucceeds(overrideBatch.commit());
+  await assertFails(deleteDoc(doc(admin,"billingAccounts","billingencounter","events","overrideaudit")));
+  // The existing insurer estimate remains outstanding while patient responsibility is fully waived.
+  const waive=writeBatch(admin);
+  waive.set(doc(admin,"billingAccounts","billingencounter","events","waiveaudit"),{
+    action:"bulk-waiver",amountCents:4000,detail:"Waive remaining patient balance",
+    reason:"Administrative hardship waiver",actorUid:"billingadmin",
+    createdAt:serverTimestamp(),simulated:true
+  });
+  waive.update(doc(admin,"billingAccounts","billingencounter"),{
+    waivedCents:6000,waiverReason:"Administrative hardship waiver",
+    patientResponsibilityCents:1000,patientBalanceCents:0,insurerBalanceCents:5000,status:"insurance-pending",
+    adjustmentAuditId:"waiveaudit",updatedBy:"billingadmin",updatedAt:serverTimestamp()
+  });
+  await assertSucceeds(waive.commit());
+  await env.withSecurityRulesDisabled(async ctx=>{
+    await setDoc(doc(ctx.firestore(),"encounters","olderdischarge"),{
+      patientId:"billingpatient",patientName:"Sample Patient",status:"discharged"
+    });
+  });
+  const retrospective=writeBatch(admin);
+  retrospective.set(doc(admin,"billingAccounts","olderdischarge"),{
+    ...account,encounterId:"olderdischarge",invoiceNumber:"NMC-OLD",billingMode:"waived",
+    chargeCents:10000,insuranceEstimatedCents:0,insuranceReceivedCents:0,waivedCents:10000,patientPaidCents:0,
+    patientResponsibilityCents:0,patientBalanceCents:0,insurerBalanceCents:0,
+    insuranceProvider:"",claimStatus:"not-applicable",status:"waived",
+    waiverReason:"Administrator retrospective waiver",source:"retrospective-waiver",
+    createdBy:"billingadmin",updatedBy:"billingadmin",
+    createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+  });
+  retrospective.set(doc(admin,"billingAccounts","olderdischarge","events","retroWaiver"),{
+    action:"bulk-waiver",amountCents:10000,detail:"Retrospective waived invoice",
+    reason:"Administrator retrospective waiver",actorUid:"billingadmin",createdAt:serverTimestamp(),simulated:true
+  });
+  await assertSucceeds(retrospective.commit());
+  const retroResult=await getDoc(doc(admin,"billingAccounts","olderdischarge"));
+  if(!retroResult.exists()||retroResult.get("patientBalanceCents")!==0)throw Error("Waived retrospective invoice wasn't created");
   console.log("Billing simulation security rules passed.");
  } finally {await env.cleanup();}
 })().catch(err=>{console.error(err);process.exitCode=1});
