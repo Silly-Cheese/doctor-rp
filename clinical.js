@@ -1,3 +1,4 @@
+import {ORDER_GROUPS,buildClinicalChoices,selectOrderChoice,orderStatusLabel} from "./northstar-clinical-order-data.js";
 import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
@@ -25,6 +26,7 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+let clinicalOrderChoices=[];
 const state = {
   profile: null,
   patients: [],
@@ -222,7 +224,7 @@ function injectDialogs() {
         <div class="modal-body form-grid">
           <div id="clinicalOrderPatient" class="patient-context"></div>
           <div class="field-row"><label><span>Order type</span><select id="orderCategory" required><option value="laboratory">Laboratory</option><option value="imaging">Imaging</option><option value="medication">Medication</option><option value="procedure">Procedure</option><option value="monitoring">Monitoring</option><option value="consult">Consult</option><option value="other">Other</option></select></label><label><span>Priority</span><select id="orderPriority" required><option value="routine">Routine</option><option value="urgent">Urgent</option><option value="stat">STAT</option></select></label></div>
-          <label><span>Order</span><input id="orderName" required placeholder="Test, medication, procedure, or consult"></label>
+          <div class="clinical-order-selectors"><label><span>Service group</span><select id="orderGroup" required></select></label><label><span>Clinical order</span><select id="orderName" required></select></label></div><p id="orderBillingHint" class="clinical-order-hint" aria-live="polite">Select an order to see its billing-rate match. Rates are estimates, not verified insurance coverage.</p>
           <div id="medicationOrderFields" class="clinical-grid hidden"><label><span>Dose</span><input id="orderDose" placeholder="Entered by provider"></label><label><span>Route</span><select id="orderRoute"><option value="">Select route</option><option>PO</option><option>IV</option><option>IM</option><option>Subcutaneous</option><option>Inhaled</option><option>Topical</option><option>Other</option></select></label><label><span>Frequency</span><input id="orderFrequency" placeholder="Once, PRN, etc."></label></div>
           <label><span>Instructions / indication</span><textarea id="orderInstructions" rows="3" placeholder="Clinical instructions or reason for order"></textarea></label>
         </div>
@@ -266,7 +268,8 @@ function injectDialogs() {
   document.querySelector("#clinicalOrderForm").addEventListener("submit", submitOrder);
   document.querySelector("#clinicalResultForm").addEventListener("submit", submitResult);
   document.querySelector("#medicationAdministrationForm").addEventListener("submit", submitMedicationAdministration);
-  document.querySelector("#orderCategory").addEventListener("change", toggleMedicationOrderFields);
+  document.querySelector("#orderGroup").addEventListener("change", refreshClinicalOrderNames);
+  document.querySelector("#orderName").addEventListener("change", applyClinicalOrderChoice);
   document.querySelectorAll("[data-close-clinical]").forEach((button) => button.addEventListener("click", () => document.querySelector(`#${button.dataset.closeClinical}`)?.close()));
 
   document.querySelectorAll(".clinical-modal").forEach((dialog) => {
@@ -280,6 +283,38 @@ function patientContext(patient, encounter) {
   return `<strong>${safe(patient?.lastName)}, ${safe(patient?.firstName)}</strong><span>${safe(patient?.mrn)} · ${safe(encounter?.room || "Emergency Department")} · ${safe(encounter?.chiefComplaint || "Current encounter")}</span>`;
 }
 
+function refreshClinicalOrderNames(){
+ const group=document.querySelector("#orderGroup"),names=document.querySelector("#orderName");
+ if(!group||!names)return;
+ const previous=names.value;
+ names.replaceChildren();
+ const options=clinicalOrderChoices.filter(x=>x.group===group.value);
+ for(const item of options){const opt=document.createElement("option");opt.value=item.name;opt.textContent=item.name;names.append(opt)}
+ if(options.some(x=>x.name===previous))names.value=previous;
+ if(!options.length){const opt=document.createElement("option");opt.value="";opt.textContent="No services configured";names.append(opt)}
+ applyClinicalOrderChoice();
+}
+function applyClinicalOrderChoice(){
+ const group=document.querySelector("#orderGroup")?.value,name=document.querySelector("#orderName")?.value;
+ const choice=selectOrderChoice(clinicalOrderChoices,group,name);
+ const category=document.querySelector("#orderCategory"),hint=document.querySelector("#orderBillingHint");
+ if(category&&choice)category.value=choice.category;
+ if(hint)hint.textContent=choice?(choice.priced?"Billing rate on file: "+new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(choice.unitPriceCents/100):"No billing rate configured for this service; a billing manager can set one in Service Prices."):"Choose a clinical order.";
+ toggleMedicationOrderFields();
+}
+async function loadClinicalChoices(){
+ const group=document.querySelector("#orderGroup");
+ if(!group)return;
+ group.replaceChildren();
+ for(const entry of ORDER_GROUPS){const opt=document.createElement("option");opt.value=entry.id;opt.textContent=entry.label;group.append(opt)}
+ const previous=group.value;
+ let rates=[];
+ try{const snap=await getDocs(collection(db,"serviceCatalog"));rates=snap.docs.map(d=>({id:d.id,...d.data()}));}
+ catch(err){console.warn("Clinical order prices could not be loaded",err);}
+ clinicalOrderChoices=buildClinicalChoices(rates);
+ group.value=previous||"laboratory";
+ refreshClinicalOrderNames();
+}
 function toggleMedicationOrderFields() {
   document.querySelector("#medicationOrderFields")?.classList.toggle("hidden", document.querySelector("#orderCategory")?.value !== "medication");
 }
@@ -326,6 +361,7 @@ function openOrderDialog(encounterId) {
   if (!encounter || !patient || !canOrder()) return;
   state.selectedEncounterId = encounter.id;
   document.querySelector("#clinicalOrderForm").reset();
+  void loadClinicalChoices();
   document.querySelector("#clinicalOrderPatient").innerHTML = patientContext(patient, encounter);
   toggleMedicationOrderFields();
   document.querySelector("#clinicalOrderDialog").showModal();
@@ -485,7 +521,10 @@ async function submitOrder(event) {
   button.disabled = true;
   button.textContent = "Signing…";
   try {
-    const category = document.querySelector("#orderCategory").value;
+    const group=document.querySelector("#orderGroup").value;
+    const selected=selectOrderChoice(clinicalOrderChoices,group,document.querySelector("#orderName").value);
+    if(!selected)throw Error("Select a valid clinical order from its category.");
+    const category = selected.category;
     const orderRef = doc(collection(db, "orders"));
     const auditRef = doc(collection(db, "auditEvents"));
     const batch = writeBatch(db);
@@ -495,7 +534,10 @@ async function submitOrder(event) {
       patientName: `${patient.lastName}, ${patient.firstName}`,
       mrn: patient.mrn,
       category,
-      name: document.querySelector("#orderName").value.trim(),
+      name: selected.name,
+      orderGroup: selected.group,
+      serviceCode: selected.serviceCode||"",
+      catalogRateId: selected.catalogId||"",
       priority: document.querySelector("#orderPriority").value,
       instructions: document.querySelector("#orderInstructions").value.trim(),
       dose: category === "medication" ? document.querySelector("#orderDose").value.trim() : "",
