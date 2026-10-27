@@ -11,6 +11,16 @@ At discharge, Northstar reads the encounter's placed non-canceled orders and com
 
 Each issued invoice freezes the service names, unit prices, original source IDs and pricing versions. Updating prices affects only future invoices. Catalog edits are audited and require reasons for changed prices.
 
+## Categorized Clinical Orders (linked to billing)
+
+Northstar's two order-entry surfaces (the patient chart's **New Clinical Order** and the advanced **Order Catalog**) now use categorized selectors sourced from the same canonical names as Service Prices: **Laboratory, Imaging & Diagnostics, Antibiotics, Other Medications, IV Fluids, Monitoring & Safety, Clinical Procedures, Consults, and Other Clinical Orders**.
+
+Choose the group, then the specific order from the dropdown. The clinical record stores its normalized clinical category, precise service name, and current catalog ID/code if the service has a matching active rate. Clinical users can see whether the billing rate is configured **before signing**. An unpriced service remains orderable but is highlighted during discharge billing review.
+
+Medication selections do not automatically create a prescription: the advanced order entry requests provider-entered dose, route, and frequency before signing. Existing order-set behavior remains in place.
+
+The billing engine resolves charges by stored rate ID first, then by service code or canonical name; billing snapshots preserve the price and version used when the invoice is issued. In Billing & Revenue, staff can review collected and waived totals, overdue balances, claims that need insurer follow-up, and export a filtered-independent invoice ledger as CSV. These are all **simulated** accounting records.
+
 ## Bulk Price Setup (Labs, antibiotics, medications and more)
 
 The **Service Prices** page now includes a **Bulk Service Pricing** workspace, above the existing rate list. It offers curated simulation-service templates for labs, imaging, diagnostics, antibiotics, other medications, IV fluids, procedures, EMS, room categories, facility visits, monitoring and general hospital services. It also includes additional exact names observed in Northstar's documented orders and procedures.
