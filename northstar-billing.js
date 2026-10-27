@@ -289,6 +289,7 @@ export async function postBillingActivity({accountId,action,amount,detail,reason
   else throw Error("Unknown billing activity.");
   if(a.insuranceEstimatedCents+a.waivedCents+a.patientPaidCents>a.chargeCents)throw Error("Billing allocation exceeds charges.");
   recalc(a);a.updatedAt=serverTimestamp();a.updatedBy=actorUid;
+  if(["charge","charge-correction"].includes(action))a.adjustmentAuditId=eventRef.id;
   tx.update(accountRef,a);
   tx.set(eventRef,{action,amountCents:changedAmount,detail,reason,actorUid,createdAt:serverTimestamp(),simulated:true});
  });
