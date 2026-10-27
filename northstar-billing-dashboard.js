@@ -40,7 +40,7 @@ export function mountBillingDashboard({target,records=[],encounters=[],patients=
    search=el("nmcAccountSearch").value.trim().toLowerCase(),unpaid=el("nmcAccountUnpaid").checked,sort=el("nmcAccountSort").value;
   const now=new Date(),today=now.toISOString().slice(0,10);
   const base=filterBilling(records,{search,status:statuses.has(status)?status:"",patientId,minChargesCents:min,olderThan:older,unpaidOnly:unpaid,
-   overdueOnly:status==="overdue",now,sort});
+   overdueOnly:status==="overdue",now:today,sort});
   const invoices=status==="unbilled"?[]:status==="insurer"?base.filter(a=>(a.insurerBalanceCents||0)>0):base;
   const unbilled=discharged.filter(e=>{
    if(status&&!["unbilled"].includes(status))return false;
