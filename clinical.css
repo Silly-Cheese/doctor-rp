@@ -90,3 +90,14 @@
   .order-table tr, .result-table tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
   .order-table td, .result-table td { padding: 5px 0; border: 0; }
 }
+
+
+.clinical-order-selectors{display:grid;grid-template-columns:1fr 1.5fr;gap:12px}
+.clinical-order-selectors label,.nmc-provider-order-grid label,.nmc-provider-medication label{display:grid;gap:7px;color:#153b52;font-weight:700}
+.clinical-order-selectors select,.nmc-provider-order-grid select,.nmc-provider-medication input,.nmc-provider-medication select{box-sizing:border-box;width:100%;min-width:0;border:1px solid #bfd4e0;border-radius:9px;padding:10px 12px;background:#fff;color:#17394e}
+.clinical-order-hint{background:#ecf6fa;border:1px solid #c5e1ed;border-radius:9px;padding:11px 13px;font-size:.84rem;color:#275d76;line-height:1.5;margin:8px 0}
+.nmc-provider-order-grid{display:grid;grid-template-columns:1fr minmax(185px,1.4fr) auto;gap:10px;align-items:end;padding:14px;background:#eef6fa;border:1px solid #cfe1ea;border-radius:12px}
+.nmc-provider-order-grid button{border:0;border-radius:9px;background:#0b6589;color:#fff;padding:12px;font-weight:750}
+.nmc-provider-medication{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}
+.nmc-provider-medication.hidden{display:none!important}
+@media(max-width:740px){.clinical-order-selectors,.nmc-provider-order-grid,.nmc-provider-medication{grid-template-columns:1fr}}
