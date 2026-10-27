@@ -662,7 +662,7 @@ service cloud.firestore {
         && request.resource.data.updatedBy == request.auth.uid
         && request.resource.data.updatedAt == request.time
         && (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adjustmentAuditId','lineItems','chargeCents'])
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adjustmentAuditId','lineItems','chargeCents','waivedCents'])
           || (
             request.resource.data.adjustmentAuditId is string
             && getAfter(/databases/$(database)/documents/billingAccounts/$(encounterId)/events/$(request.resource.data.adjustmentAuditId)).data.actorUid == request.auth.uid
