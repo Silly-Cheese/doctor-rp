@@ -662,12 +662,20 @@ service cloud.firestore {
         && request.resource.data.updatedBy == request.auth.uid
         && request.resource.data.updatedAt == request.time
         && (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adjustmentAuditId'])
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adjustmentAuditId','lineItems','chargeCents'])
           || (
-            isAdministrator()
-            && request.resource.data.adjustmentAuditId is string
+            request.resource.data.adjustmentAuditId is string
             && getAfter(/databases/$(database)/documents/billingAccounts/$(encounterId)/events/$(request.resource.data.adjustmentAuditId)).data.actorUid == request.auth.uid
-            && getAfter(/databases/$(database)/documents/billingAccounts/$(encounterId)/events/$(request.resource.data.adjustmentAuditId)).data.action in ['bulk-waiver','charge-override','line-override']
+            && getAfter(/databases/$(database)/documents/billingAccounts/$(encounterId)/events/$(request.resource.data.adjustmentAuditId)).data.createdAt == request.time
+            && (
+              (
+                isAdministrator()
+                && getAfter(/databases/$(database)/documents/billingAccounts/$(encounterId)/events/$(request.resource.data.adjustmentAuditId)).data.action in ['bulk-waiver','charge-override','line-override','charge','charge-correction','waiver']
+              )
+              || (
+                getAfter(/databases/$(database)/documents/billingAccounts/$(encounterId)/events/$(request.resource.data.adjustmentAuditId)).data.action in ['charge','charge-correction','waiver']
+              )
+            )
           )
         );
       allow delete: if false;
