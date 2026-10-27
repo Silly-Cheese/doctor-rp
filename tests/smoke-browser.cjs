@@ -220,17 +220,44 @@ const { chromium } = require("playwright");
       renderBillingPage({target:root,records:accounts,encounters:[{id:"old",patientId:"pC",status:"discharged"}],patients:[],
        profile:{role:"administrator",status:"active",permissions:{}}});
       const cards=root.querySelectorAll(".nmc-bill-queue-actions button");
-      const sort=root.querySelector("#nmcBillingSort");
-      if(cards.length!==3||!sort||!root.querySelector("#nmcBillingExport"))return false;
-      const rows=root.querySelector("#nmcBillingRows");
+      const sort=root.querySelector("#nmcAccountSort");
+      if(cards.length!==3||!sort||!root.querySelector("#nmcAccountExport"))return false;
+      const rows=root.querySelector("#nmcAccountRows");
       if(!rows?.textContent.includes("Taylor Example")||!rows.textContent.includes("Morgan Example"))return false;
+      const patientGroups=root.querySelectorAll(".nmc-patient-account");
+      if(patientGroups.length!==3)return false;
       root.querySelector('[data-billing-queue="overdue"]').click();
       if(!rows.textContent.includes("Taylor Example")||rows.textContent.includes("Morgan Example"))return false;
       root.querySelector('[data-billing-queue="claim-review"]').click();
-      const ok=rows.textContent.includes("Morgan Example")&&!rows.textContent.includes("Taylor Example");
+      const ok=rows.textContent.includes("Morgan Example")&&!rows.textContent.includes("Taylor Example")
+        &&!!root.querySelector("#nmcBulkWaiveOpen");
       root.remove();return ok;
     });
     if(!billingQueueUI)absent.push("Billing work queue, search filters and report controls");
+    const billingOps=await page.evaluate(async()=>{
+      const {overrideCharge,waiveAccount,groupPatientInvoices,filterBilling}=await import("./northstar-billing-operations.js");
+      const example={encounterId:"case1",patientId:"patient1",patientName:"Case Example",chargeCents:100000,
+       insuranceEstimatedCents:30000,insuranceReceivedCents:5000,patientPaidCents:20000,waivedCents:10000,
+       lineItems:[{description:"Emergency Visit",amountCents:80000,sourceType:"visit"},{description:"Room",amountCents:20000,sourceType:"room"}]};
+      const waiver=waiveAccount(example);
+      if(waiver.patientBalanceCents!==0||waiver.waivedCents!==50000||waiver.insurerBalanceCents!==25000)return false;
+      const full=waiveAccount(example,{includeInsurance:true});
+      if(full.waivedCents!==75000||full.insuranceEstimatedCents!==5000||full.patientBalanceCents!==0||full.insurerBalanceCents!==0)return false;
+      const changed=overrideCharge(example,{mode:"line",itemIndex:1,newAmountCents:15000,reason:"Correct room charge"});
+      if(changed.account.chargeCents!==95000||changed.delta!==-5000||changed.account.lineItems.length!==3)return false;
+      const changedTotal=overrideCharge(example,{mode:"total",newAmountCents:150000,reason:"Updated all charges"});
+      if(changedTotal.account.chargeCents!==150000||changedTotal.delta!==50000)return false;
+      try{overrideCharge(example,{mode:"total",newAmountCents:10000,reason:"Below paid money"});return false;}catch(e){}
+      const grouped=groupPatientInvoices([{patientId:"patient1",chargeCents:10000,patientBalanceCents:4000},
+         {patientId:"patient1",chargeCents:20000,patientBalanceCents:2000}],[{id:"patient1",displayName:"Case Example"}]);
+      if(grouped.length!==1||grouped[0].records.length!==2||grouped[0].patientBalanceCents!==6000)return false;
+      const filtered=filterBilling([{encounterId:"1",patientId:"patient1",invoiceNumber:"NMC-1",status:"open",chargeCents:20000,
+       patientBalanceCents:2000,paymentDueDate:"2026-01-01",createdAt:new Date("2026-01-01")},
+       {encounterId:"2",patientId:"patient2",status:"paid",chargeCents:12000,patientBalanceCents:0,createdAt:new Date("2026-09-01")}],
+       {olderThan:"2026-02-01",now:"2026-10-26",overdueOnly:true});
+      return filtered.length===1&&filtered[0].encounterId==="1";
+    });
+    if(!billingOps)absent.push("Admin waiver and line override arithmetic / patient grouping filters");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
