@@ -162,3 +162,66 @@
 .nmc-bill-tools input,.nmc-bill-tools select{min-height:44px}
 .nmc-bill-tools button{min-height:44px}
 @media(max-width:760px){.nmc-bill-queue-actions{grid-template-columns:1fr}.nmc-bill-queue-actions button{justify-content:space-between}}
+
+
+/* Patient-account grouping and administrative adjustment center */
+.nmc-billing-workspace{background:#fff;border:1px solid #d6e4ed;border-radius:17px;padding:clamp(14px,2vw,24px);box-shadow:0 5px 25px #17364e10}
+.nmc-bill-heading{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
+.nmc-bill-heading h3{font-size:1.35rem;color:#14374d;margin:4px 0}
+.nmc-bill-heading p:not(.eyebrow){margin:4px 0 0;color:#617e8e;font-size:.87rem}
+.nmc-bill-view-tabs{display:flex;gap:4px;padding:4px;border:1px solid #d4e4ec;background:#eff6fa;border-radius:11px}
+.nmc-bill-view-tabs button{padding:9px 15px;border:0;border-radius:8px;background:transparent;color:#4b6b7e;font-weight:750;cursor:pointer}
+.nmc-bill-view-tabs button.active{background:#fff;color:#0e5478;box-shadow:0 2px 7px #24486018}
+.nmc-bill-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:22px 0 11px}
+.nmc-bill-filters>label{display:flex;flex-direction:column;gap:7px;font-size:.79rem;font-weight:800;color:#365b70}
+.nmc-bill-filters input,.nmc-bill-filters select{width:100%;min-width:0;background:white;color:#183b50;padding:10px 12px;border-radius:10px;border:1px solid #bcd3df;box-sizing:border-box;font-size:.88rem}
+.nmc-bill-filters .nmc-bill-check{display:flex;flex-direction:row;align-items:center;gap:9px;justify-content:flex-start}
+.nmc-bill-filters .nmc-bill-check input{width:18px;height:18px;accent-color:#12628a}
+.nmc-bill-filter-footer{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding:15px 0 20px;border-bottom:1px solid #e1eaf0}
+.nmc-bill-filter-footer>span{font-size:.84rem;color:#5c798b;font-weight:650}
+.nmc-bill-filter-footer>div{display:flex;gap:8px;flex-wrap:wrap}
+.nmc-bill-filter-footer button{padding:9px 13px;border:1px solid #c5dae5;border-radius:9px;background:#f3f9fc;color:#135678;font-weight:750}
+.nmc-bill-account-groups{display:grid;gap:13px;margin-top:18px}
+.nmc-patient-account{border:1px solid #d4e4ec;border-radius:14px;overflow:hidden;background:#fff}
+.nmc-patient-account>header{padding:16px 19px;display:flex;gap:16px;justify-content:space-between;align-items:center;background:#f0f7fb;border-bottom:1px solid #dae8ef}
+.nmc-patient-account>header h4{margin:0 0 3px;font-size:1.05rem;color:#153e56}
+.nmc-patient-account>header small{font-size:.72rem;color:#638294;overflow-wrap:anywhere}
+.nmc-patient-account>header>div:last-child{display:flex;gap:17px;flex-wrap:wrap}
+.nmc-patient-account>header>div:last-child span{display:grid;gap:3px;font-size:.71rem;color:#56778c}
+.nmc-patient-account>header>div:last-child strong{font-size:.99rem;color:#17465f}
+.nmc-account-invoice{padding:14px 18px;display:flex;gap:14px;align-items:center;border-bottom:1px solid #e3edf2}
+.nmc-account-invoice:last-child{border-bottom:0}
+.nmc-account-invoice-title{flex:1;min-width:145px}
+.nmc-account-invoice-title>strong{display:block;color:#183d53;font-size:.91rem;overflow-wrap:anywhere}
+.nmc-account-invoice-title small{display:block;color:#6a8796;margin:4px 0;font-size:.75rem}
+.nmc-bill-invoice-meta{font-size:.72rem;color:#0f698d;font-weight:700}
+.nmc-account-invoice-values{display:flex;gap:18px;flex-wrap:wrap;max-width:410px;flex:2}
+.nmc-account-invoice-values span{display:grid;gap:4px;color:#658297;font-size:.74rem;white-space:nowrap}
+.nmc-account-invoice-values strong{font-size:.9rem;color:#183d53;font-variant-numeric:tabular-nums}
+.nmc-account-invoice button{background:#fff;color:#0c6085;border:1px solid #a9cada;border-radius:9px;padding:9px 13px;font-weight:750;cursor:pointer}
+.nmc-account-invoice button:hover{background:#e8f4fa}
+.nmc-account-check{display:flex;align-items:center}
+.nmc-account-check input{width:18px;height:18px;accent-color:#11688e}
+.nmc-account-unbilled{background:#fcfbf5}
+.nmc-account-list-flat{border:1px solid #d8e6ed;border-radius:13px;overflow:hidden}
+.nmc-bill-bulk-actions{margin:16px 0 0;padding:18px 20px;border:1px solid #b7d5e3;border-radius:13px;background:#ebf6fb;display:flex;justify-content:space-between;align-items:center;gap:18px}
+.nmc-bill-bulk-actions strong{font-size:.95rem;color:#104f6e}
+.nmc-bill-bulk-actions p{margin:5px 0 0;color:#52768c;font-size:.8rem;line-height:1.5}
+.nmc-bill-bulk-actions button{white-space:nowrap;background:#0e638c;border:0;border-radius:9px;padding:12px 16px;color:#fff;font-weight:800;cursor:pointer}
+.nmc-bill-error-status{border:1px solid #e6c4c6;border-radius:9px;padding:12px;color:#93363e;background:#fff5f5}
+.nmc-waiver-summary{background:#edf7fb;border:1px solid #cce2ec;border-radius:11px;padding:14px 17px;margin:16px 0}
+.nmc-waiver-summary strong{font-size:1.12rem;color:#105675}
+.nmc-waiver-summary p{margin:4px 0 0;color:#57788d}
+.nmc-waiver-dialog label,.nmc-invoice-override label{display:grid;gap:8px;margin:15px 0;font-size:.86rem;font-weight:750;color:#244c65}
+.nmc-waiver-dialog label input:not([type=checkbox]),.nmc-waiver-dialog textarea,.nmc-invoice-override input,.nmc-invoice-override textarea,.nmc-invoice-override select{min-width:0;width:100%;padding:11px 12px;color:#163a50;border-radius:9px;border:1px solid #c1d6e2;box-sizing:border-box}
+.nmc-waiver-dialog .nmc-waiver-option{display:flex;align-items:flex-start;gap:10px;line-height:1.5}
+.nmc-waiver-dialog .nmc-waiver-option input{margin-top:4px;accent-color:#0d628c}
+.nmc-bill-warning{background:#fff7e8;border:1px solid #f0ddb8;border-radius:9px;padding:12px;color:#80622f}
+.nmc-waiver-preview{font-weight:700;background:#f4f8fa;border-radius:9px;padding:12px;color:#2f647f}
+.nmc-waiver-confirm,.nmc-override-submit{background:#0d658a!important;color:#fff!important}
+.nmc-waiver-result{color:#315b71;line-height:1.55;overflow-wrap:anywhere}
+.nmc-bill-dialog-actions .nmc-bill-override-open{border:1px solid #91b9cd;background:#ecf7fb;color:#145d7f;border-radius:9px;padding:10px 15px;font-weight:800}
+.nmc-override-explanation{background:#f0f7fa;color:#4c7087;border-radius:9px;padding:11px}
+.nmc-invoice-override .nmc-override-line-select[hidden]{display:none}
+@media(max-width:1020px){.nmc-account-invoice{flex-wrap:wrap}.nmc-account-invoice-values{flex:1}.nmc-bill-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:690px){.nmc-bill-filters{grid-template-columns:1fr}.nmc-bill-bulk-actions{flex-direction:column;align-items:stretch}.nmc-patient-account>header{align-items:flex-start;flex-direction:column}.nmc-account-invoice{align-items:flex-start}.nmc-account-invoice-values{flex-basis:100%}.nmc-bill-filter-footer>div{width:100%}.nmc-bill-filter-footer button{flex:1}}
