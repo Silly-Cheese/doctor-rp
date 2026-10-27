@@ -582,7 +582,7 @@ service cloud.firestore {
         && request.resource.data.version == resource.data.version + 1
         && request.resource.data.updatedBy == request.auth.uid
         && request.resource.data.updatedAt == request.time;
-      allow delete: if false;
+      allow delete: if isAdministrator();
       match /revisions/{revisionId} {
         allow read: if isBillingReader();
         allow create: if isBillingManager()
@@ -592,8 +592,34 @@ service cloud.firestore {
           && request.resource.data.action in ['created','price-updated','archived','reactivated']
           && request.resource.data.priceCents is int
           && request.resource.data.priceCents >= 0;
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if isAdministrator();
       }
+    }
+
+    match /serviceCatalogDeletions/{deletionId} {
+      allow read: if isAdministrator();
+      allow create: if isAdministrator()
+        && request.resource.data.keys().hasOnly([
+          'serviceId','name','kind','code','priceCents','version',
+          'revisionCount','reason','actorUid','at'
+        ])
+        && request.resource.data.serviceId is string
+        && request.resource.data.serviceId.size() > 0
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.kind in ['visit','order','procedure','ems','room','service']
+        && request.resource.data.code is string
+        && request.resource.data.priceCents is int
+        && request.resource.data.priceCents >= 0
+        && request.resource.data.version is int
+        && request.resource.data.revisionCount is int
+        && request.resource.data.revisionCount >= 0
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 250
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.at == request.time;
+      allow update, delete: if false;
     }
 
     match /billingAccounts/{encounterId} {
