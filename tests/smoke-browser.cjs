@@ -179,6 +179,35 @@ const { chromium } = require("playwright");
       return true;
     });
     if(!clinicalAndBilling)absent.push("Matched clinical order groups and improved billing analytics");
+    const printableInvoice=await page.evaluate(async ()=>{
+      const {renderNorthstarStatement}=await import("./northstar-invoice-print.js");
+      const {canAddManualService}=await import("./northstar-billing.js");
+      if(canAddManualService([{serviceId:"ibuprofen",sourceType:"order"}],"ibuprofen"))return false;
+      if(!canAddManualService([{serviceId:"ibuprofen"}],"xray"))return false;
+      const fake={invoiceNumber:"NMC-TEST-001",encounterId:"test-encounter",patientName:"Example <Patient>",
+        status:"open",claimStatus:"not-applicable",chargeCents:23000,insuranceEstimatedCents:0,
+        waivedCents:10000,patientResponsibilityCents:13000,patientPaidCents:8000,patientBalanceCents:5000,
+        insurerBalanceCents:0,insuranceProvider:"",paymentDueDate:"2026-11-04",createdAt:new Date("2026-10-26T12:00:00"),
+        notes:"Internal-only example",waiverReason:"Waiver authorization hidden",
+        lineItems:[{description:"Emergency Room",quantity:1,unitPriceCents:20000,amountCents:20000,rateVersion:3,sourceId:"internal-id"},
+        {description:"Test <X-Ray>",quantity:1,unitPriceCents:3000,amountCents:3000,rateVersion:1}]};
+      const ledger=[{action:"waiver",amountCents:10000,reason:"Internal waiver",actorUid:"staff-uid-123",createdAt:new Date("2026-10-26T12:00:00")}];
+      const publicHtml=renderNorthstarStatement({invoice:fake,events:ledger});
+      const internalHtml=renderNorthstarStatement({invoice:fake,events:ledger,internal:true});
+      if(!publicHtml.includes("Northstar Medical Center")||!publicHtml.includes("@page")||!publicHtml.includes("Print / Save PDF"))return false;
+      if(publicHtml.includes("staff-uid-123")||publicHtml.includes("Internal-only example")||publicHtml.includes("Waiver authorization hidden"))return false;
+      if(!internalHtml.includes("staff-uid-123")||!internalHtml.includes("Internal billing ledger"))return false;
+      if(publicHtml.includes("Test <X-Ray>")||!publicHtml.includes("Test &lt;X-Ray&gt;"))return false;
+      const frame=document.createElement("iframe");frame.style.width="900px";frame.style.height="1100px";
+      frame.srcdoc=publicHtml;document.body.append(frame);
+      await new Promise((resolve,reject)=>{frame.addEventListener("load",resolve,{once:true});setTimeout(()=>reject(new Error("Statement frame did not load")),6000)});
+      const body=frame.contentDocument;
+      const sheet=body.querySelector(".sheet"),rows=body.querySelectorAll("tbody tr");
+      const good=rows.length===2&&!!body.querySelector(".brand")&&!!body.querySelector(".balance")&&
+        getComputedStyle(sheet).backgroundColor==="rgb(255, 255, 255)"&&body.querySelector(".balance").textContent.includes("$50.00");
+      frame.remove();return good;
+    });
+    if(!printableInvoice)absent.push("Branded patient statement, internal ledger privacy or duplicate-charge safeguard");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
