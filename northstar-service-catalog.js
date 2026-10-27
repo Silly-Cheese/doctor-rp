@@ -46,7 +46,13 @@ export function renderServiceCatalog({target,records,profile}){
    const actions=document.createElement("div");actions.className="nmc-catalog-actions";
    const edit=document.createElement("button");edit.type="button";edit.textContent="Edit price";edit.onclick=()=>editRate(r);
    const toggle=document.createElement("button");toggle.type="button";toggle.textContent=r.active===false?"Reactivate":"Archive";toggle.onclick=async()=>{toggle.disabled=true;try{await saveChange(r,{active:r.active===false});}catch(e){target.querySelector("#nmcCatalogNotice").textContent=e.message;}finally{toggle.disabled=false}};
-   actions.append(edit,toggle);card.append(info,price,actions);list.append(card);
+   if(profile.role==="administrator"){
+     const remove=document.createElement("button");remove.type="button";remove.className="nmc-catalog-delete";remove.textContent="Delete";
+     remove.setAttribute("aria-label","Delete service price: "+r.name);
+     remove.onclick=()=>confirmRateRemoval(r);
+     actions.append(edit,toggle,remove);
+   }else actions.append(edit,toggle);
+   card.append(info,price,actions);list.append(card);
   }
  };
  input.oninput=draw;status.onchange=draw;draw();
@@ -88,6 +94,48 @@ export function renderServiceCatalog({target,records,profile}){
    await batch.commit();notice.textContent="Price saved.";form.reset();refreshNames();
   }catch(err){notice.textContent=err.message;}finally{button.disabled=false;}
  };
+ function confirmRateRemoval(r){
+  if(profile.role!=="administrator")return;
+  const dialog=document.createElement("dialog");
+  dialog.className="nmc-billing-dialog nmc-catalog-delete-dialog";
+  const form=document.createElement("form");form.className="nmc-billing-dialog-inner";form.method="dialog";
+  const title=document.createElement("h2");title.textContent="Delete service price?";
+  const description=document.createElement("p");
+  description.textContent="Delete "+r.name+" ("+cash(r.priceCents)+") permanently from Service Prices? Future encounters will no longer receive this rate. Previously issued invoices and their itemized charges will not be changed.";
+  const reasonLabel=document.createElement("label");reasonLabel.textContent="Reason (optional)";
+  const reason=document.createElement("input");reason.name="reason";reason.maxLength=250;
+  reason.placeholder="e.g. Duplicate or entered by mistake";reasonLabel.append(reason);
+  const actions=document.createElement("div");actions.className="nmc-bill-footer";
+  const cancel=document.createElement("button");cancel.type="button";cancel.textContent="Keep service";
+  const confirm=document.createElement("button");confirm.type="submit";confirm.className="nmc-confirm-delete";confirm.textContent="Delete permanently";
+  const notice=document.createElement("p");notice.className="nmc-bill-error";notice.setAttribute("role","status");
+  actions.append(cancel,confirm);form.append(title,description,reasonLabel,actions,notice);dialog.append(form);document.body.append(dialog);
+  cancel.onclick=()=>dialog.close();
+  dialog.addEventListener("close",()=>dialog.remove(),{once:true});
+  form.onsubmit=async event=>{
+   event.preventDefault();confirm.disabled=true;cancel.disabled=true;notice.textContent="Removing service price…";
+   try{
+    const user=auth().currentUser;if(!user)throw Error("Sign in again before deleting.");
+    const reference=doc(db(),"serviceCatalog",r.id);
+    const current=await getDoc(reference);
+    if(!current.exists())throw Error("This service has already been deleted.");
+    const revisions=await getDocs(collection(db(),"serviceCatalog",r.id,"revisions"));
+    if(revisions.size>400)throw Error("Too many price revisions for safe removal. Contact an administrator for assistance.");
+    const latest=current.data();
+    const batch=writeBatch(db());
+    const audit=doc(collection(db(),"serviceCatalogDeletions"));
+    batch.set(audit,{serviceId:r.id,name:latest.name,kind:latest.kind,code:latest.code||"",
+     priceCents:latest.priceCents,version:latest.version||1,revisionCount:revisions.size,
+     reason:reason.value.trim()||"Removed by administrator",actorUid:user.uid,at:serverTimestamp()});
+    revisions.forEach(x=>batch.delete(x.ref));
+    batch.delete(reference);
+    await batch.commit();
+    dialog.close();
+    const info=target.querySelector("#nmcCatalogNotice");if(info)info.textContent=r.name+" deleted. Existing invoices are unchanged.";
+   }catch(err){notice.textContent="Could not delete: "+err.message;confirm.disabled=false;cancel.disabled=false;}
+  };
+  dialog.showModal();
+ }
  async function saveChange(r,changes){
   const batch=writeBatch(db());
   batch.update(doc(db(),"serviceCatalog",r.id),{...changes,version:(r.version||1)+1,updatedBy:auth().currentUser.uid,updatedAt:serverTimestamp()});
