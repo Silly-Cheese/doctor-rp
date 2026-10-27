@@ -134,31 +134,32 @@ export function mountBulkPricing({target,records=[],observed=[]}){
    const latestSnap=await getDocs(collection(store,"serviceCatalog"));
    const latest=new Map(latestSnap.docs.map(d=>[priceKey(d.get("kind"),d.get("name")),{id:d.id,...d.data()}]));
    for(let offset=0;offset<requests.length;offset+=120){
-    const batch=writeBatch(store);let writes=0;
+    const batch=writeBatch(store);let writes=0,chunkCreated=0,chunkUpdated=0,chunkSkipped=0;
     const chunk=requests.slice(offset,offset+120);
     for(const r of chunk){
      const last=latest.get(r.key);
      const deterministic=canonicalRateId(r.kind,r.name);
-     if(!last&&latestSnap.docs.some(d=>d.id===deterministic)){skipped++;continue}
-     if(last&&!includeExisting){skipped++;continue}
-     if(last&&last.priceCents===r.priceCents&&last.active!==false){skipped++;continue}
+     if(!last&&latestSnap.docs.some(d=>d.id===deterministic)){chunkSkipped++;continue}
+     if(last&&!includeExisting){chunkSkipped++;continue}
+     if(last&&last.priceCents===r.priceCents&&last.active!==false){chunkSkipped++;continue}
      const ref=doc(store,"serviceCatalog",last?.id||deterministic),actor=user.uid;
      if(last){
       batch.update(ref,{priceCents:r.priceCents,active:true,version:(last.version||1)+1,updatedBy:actor,updatedAt:serverTimestamp()});
       batch.set(doc(collection(store,"serviceCatalog",ref.id,"revisions")),{
        action:"price-updated",priceCents:r.priceCents,previousPriceCents:last.priceCents,
        name:last.name,reason:"Bulk pricing change",actorUid:actor,at:serverTimestamp()
-      });updated++;
+      });chunkUpdated++;
      }else{
       batch.set(ref,{name:r.name,kind:r.kind,code:r.code||"",priceCents:r.priceCents,active:true,version:1,
        createdBy:actor,createdAt:serverTimestamp(),updatedBy:actor,updatedAt:serverTimestamp()});
       batch.set(doc(collection(store,"serviceCatalog",ref.id,"revisions")),{
        action:"created",priceCents:r.priceCents,name:r.name,actorUid:actor,at:serverTimestamp()
-      });created++;
+      });chunkCreated++;
      }
      writes+=2;
     }
     if(writes)await batch.commit();
+    created+=chunkCreated;updated+=chunkUpdated;skipped+=chunkSkipped;
     showMessage("Saved batch "+(Math.floor(offset/120)+1)+" of "+Math.ceil(requests.length/120)+".",alert);
    }
    for(const r of requests)selected.delete(r.key);
