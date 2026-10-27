@@ -1,3 +1,4 @@
+import {ORDER_GROUPS,buildClinicalChoices,selectOrderChoice} from "./northstar-clinical-order-data.js";
 import { getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
@@ -5,6 +6,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   setDoc,
   updateDoc,
@@ -23,6 +25,7 @@ const state = {
   orderSearch: ""
 };
 
+let orderChoices=[];
 const CATALOG = [
   { name: "CBC with Differential", category: "laboratory", priority: "routine", instructions: "Complete blood count with differential" },
   { name: "Comprehensive Metabolic Panel", category: "laboratory", priority: "routine", instructions: "CMP" },
@@ -92,6 +95,15 @@ function injectAdvancedClinical() {
   bindEvents();
 }
 
+
+document.addEventListener("change",event=>{
+ if(event.target?.id==="nmcCatalogOrderGroup")refreshAdvancedOrderNames();
+ if(event.target?.id==="nmcCatalogOrderName")updateAdvancedOrderDetails();
+});
+document.addEventListener("click",event=>{
+ if(event.target?.id==="nmcCatalogAddOrder")void addAdvancedOrderChoice();
+});
+
 function injectDialogs() {
   if (document.querySelector("#orderCatalogDialog")) return;
   document.body.insertAdjacentHTML("beforeend", `
@@ -100,7 +112,7 @@ function injectDialogs() {
         <div class="modal-header"><div><p class="eyebrow">Computerized Provider Order Entry</p><h3>Order Catalog</h3></div><button class="icon-button" type="button" data-close-plus="orderCatalogDialog">×</button></div>
         <div class="order-catalog-body">
           <div id="orderCatalogPatient" class="patient-context"></div>
-          <div class="order-catalog-search"><span>⌕</span><input id="orderCatalogSearch" type="search" placeholder="Search orders"></div>
+          <div class="nmc-provider-order-grid"><label>Order category<select id="nmcCatalogOrderGroup"></select></label><label>Choose order<select id="nmcCatalogOrderName"></select></label><button type="button" id="nmcCatalogAddOrder">Add selected order</button></div><div id="nmcSelectedMedicationFields" class="nmc-provider-medication hidden"><label>Provider-entered dose<input id="nmcChosenDose" placeholder="Dose (required for medication)"></label><label>Route<select id="nmcChosenRoute"><option value="">Select route</option><option>PO</option><option>IV</option><option>IM</option><option>Subcutaneous</option><option>Inhaled</option><option>Topical</option><option>Other</option></select></label><label>Frequency<input id="nmcChosenFrequency" placeholder="Frequency"></label></div><p id="nmcCatalogOrderPricing" class="clinical-order-hint" aria-live="polite"></p><div class="order-catalog-search"><span>⌕</span><input id="orderCatalogSearch" type="search" placeholder="Search orders"></div>
           <div class="order-set-strip">${Object.keys(ORDER_SETS).map(name => `<button type="button" data-order-set="${safe(name)}">${safe(name)}</button>`).join("")}</div>
           <div id="orderCatalogList" class="order-catalog-list"></div>
         </div>
@@ -315,19 +327,62 @@ async function saveAddendum(event) {
   try { const ref = doc(collection(db,"noteAddenda")); await setDoc(ref,{ noteId: note.id, encounterId: note.encounterId, patientId: note.patientId, text: document.querySelector("#addendumText").value.trim(), authorUid: auth.currentUser.uid, authorName: state.profile.displayName, createdAt: serverTimestamp() }); document.querySelector("#addendumDialog")?.close(); showToast("Addendum signed. Original note unchanged."); } catch (_) { showToast("Unable to sign addendum."); }
 }
 
+async function loadAdvancedOrderChoices(){
+ const group=document.querySelector("#nmcCatalogOrderGroup");
+ if(!group)return;
+ group.replaceChildren();
+ for(const g of ORDER_GROUPS){const option=document.createElement("option");option.value=g.id;option.textContent=g.label;group.append(option)}
+ let prices=[];
+ try{const snap=await getDocs(collection(db,"serviceCatalog"));prices=snap.docs.map(d=>({id:d.id,...d.data()}));}
+ catch(e){console.warn("Billing rates unavailable for ordering",e)}
+ orderChoices=buildClinicalChoices(prices,CATALOG.map(x=>({...x,group:ORDER_GROUPS.find(g=>g.category===x.category)?.id||"other"})));
+ group.value="laboratory";
+ refreshAdvancedOrderNames();
+}
+function refreshAdvancedOrderNames(){
+ const group=document.querySelector("#nmcCatalogOrderGroup")?.value,field=document.querySelector("#nmcCatalogOrderName");
+ if(!field)return;
+ field.replaceChildren();
+ for(const item of orderChoices.filter(x=>x.group===group)){const option=document.createElement("option");option.value=item.name;option.textContent=item.name;field.append(option)}
+ updateAdvancedOrderDetails();
+ renderOrderCatalog();
+}
+function updateAdvancedOrderDetails(){
+ const group=document.querySelector("#nmcCatalogOrderGroup")?.value,name=document.querySelector("#nmcCatalogOrderName")?.value;
+ const found=selectOrderChoice(orderChoices,group,name);
+ const med=document.querySelector("#nmcSelectedMedicationFields"),message=document.querySelector("#nmcCatalogOrderPricing");
+ med?.classList.toggle("hidden",found?.category!=="medication");
+ if(message)message.textContent=found?(found.priced?"Billing rate: "+new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(found.unitPriceCents/100):"No price configured; ordering is permitted but the billing team must set a rate."):"Choose a clinical order.";
+}
+async function addAdvancedOrderChoice(){
+ const group=document.querySelector("#nmcCatalogOrderGroup")?.value,name=document.querySelector("#nmcCatalogOrderName")?.value;
+ const chosen=selectOrderChoice(orderChoices,group,name);
+ if(!chosen){showToast("Choose an order from the dropdown.");return}
+ const standard=CATALOG.find(x=>x.name===chosen.name);
+ const payload={...standard,...chosen,priority:standard?.priority||"routine",instructions:standard?.instructions||""};
+ if(chosen.category==="medication"){
+  payload.dose=document.querySelector("#nmcChosenDose")?.value.trim()||"";
+  payload.route=document.querySelector("#nmcChosenRoute")?.value||"";
+  payload.frequency=document.querySelector("#nmcChosenFrequency")?.value.trim()||"";
+  if(!payload.dose||!payload.route||!payload.frequency){showToast("Complete dose, route and frequency before signing a medication order.");return;}
+ }
+ await createOrders([payload]);
+}
 function openOrderCatalog(encounterId) {
   const encounter = encounterById(encounterId); const patient = encounter ? patientById(encounter.patientId) : null; if (!encounter || !patient || !isProvider()) return; state.selectedEncounterId = encounterId; state.orderSearch = "";
-  document.querySelector("#orderCatalogPatient").innerHTML = `<strong>${safe(patient.lastName)}, ${safe(patient.firstName)}</strong><span>${safe(patient.mrn)} · ${safe(encounter.room || "Emergency Department")} · ${safe(encounter.chiefComplaint || "Current encounter")}</span>`; document.querySelector("#orderCatalogSearch").value = ""; renderOrderCatalog(); document.querySelector("#orderCatalogDialog")?.showModal();
+  document.querySelector("#orderCatalogPatient").innerHTML = `<strong>${safe(patient.lastName)}, ${safe(patient.firstName)}</strong><span>${safe(patient.mrn)} · ${safe(encounter.room || "Emergency Department")} · ${safe(encounter.chiefComplaint || "Current encounter")}</span>`; document.querySelector("#orderCatalogSearch").value = ""; void loadAdvancedOrderChoices(); renderOrderCatalog(); document.querySelector("#orderCatalogDialog")?.showModal();
 }
 
 function renderOrderCatalog() {
-  const target = document.querySelector("#orderCatalogList"); if (!target) return; const q = state.orderSearch.toLowerCase(); const items = CATALOG.filter(o => !q || `${o.name} ${o.category} ${o.instructions}`.toLowerCase().includes(q));
-  target.innerHTML = items.map(o => `<article class="order-catalog-row"><div><span>${safe(label(o.category))} · ${safe(String(o.priority).toUpperCase())}</span><strong>${safe(o.name)}</strong><small>${safe([o.dose,o.route,o.frequency,o.instructions].filter(Boolean).join(" · "))}</small></div><button type="button" class="secondary-button compact" data-add-catalog-order="${safe(o.name)}">Add</button></article>`).join("") || '<div class="platform-empty"><strong>No matching orders</strong></div>';
+ const target=document.querySelector("#orderCatalogList");if(!target)return;
+ const q=state.orderSearch.toLowerCase(),group=document.querySelector("#nmcCatalogOrderGroup")?.value;
+ const items=orderChoices.filter(x=>(!group||x.group===group)&&(!q||(x.name+" "+x.label).toLowerCase().includes(q)));
+ target.innerHTML=items.slice(0,100).map(x=>'<article class="order-catalog-row"><div><span>'+safe(x.label)+' · '+(x.priced?"Rate on file":"Unpriced")+'</span><strong>'+safe(x.name)+'</strong></div><button type="button" class="secondary-button compact" data-choose-catalog-order="'+safe(x.name)+'">Select</button></article>').join("")||'<div class="platform-empty"><strong>No orders found in this category</strong></div>';
 }
 
 async function createOrders(items) {
   const encounter = encounterById(state.selectedEncounterId); const patient = encounter ? patientById(encounter.patientId) : null; if (!encounter || !patient || !isProvider()) return;
-  try { const batch = writeBatch(db); items.forEach(item => { const ref = doc(collection(db,"orders")); batch.set(ref,{ patientId: patient.id, encounterId: encounter.id, patientName: `${patient.lastName}, ${patient.firstName}`, mrn: patient.mrn, category: item.category, name: item.name, priority: item.priority, instructions: item.instructions || "", dose: item.dose || "", route: item.route || "", frequency: item.frequency || "", status: "ordered", dueAt: item.category === "medication" ? new Date(Date.now()+5*60_000) : null, orderedBy: auth.currentUser.uid, orderedByName: state.profile.displayName, createdAt: serverTimestamp() }); }); batch.update(doc(db,"encounters",encounter.id),{ status:"treatment", updatedAt:serverTimestamp() }); await batch.commit(); showToast(items.length === 1 ? "Order signed." : `${items.length} orders signed.`); } catch (_) { showToast("Unable to sign orders."); }
+  try { const batch = writeBatch(db); items.forEach(item => { const ref = doc(collection(db,"orders")); batch.set(ref,{ patientId: patient.id, encounterId: encounter.id, patientName: `${patient.lastName}, ${patient.firstName}`, mrn: patient.mrn, category: item.category, name: item.name, orderGroup:item.group||"",serviceCode:item.serviceCode||"",catalogRateId:item.catalogId||"", priority: item.priority, instructions: item.instructions || "", dose: item.dose || "", route: item.route || "", frequency: item.frequency || "", status: "ordered", dueAt: item.category === "medication" ? new Date(Date.now()+5*60_000) : null, orderedBy: auth.currentUser.uid, orderedByName: state.profile.displayName, createdAt: serverTimestamp() }); }); batch.update(doc(db,"encounters",encounter.id),{ status:"treatment", updatedAt:serverTimestamp() }); await batch.commit(); showToast(items.length === 1 ? "Order signed." : `${items.length} orders signed.`); } catch (_) { showToast("Unable to sign orders."); }
 }
 
 async function printWristband(patientId) {
@@ -362,6 +417,7 @@ function bindEvents() {
     const wrist=e.target.closest("[data-print-wristband]"); if(wrist){await printWristband(wrist.dataset.printWristband);return;}
     const identity=e.target.closest("[data-identity-safety]"); if(identity){openIdentity(identity.dataset.identitySafety);return;}
     const catalog=e.target.closest("[data-order-catalog]"); if(catalog){openOrderCatalog(catalog.dataset.orderCatalog);return;}
+    const choose=e.target.closest("[data-choose-catalog-order]");if(choose){const name=document.querySelector("#nmcCatalogOrderName");name.value=choose.dataset.chooseCatalogOrder;updateAdvancedOrderDetails();return;}
     const add=e.target.closest("[data-add-catalog-order]"); if(add){const item=CATALOG.find(o=>o.name===add.dataset.addCatalogOrder);if(item)await createOrders([item]);return;}
     const set=e.target.closest("[data-order-set]"); if(set){const items=(ORDER_SETS[set.dataset.orderSet]||[]).map(name=>CATALOG.find(o=>o.name===name)).filter(Boolean);if(items.length&&await window.NorthstarDialog.confirm({title:"Sign Order Set",message:`Sign ${set.dataset.orderSet} with ${items.length} orders?`,confirmText:"Sign Orders",cancelText:"Cancel"}))await createOrders(items);return;}
     const addendum=e.target.closest("[data-addendum-note]"); if(addendum){openAddendum(addendum.dataset.addendumNote);return;}
