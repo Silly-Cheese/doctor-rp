@@ -1,6 +1,6 @@
 const fs=require("fs");
 const {initializeTestEnvironment,assertFails,assertSucceeds}=require("@firebase/rules-unit-testing");
-const {doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp}=require("firebase/firestore");
+const {doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,serverTimestamp}=require("firebase/firestore");
 (async()=>{
  const env=await initializeTestEnvironment({
   projectId:"demo-northstar-billing",
@@ -50,7 +50,28 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp}=require("firebase/
   await assertFails(setDoc(doc(staff,"serviceCatalog","order_x-ray"),{...rate,name:"X-Ray",kind:"order",createdBy:"billingstaff",updatedBy:"billingstaff"}));
   await assertSucceeds(updateDoc(doc(admin,"serviceCatalog","visit_emergency-visit"),{priceCents:18000,version:2,updatedBy:"billingadmin",updatedAt:serverTimestamp()}));
   await assertFails(updateDoc(doc(clerk,"serviceCatalog","visit_emergency-visit"),{priceCents:-25,version:3,updatedBy:"billingclerk",updatedAt:serverTimestamp()}));
-  await assertFails(deleteDoc(doc(admin,"serviceCatalog","visit_emergency-visit")));
+  await assertFails(deleteDoc(doc(clerk,"serviceCatalog","visit_emergency-visit")));
+  await assertFails(deleteDoc(doc(staff,"serviceCatalog","visit_emergency-visit")));
+  await assertSucceeds(setDoc(doc(admin,"serviceCatalog","visit_emergency-visit","revisions","revone"),{
+    action:"price-updated",priceCents:18000,previousPriceCents:15000,name:"Emergency Visit",
+    actorUid:"billingadmin",at:serverTimestamp(),reason:"Annual price update"
+  }));
+  await assertFails(deleteDoc(doc(clerk,"serviceCatalog","visit_emergency-visit","revisions","revone")));
+  const removal=writeBatch(admin);
+  removal.set(doc(admin,"serviceCatalogDeletions","auditone"),{
+    serviceId:"visit_emergency-visit",name:"Emergency Visit",kind:"visit",code:"ER-01",
+    priceCents:18000,version:2,revisionCount:1,reason:"Duplicate rate",
+    actorUid:"billingadmin",at:serverTimestamp()
+  });
+  removal.delete(doc(admin,"serviceCatalog","visit_emergency-visit","revisions","revone"));
+  removal.delete(doc(admin,"serviceCatalog","visit_emergency-visit"));
+  await assertSucceeds(removal.commit());
+  const afterDelete=await getDoc(doc(admin,"serviceCatalog","visit_emergency-visit"));
+  if(afterDelete.exists())throw Error("Deleted service is still present");
+  await assertSucceeds(getDoc(doc(admin,"serviceCatalogDeletions","auditone")));
+  await assertFails(getDoc(doc(clerk,"serviceCatalogDeletions","auditone")));
+  await assertFails(deleteDoc(doc(admin,"serviceCatalogDeletions","auditone")));
+  await assertSucceeds(getDoc(doc(admin,"billingAccounts","billingencounter")));
   await assertFails(deleteDoc(doc(admin,"billingAccounts","billingencounter")));
   console.log("Billing simulation security rules passed.");
  } finally {await env.cleanup();}
