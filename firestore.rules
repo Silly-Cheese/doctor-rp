@@ -567,6 +567,16 @@ service cloud.firestore {
         && request.resource.data.priceCents <= 999999999
         && request.resource.data.active == true
         && request.resource.data.version == 1
+        && (
+          request.resource.data.source != 'retrospective-waiver'
+          || (
+            isAdministrator()
+            && request.resource.data.waivedCents == request.resource.data.chargeCents
+            && request.resource.data.patientBalanceCents == 0
+            && request.resource.data.insuranceEstimatedCents == 0
+            && request.resource.data.patientPaidCents == 0
+          )
+        )
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.updatedBy == request.auth.uid
         && request.resource.data.createdAt == request.time
@@ -647,10 +657,19 @@ service cloud.firestore {
           'lineItems','chargeCents','insuranceEstimatedCents','insuranceReceivedCents',
           'waivedCents','patientPaidCents','patientResponsibilityCents',
           'patientBalanceCents','insurerBalanceCents','claimStatus','waiverReason',
-          'notes','status','insuranceProvider','paymentDueDate','updatedBy','updatedAt'
+          'notes','status','insuranceProvider','paymentDueDate','updatedBy','updatedAt','adjustmentAuditId'
         ])
         && request.resource.data.updatedBy == request.auth.uid
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.updatedAt == request.time
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adjustmentAuditId'])
+          || (
+            isAdministrator()
+            && request.resource.data.adjustmentAuditId is string
+            && getAfter(/databases/$(database)/documents/billingAccounts/$(encounterId)/events/$(request.resource.data.adjustmentAuditId)).data.actorUid == request.auth.uid
+            && getAfter(/databases/$(database)/documents/billingAccounts/$(encounterId)/events/$(request.resource.data.adjustmentAuditId)).data.action in ['bulk-waiver','charge-override','line-override']
+          )
+        );
       allow delete: if false;
       match /events/{eventId} {
         allow read: if isBillingReader();
@@ -659,7 +678,7 @@ service cloud.firestore {
           && request.resource.data.actorUid == request.auth.uid
           && request.resource.data.simulated == true
           && request.resource.data.createdAt == request.time
-          && request.resource.data.action in ['patient-payment','insurance-payment','patient-refund','insurance-refund','coverage','waiver','charge','charge-correction','insurer','due-date','claim','note']
+          && request.resource.data.action in ['patient-payment','insurance-payment','patient-refund','insurance-refund','coverage','waiver','charge','charge-correction','insurer','due-date','claim','note','bulk-waiver','charge-override','line-override']
           && request.resource.data.amountCents is int
           && request.resource.data.amountCents >= 0
           && request.resource.data.detail is string && request.resource.data.detail.size() <= 250
