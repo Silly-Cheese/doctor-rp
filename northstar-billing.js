@@ -165,7 +165,7 @@ export function renderBillingPage({target,records,encounters,patients=[],profile
  const search=target.querySelector("#nmcBillingSearch"),filter=target.querySelector("#nmcBillingFilter"),sort=target.querySelector("#nmcBillingSort");
  const draw=()=>{
   const needle=search.value.trim().toLowerCase(),status=filter.value;
-  const matches=records.filter(x=>(!status||status==="unbilled"?(status!=="unbilled"):status==="overdue"?metrics.overdueRows.some(y=>y.encounterId===x.encounterId):status==="claim-review"?metrics.claimsPendingRows.some(y=>y.encounterId===x.encounterId):x.status===status)&&[x.patientName,patients.find(p=>p.id===x.patientId)?.displayName,x.invoiceNumber,x.insuranceProvider,x.encounterId].some(v=>String(v||"").toLowerCase().includes(needle)));
+  const matches=records.filter(x=>(status!=="unbilled"&&(!status||(status==="overdue"?metrics.overdueRows.some(y=>y.encounterId===x.encounterId):status==="claim-review"?metrics.claimsPendingRows.some(y=>y.encounterId===x.encounterId):x.status===status)))&&[x.patientName,patients.find(p=>p.id===x.patientId)?.displayName,x.invoiceNumber,x.insuranceProvider,x.encounterId].some(v=>String(v||"").toLowerCase().includes(needle)));
   const patientName=x=>patients.find(p=>p.id===x.patientId)?.displayName||x.patientName||"";
   matches.sort((a,b)=>sort.value==="patient"?patientName(a).localeCompare(patientName(b)):sort.value==="due"?(a.paymentDueDate||"9999").localeCompare(b.paymentDueDate||"9999"):sort.value==="charges"?(b.chargeCents||0)-(a.chargeCents||0):(b.patientBalanceCents||0)-(a.patientBalanceCents||0));
   const list=target.querySelector("#nmcBillingRows");
