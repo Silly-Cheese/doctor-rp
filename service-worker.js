@@ -1,4 +1,4 @@
-const CACHE="northstar-shell-v13";
+const CACHE="northstar-shell-v14";
 const SHELL=["./","./index.html","./favicon.svg","./manifest.webmanifest"];
 self.addEventListener("install",event=>{
   event.waitUntil(
