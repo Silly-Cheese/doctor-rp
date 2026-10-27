@@ -146,3 +146,19 @@
 .nmc-bill-metrics strong{font-variant-numeric:tabular-nums}
 @media(max-width:620px){.nmc-bill-invoice-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.nmc-bill-dialog-actions button{flex:1;min-width:165px}.nmc-bill-lines{padding:0 10px}}
 @media(max-width:400px){.nmc-bill-invoice-totals{grid-template-columns:1fr}}
+
+
+/* Revenue work queue: meaningful prioritization without overwhelming the page */
+.nmc-bill-attention{border:1px solid #d3e2e9;background:#fff;border-radius:15px;padding:19px 20px;margin:22px 0}
+.nmc-bill-attention header{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
+.nmc-bill-attention header h3{font-size:1.15rem;margin:3px 0;color:#143950}
+.nmc-bill-attention header>span{color:#678294;font-size:.83rem}
+.nmc-bill-queue-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:15px}
+.nmc-bill-queue-actions button{border:1px solid #cbdfe9;border-radius:12px;text-align:left;padding:14px 16px;background:#f3f9fc;color:#18465e;display:flex;align-items:baseline;gap:11px;cursor:pointer;transition:background .14s,border-color .14s}
+.nmc-bill-queue-actions button:hover{background:#e8f4fa;border-color:#80b3cf}
+.nmc-bill-queue-actions strong{font-size:1.6rem;font-variant-numeric:tabular-nums}
+.nmc-bill-queue-actions span{font-size:.83rem;font-weight:750}
+.nmc-bill-tools{align-items:stretch}
+.nmc-bill-tools input,.nmc-bill-tools select{min-height:44px}
+.nmc-bill-tools button{min-height:44px}
+@media(max-width:760px){.nmc-bill-queue-actions{grid-template-columns:1fr}.nmc-bill-queue-actions button{justify-content:space-between}}
