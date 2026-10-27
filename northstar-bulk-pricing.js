@@ -35,7 +35,7 @@ export function mountBulkPricing({target,records=[],observed=[]}){
  '<div class="nmc-bulk-pages"><button id="nmcBulkPrev" type="button">Previous</button><span id="nmcBulkPageNum"></span><button id="nmcBulkNext" type="button">Next</button></div>'+
  '<div class="nmc-bulk-footer"><button id="nmcBulkTemplate" type="button">Download full price template (.csv)</button><button id="nmcBulkExport" type="button">Export current catalog (.csv)</button><label class="nmc-bulk-import">Import completed CSV<input type="file" id="nmcBulkFile" accept=".csv,text/csv"></label><button id="nmcBulkSave" type="button" class="nmc-bulk-primary">Save selected prices</button></div>'+
  '<p id="nmcBulkNotice" class="nmc-bulk-notice" role="status"></p>';
- const existing=target.querySelector(".nmc-bulk-panel");if(existing)existing.replaceWith(panel);else target.append(panel);
+ const existing=target.querySelector(".nmc-bulk-panel");if(existing)existing.replaceWith(panel);else target.insertBefore(panel,target.querySelector(".nmc-bill-tools")||null);
  const el=id=>panel.querySelector("#"+id),body=el("nmcBulkRows"),summary=el("nmcBulkSummary"),alert=el("nmcBulkNotice");
  el("nmcBulkGroup").value=groupFilter;el("nmcBulkSearch").value=searchTerm;el("nmcBulkMissing").checked=onlyMissing;el("nmcBulkOverwrite").checked=includeExisting;
  alert.textContent=notice;
@@ -164,7 +164,7 @@ export function mountBulkPricing({target,records=[],observed=[]}){
    for(const r of requests)selected.delete(r.key);
    showMessage("Bulk pricing saved: "+created+" created, "+updated+" updated, "+skipped+" skipped. Existing invoices are unchanged.",alert);
   }catch(err){showMessage("Save stopped: "+err.message+" — "+created+" created, "+updated+" updated so far. Refresh the catalog before retrying.",alert)}
-  finally{saving=false;updateStats()}
+  finally{saving=false;updateStats();window.dispatchEvent(new Event("northstar:prices-saved"))}
  };
  redraw();
 }
