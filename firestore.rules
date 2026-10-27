@@ -568,7 +568,7 @@ service cloud.firestore {
         && request.resource.data.active == true
         && request.resource.data.version == 1
         && (
-          request.resource.data.source != 'retrospective-waiver'
+          request.resource.data.get('source', '') != 'retrospective-waiver'
           || (
             isAdministrator()
             && request.resource.data.waivedCents == request.resource.data.chargeCents
