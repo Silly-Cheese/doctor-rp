@@ -118,6 +118,37 @@ const { chromium } = require("playwright");
         && room.includes("Trauma Room")&&clinical.includes("CBC with Differential");
     });
     if(!extendedPricing)absent.push("EMS and room automatic charges or service dropdown");
+    const bulkPricing=await page.evaluate(async ()=>{
+      const {createPriceCandidates,parsePriceCSV,serializePriceCSV,canonicalRateId,validatePriceAmount}=await import("./northstar-pricing-bulk-data.js");
+      const {renderServiceCatalog}=await import("./northstar-service-catalog.js");
+      const candidates=createPriceCandidates([{id:"rate1",kind:"order",name:"Ceftriaxone",priceCents:3400}],[]);
+      if(!candidates.some(x=>x.group==="antibiotics"&&x.name==="Ceftriaxone"))return false;
+      if(!candidates.some(x=>x.kind==="order"&&x.name==="CBC with Differential"))return false;
+      if(canonicalRateId("order","CBC with Differential")!=="order_cbc-with-differential")return false;
+      if(validatePriceAmount("34.50")!==3450)return false;
+      const csv=serializePriceCSV([{group:"antibiotics",kind:"order",name:"Trimethoprim-Sulfamethoxazole",price:"41.25",code:"AB-1"},
+        {group:"laboratory",kind:"order",name:"CBC, with Differential",price:"31.00",code:"LAB-1"}]);
+      const imported=parsePriceCSV(csv);
+      if(imported.length!==2||imported[1].name!=="CBC, with Differential"||imported[0].priceCents!==4125)return false;
+      const host=document.createElement("div");document.body.append(host);
+      renderServiceCatalog({target:host,records:[{id:"rate1",kind:"order",name:"Ceftriaxone",priceCents:3400,active:true,version:1}],
+       profile:{role:"administrator",status:"active",permissions:{}}});
+      const category=host.querySelector("#nmcBulkGroup");
+      const missing=host.querySelector("#nmcBulkMissing");
+      if(!category||!missing.checked)return false;
+      category.value="antibiotics";category.dispatchEvent(new Event("change"));
+      const existing=host.querySelector("#nmcBulkRows")?.textContent||"";
+      if(existing.includes("Ceftriaxone"))return false;
+      host.querySelector("#nmcBulkSelectGroup").click();
+      host.querySelector("#nmcBulkPrice").value="25.25";
+      host.querySelector("#nmcBulkApply").click();
+      const priced=host.querySelectorAll('#nmcBulkRows input.nmc-bulk-rate');
+      const all=[...priced].every(x=>x.value==="25.25");
+      const ready=!host.querySelector("#nmcBulkSave").disabled;
+      host.remove();
+      return all&&ready&&priced.length>10;
+    });
+    if(!bulkPricing)absent.push("Bulk medication/antibiotic pricing category and CSV workflow");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
