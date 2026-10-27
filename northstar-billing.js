@@ -1,3 +1,4 @@
+import {openNorthstarStatement} from "./northstar-invoice-print.js";
 import {summarizeBilling,exportBillingCSV} from "./northstar-billing-insights.js";
 // Northstar billing is a simulation ledger: no payment processing, claims submission, or payer verification.
 import {collectEncounterCharges} from "./northstar-service-catalog.js";
@@ -75,6 +76,7 @@ function checkedLines(form){
  if(lines.length>100)throw Error("Too many line items for one invoice; divide the services into appropriate encounters.");
  return lines;
 }
+export function canAddManualService(lines,serviceId){return !lines.some(x=>x.serviceId===serviceId)}
 export async function prepareEncounterBilling(form,encounter){
  const box=form.querySelector(".nmc-auto-lines"),charge=form.querySelector('[name="billingCharge"]');
  if(!box||!charge)throw Error("Billing form was not initialized.");
@@ -105,7 +107,12 @@ export async function prepareEncounterBilling(form,encounter){
    const sel=document.createElement("select");sel.setAttribute("aria-label","Add a catalog service");
    for(const item of options){const opt=document.createElement("option");opt.value=item.id;opt.textContent=item.name+" — "+money(item.priceCents);sel.append(opt)}
    const add=document.createElement("button");add.type="button";add.textContent="Add priced service";
-   add.onclick=()=>{const item=options.find(x=>x.id===sel.value);if(!item)return;manual.push({serviceId:item.id,serviceName:item.name,description:item.name,sourceType:"manual",sourceId:"manual:"+item.id,quantity:1,unitPriceCents:item.priceCents,amountCents:item.priceCents,rateVersion:item.version||1});render()};
+   add.onclick=()=>{const item=options.find(x=>x.id===sel.value);if(!item)return;
+    if(!canAddManualService([...quote.lines,...manual],item.id)){
+     let warning=box.querySelector(".nmc-bill-duplicate");if(!warning){warning=document.createElement("p");warning.className="nmc-bill-duplicate";box.append(warning)}
+     warning.textContent=item.name+" is already included on this invoice. Additional administrations should be recorded as separate clinical orders, not duplicated manually.";return;
+    }
+    manual.push({serviceId:item.id,serviceName:item.name,description:item.name,sourceType:"manual",sourceId:"manual:"+item.id,quantity:1,unitPriceCents:item.priceCents,amountCents:item.priceCents,rateVersion:item.version||1});render()};
    bar.append(sel,add);box.append(bar);
   }
   form.dispatchEvent(new Event("change",{bubbles:true}));
@@ -152,7 +159,7 @@ export function renderBillingPage({target,records,encounters,patients=[],profile
  const metrics=summarizeBilling(records,encounters);
  target.innerHTML='<section class="nmc-billing-page"><header><div><p class="eyebrow">Financial Operations · Simulation</p><h2>Billing & Revenue</h2><p>Encounter invoices, estimated insurance, waivers, balances and payment history.</p></div><span class="nmc-bill-label">No real payments or insurer claims</span></header>'+
  '<div class="nmc-bill-metrics nmc-bill-expanded-metrics"><article><span>Invoices</span><strong>'+metrics.invoices+'</strong></article><article><span>Total charges</span><strong>'+money(metrics.totalCharges)+'</strong></article><article><span>Collected</span><strong>'+money(metrics.collected)+'</strong></article><article><span>Patient balances</span><strong>'+money(metrics.patientBalance)+'</strong></article><article><span>Insurer balances</span><strong>'+money(metrics.insuranceBalance)+'</strong></article><article><span>Waived</span><strong>'+money(metrics.waived)+'</strong></article><article><span>Overdue invoices</span><strong>'+metrics.overdue+'</strong></article><article><span>Unbilled discharges</span><strong>'+metrics.unbilled+'</strong></article></div>'+
-'<div class="nmc-bill-tools"><input id="nmcBillingSearch" placeholder="Find patient, invoice or insurer" aria-label="Search billing records" type="search"><select id="nmcBillingFilter" aria-label="Filter billing status"><option value="">All billing statuses</option><option value="overdue">Overdue</option><option value="claim-review">Insurer follow-up</option>'+["open","insurance-pending","partially-paid","paid","waived"].map(s=>'<option value="'+s+'">'+statusLabel(s)+'</option>').join("")+'</select><button id="nmcBillingRefresh" type="button">Refresh view</button><button id="nmcBillingExport" type="button">Export invoices CSV</button></div>'+
+'<div class="nmc-bill-tools"><input id="nmcBillingSearch" placeholder="Find patient, invoice or insurer" aria-label="Search billing records" type="search"><select id="nmcBillingFilter" aria-label="Filter billing status"><option value="">All billing statuses</option><option value="overdue">Overdue</option><option value="claim-review">Insurer follow-up</option>'+["open","insurance-pending","partially-paid","paid","waived"].map(s=>'<option value="'+s+'">'+statusLabel(s)+'</option>').join("")+'</select><button id="nmcBillingRefresh" type="button">Reload records</button><button id="nmcBillingExport" type="button">Export invoices CSV</button></div>'+
  '<div id="nmcBillingRows"></div><section class="nmc-bill-unbilled"><h3>Discharged encounters without an invoice</h3><p>Complete billing for encounters closed before billing was enabled.</p><div id="nmcUnbilledRows"></div></section></section>';
  const search=target.querySelector("#nmcBillingSearch"),filter=target.querySelector("#nmcBillingFilter");
  const draw=()=>{
@@ -169,7 +176,12 @@ export function renderBillingPage({target,records,encounters,patients=[],profile
   const b=e.target.closest("[data-nmc-invoice]");if(b){await openInvoice(b.dataset.nmcInvoice);return;}
   const a=e.target.closest("[data-nmc-retrobill]");if(a&&manage(profile)){const encounter=current.encounters.find(x=>x.id===a.dataset.nmcRetrobill);if(encounter)await openBillingDialogForEncounter({encounter,retroactive:true});}
  };
- target.querySelector("#nmcBillingRefresh").onclick=()=>draw();
+ target.querySelector("#nmcBillingRefresh").onclick=async()=>{
+  const button=target.querySelector("#nmcBillingRefresh");button.disabled=true;button.textContent="Refreshing…";
+  try{const snap=await getDocs(collection(getFirestore(getApp()),"billingAccounts"));
+   renderBillingPage({target,records:snap.docs.map(x=>({id:x.id,...x.data()})),encounters:current.encounters,patients:current.patients,profile:current.profile});
+  }catch(error){button.disabled=false;button.textContent="Reload records";const list=target.querySelector("#nmcBillingRows");if(list)list.insertAdjacentHTML("afterbegin",'<p class="nmc-bill-error">Could not refresh billing records. Check your access and connection.</p>');}
+ };
  target.querySelector("#nmcBillingExport").onclick=()=>{
   const body=exportBillingCSV(records,patients),blob=new Blob([body],{type:"text/csv;charset=utf-8"});
   const url=URL.createObjectURL(blob),anchor=document.createElement("a");
@@ -189,15 +201,45 @@ async function openInvoice(id){
  '<div class="nmc-bill-invoice-totals"><div>Charges<strong>'+money(a.chargeCents)+'</strong></div><div>Insurance estimate<strong>'+money(a.insuranceEstimatedCents)+'</strong></div><div>Waived<strong>'+money(a.waivedCents)+'</strong></div><div>Patient portion<strong>'+money(a.patientResponsibilityCents)+'</strong></div><div>Paid by patient<strong>'+money(a.patientPaidCents)+'</strong></div><div>Patient balance<strong>'+money(a.patientBalanceCents)+'</strong></div><div>Expected insurer balance<strong>'+money(a.insurerBalanceCents)+'</strong></div></div>'+
  '<h3>Itemized charges</h3><div class="nmc-bill-lines">'+(a.lineItems||[]).map(x=>'<div><span>'+esc(x.description)+' (×'+Number(x.quantity||1)+')<small>'+esc(x.clinicalGroup||x.sourceType||"Service")+' · Rate version '+Number(x.rateVersion||1)+'</small></span><strong>'+money(x.amountCents)+'</strong></div>').join("")+'</div>'+
  '<p>Insurer: '+esc(a.insuranceProvider||"None")+' · Payment due: '+esc(a.paymentDueDate||"Not set")+' · Waiver reason: '+esc(a.waiverReason||"None")+'</p><p>'+esc(a.notes||"")+'</p>'+
- '<div class="nmc-bill-dialog-actions"><button type="button" class="nmc-bill-print">Print / Save PDF</button></div>'+
+ '<div class="nmc-bill-dialog-actions"><button type="button" class="nmc-bill-print">Print patient statement</button><button type="button" class="nmc-bill-print-internal">Print internal ledger</button></div>'+
  (writable?'<form id="nmcBillingAction"><h3>Post ledger activity</h3><label>Action<select name="action" required><option value="patient-payment">Record simulated patient payment</option><option value="insurance-payment">Record simulated insurer payment</option><option value="patient-refund">Record simulated patient refund</option><option value="insurance-refund">Record simulated insurer refund</option><option value="coverage">Update estimated insurance coverage</option><option value="waiver">Apply/change waiver</option><option value="charge">Add itemized charge</option><option value="charge-correction">Correct / reduce an erroneous charge</option><option value="insurer">Correct insurer name</option><option value="due-date">Set payment due date (YYYY-MM-DD)</option><option value="claim">Update insurance claim status</option><option value="note">Add an internal note</option></select></label><label>Amount ($)<input type="number" name="amount" min="0" step="0.01" placeholder="0.00"></label><label>Detail / reference<input name="detail" maxlength="250" placeholder="Charge description, payment reference, or note"></label><label>Claim decision<select name="claimOutcome"><option value="not-submitted">Not submitted</option><option value="submitted">Submitted</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="denied">Denied</option><option value="paid">Paid</option></select></label><label>Reason / authorization<textarea name="reason" required minlength="5" maxlength="750" rows="2"></textarea></label><button type="submit">Save simulated activity</button><p class="nmc-bill-action-status" role="status"></p></form>':'')+
  '<h3>Audit trail</h3><div class="nmc-bill-history">'+(events.empty?'<p>No adjustment activity yet.</p>':events.docs.map(x=>{const e=x.data();return '<div><strong>'+esc(statusLabel(e.action||"record"))+' · '+money(e.amountCents||0)+'</strong><small>'+esc(e.detail||"")+' · '+esc(e.reason||"")+' · '+esc(e.actorUid||"")+'</small></div>'}).join(""))+'</div><p class="nmc-bill-notice">Simulation invoice only. No actual payment is accepted or insurer claim transmitted.</p></div>';
  document.body.append(d);d.showModal();
  d.querySelector(".nmc-bill-close").onclick=()=>d.close();
  d.addEventListener("close",()=>d.remove());
- d.querySelector(".nmc-bill-print").onclick=()=>{const w=window.open("","_blank");if(!w)return alert("Enable popups to print invoices.");const body=d.querySelector(".nmc-billing-dialog-inner").cloneNode(true);body.querySelectorAll("form,button").forEach(e=>e.remove());w.document.title="Northstar Invoice";w.document.body.append(body);w.print();};
+ const eventRows=events.docs.map(x=>({id:x.id,...x.data()}));
+ for(const [selector,internal] of [[".nmc-bill-print",false],[".nmc-bill-print-internal",true]]){
+  d.querySelector(selector).onclick=()=>{try{openNorthstarStatement({invoice:a,patientName:a.patientName,events:eventRows,internal})}
+   catch(error){const msg=d.querySelector(".nmc-bill-print-error")||document.createElement("p");msg.className="nmc-bill-print-error";msg.setAttribute("role","status");msg.textContent=error.message;d.querySelector(".nmc-bill-dialog-actions").append(msg)}};
+ }
  const form=d.querySelector("#nmcBillingAction");
- if(form){const action=form.querySelector('[name="action"]'),claim=form.querySelector('[name="claimOutcome"]').closest("label");const change=()=>{claim.hidden=action.value!=="claim";};action.addEventListener("change",change);change();}
+ if(form){
+  const action=form.querySelector('[name="action"]'),claim=form.querySelector('[name="claimOutcome"]').closest("label");
+  const amount=form.querySelector('[name="amount"]'),detail=form.querySelector('[name="detail"]');
+  const hint=document.createElement("p");hint.className="nmc-bill-action-hint";action.closest("label").after(hint);
+  const change=()=>{
+   const type=action.value,amountNeeded=["patient-payment","insurance-payment","patient-refund","insurance-refund","coverage","waiver","charge","charge-correction"].includes(type);
+   claim.hidden=type!=="claim";amount.closest("label").hidden=!amountNeeded;amount.required=amountNeeded;
+   detail.closest("label").hidden=type==="claim";detail.required=["charge","charge-correction","insurer","due-date","note"].includes(type);
+   detail.type=type==="due-date"?"date":"text";
+   detail.placeholder=type==="due-date"?"YYYY-MM-DD":type==="insurer"?"Name of insurer":type==="note"?"Internal note":type==="charge"||type==="charge-correction"?"Description of charge or correction":"Payment reference (optional)";
+   const hints={
+    "patient-payment":"Record a simulated payment against the remaining patient balance.",
+    "insurance-payment":"Record simulated remittance against the insurer estimate.",
+    "patient-refund":"Refunds cannot exceed previously recorded simulated patient payments.",
+    "insurance-refund":"Refunds cannot exceed previously recorded simulated insurer receipts.",
+    "coverage":"Change the expected insurer share; this is not verified coverage.",
+    "waiver":"Record an adjustment and the required waiver authorization.",
+    "charge":"Add an additional itemized service charge.",
+    "charge-correction":"Reduce an erroneous charge; the original entry remains visible in history.",
+    "insurer":"Correct the name of the expected insurer.",
+    "due-date":"Choose the date used for overdue account reporting.",
+    "claim":"Update this simulated insurance claim's follow-up state.",
+    "note":"Attach an internal audit note without changing financial totals."
+   };
+   hint.textContent=hints[type]||"";
+  };action.addEventListener("change",change);change();
+ }
  if(form)form.onsubmit=async ev=>{
   ev.preventDefault();const button=form.querySelector('[type="submit"]');button.disabled=true;
   try{
