@@ -1,3 +1,4 @@
+import {summarizeBilling,exportBillingCSV} from "./northstar-billing-insights.js";
 // Northstar billing is a simulation ledger: no payment processing, claims submission, or payer verification.
 import {collectEncounterCharges} from "./northstar-service-catalog.js";
 import {getApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -148,15 +149,15 @@ export function renderBillingPage({target,records,encounters,patients=[],profile
  current={records,encounters,patients,profile,target};
  if(!target)return;
  if(!access(profile)){target.innerHTML='<div class="panel"><h3>Billing access restricted</h3><p>Contact an administrator for billing access.</p></div>';return;}
- const total=records.reduce((a,x)=>a+(x.chargeCents||0),0),remaining=records.reduce((a,x)=>a+(x.patientBalanceCents||0),0),payer=records.reduce((a,x)=>a+(x.insurerBalanceCents||0),0);
+ const metrics=summarizeBilling(records,encounters);
  target.innerHTML='<section class="nmc-billing-page"><header><div><p class="eyebrow">Financial Operations · Simulation</p><h2>Billing & Revenue</h2><p>Encounter invoices, estimated insurance, waivers, balances and payment history.</p></div><span class="nmc-bill-label">No real payments or insurer claims</span></header>'+
- '<div class="nmc-bill-metrics"><article><span>Invoices</span><strong>'+records.length+'</strong></article><article><span>Total charges</span><strong>'+money(total)+'</strong></article><article><span>Patient balances</span><strong>'+money(remaining)+'</strong></article><article><span>Expected insurer balances</span><strong>'+money(payer)+'</strong></article></div>'+
- '<div class="nmc-bill-tools"><input id="nmcBillingSearch" placeholder="Find patient, invoice or insurer" aria-label="Search billing records" type="search"><select id="nmcBillingFilter" aria-label="Filter billing status"><option value="">All billing statuses</option>'+["open","insurance-pending","partially-paid","paid","waived"].map(s=>'<option value="'+s+'">'+statusLabel(s)+'</option>').join("")+'</select><button id="nmcBillingRefresh" type="button">Refresh</button></div>'+
+ '<div class="nmc-bill-metrics nmc-bill-expanded-metrics"><article><span>Invoices</span><strong>'+metrics.invoices+'</strong></article><article><span>Total charges</span><strong>'+money(metrics.totalCharges)+'</strong></article><article><span>Collected</span><strong>'+money(metrics.collected)+'</strong></article><article><span>Patient balances</span><strong>'+money(metrics.patientBalance)+'</strong></article><article><span>Insurer balances</span><strong>'+money(metrics.insuranceBalance)+'</strong></article><article><span>Waived</span><strong>'+money(metrics.waived)+'</strong></article><article><span>Overdue invoices</span><strong>'+metrics.overdue+'</strong></article><article><span>Unbilled discharges</span><strong>'+metrics.unbilled+'</strong></article></div>'+
+'<div class="nmc-bill-tools"><input id="nmcBillingSearch" placeholder="Find patient, invoice or insurer" aria-label="Search billing records" type="search"><select id="nmcBillingFilter" aria-label="Filter billing status"><option value="">All billing statuses</option><option value="overdue">Overdue</option><option value="claim-review">Insurer follow-up</option>'+["open","insurance-pending","partially-paid","paid","waived"].map(s=>'<option value="'+s+'">'+statusLabel(s)+'</option>').join("")+'</select><button id="nmcBillingRefresh" type="button">Refresh view</button><button id="nmcBillingExport" type="button">Export invoices CSV</button></div>'+
  '<div id="nmcBillingRows"></div><section class="nmc-bill-unbilled"><h3>Discharged encounters without an invoice</h3><p>Complete billing for encounters closed before billing was enabled.</p><div id="nmcUnbilledRows"></div></section></section>';
  const search=target.querySelector("#nmcBillingSearch"),filter=target.querySelector("#nmcBillingFilter");
  const draw=()=>{
   const needle=search.value.trim().toLowerCase(),status=filter.value;
-  const matches=records.filter(x=>(!status||x.status===status)&&[x.patientName,patients.find(p=>p.id===x.patientId)?.displayName,x.invoiceNumber,x.insuranceProvider,x.encounterId].some(v=>String(v||"").toLowerCase().includes(needle)));
+  const matches=records.filter(x=>(!status||(status==="overdue"?metrics.overdueRows.some(y=>y.encounterId===x.encounterId):status==="claim-review"?metrics.claimsPendingRows.some(y=>y.encounterId===x.encounterId):x.status===status))&&[x.patientName,patients.find(p=>p.id===x.patientId)?.displayName,x.invoiceNumber,x.insuranceProvider,x.encounterId].some(v=>String(v||"").toLowerCase().includes(needle)));
   const list=target.querySelector("#nmcBillingRows");
   list.innerHTML=matches.length?matches.map(x=>'<article class="nmc-bill-row"><div><strong>'+esc(patients.find(p=>p.id===x.patientId)?.displayName||x.patientName)+'</strong><small>'+esc(x.invoiceNumber)+' · '+esc(statusLabel(x.status||"open"))+'</small></div><div><span>Charged '+money(x.chargeCents)+'</span><small>Patient '+money(x.patientBalanceCents)+' · Insurer '+money(x.insurerBalanceCents)+'</small></div><button type="button" data-nmc-invoice="'+esc(x.encounterId)+'">View invoice</button></article>').join(""):'<p class="nmc-bill-empty">No matching invoices.</p>';
  };
@@ -169,6 +170,12 @@ export function renderBillingPage({target,records,encounters,patients=[],profile
   const a=e.target.closest("[data-nmc-retrobill]");if(a&&manage(profile)){const encounter=current.encounters.find(x=>x.id===a.dataset.nmcRetrobill);if(encounter)await openBillingDialogForEncounter({encounter,retroactive:true});}
  };
  target.querySelector("#nmcBillingRefresh").onclick=()=>draw();
+ target.querySelector("#nmcBillingExport").onclick=()=>{
+  const body=exportBillingCSV(records,patients),blob=new Blob([body],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob),anchor=document.createElement("a");
+  anchor.href=url;anchor.download="northstar-invoices.csv";document.body.append(anchor);anchor.click();anchor.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+ };
 }
 async function openInvoice(id){
  const app=getApp(),db=getFirestore(app),auth=getAuth(app),accountRef=doc(db,"billingAccounts",id);
