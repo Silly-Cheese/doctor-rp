@@ -208,6 +208,29 @@ const { chromium } = require("playwright");
       frame.remove();return good;
     });
     if(!printableInvoice)absent.push("Branded patient statement, internal ledger privacy or duplicate-charge safeguard");
+    const billingQueueUI=await page.evaluate(async ()=>{
+      const {renderBillingPage}=await import("./northstar-billing.js");
+      const root=document.createElement("div");document.body.append(root);
+      const accounts=[
+       {encounterId:"encA",patientId:"pA",patientName:"Taylor Example",invoiceNumber:"NMC-A",status:"open",claimStatus:"not-applicable",chargeCents:30000,
+        patientBalanceCents:17500,insurerBalanceCents:0,waivedCents:3000,patientPaidCents:0,insuranceReceivedCents:0,paymentDueDate:"2026-01-01"},
+       {encounterId:"encB",patientId:"pB",patientName:"Morgan Example",invoiceNumber:"NMC-B",status:"insurance-pending",claimStatus:"pending",chargeCents:50000,
+        patientBalanceCents:3000,insurerBalanceCents:30000,waivedCents:0,patientPaidCents:0,insuranceReceivedCents:0,paymentDueDate:""}
+      ];
+      renderBillingPage({target:root,records:accounts,encounters:[{id:"old",patientId:"pC",status:"discharged"}],patients:[],
+       profile:{role:"administrator",status:"active",permissions:{}}});
+      const cards=root.querySelectorAll(".nmc-bill-queue-actions button");
+      const sort=root.querySelector("#nmcBillingSort");
+      if(cards.length!==3||!sort||!root.querySelector("#nmcBillingExport"))return false;
+      const rows=root.querySelector("#nmcBillingRows");
+      if(!rows?.textContent.includes("Taylor Example")||!rows.textContent.includes("Morgan Example"))return false;
+      root.querySelector('[data-billing-queue="overdue"]').click();
+      if(!rows.textContent.includes("Taylor Example")||rows.textContent.includes("Morgan Example"))return false;
+      root.querySelector('[data-billing-queue="claim-review"]').click();
+      const ok=rows.textContent.includes("Morgan Example")&&!rows.textContent.includes("Taylor Example");
+      root.remove();return ok;
+    });
+    if(!billingQueueUI)absent.push("Billing work queue, search filters and report controls");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
