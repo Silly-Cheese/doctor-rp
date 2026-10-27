@@ -144,20 +144,19 @@ export function renderDischargeChargeReview(form,quote){
    buttons.append(edit,remove);row.append(name,price,buttons);list.append(row);
    edit.onclick=()=>{
     row.querySelector(".nmc-discharge-edit")?.remove();
-    const editor=document.createElement("form");editor.className="nmc-discharge-edit";
+    const editor=document.createElement("div");editor.className="nmc-discharge-edit";
     editor.innerHTML='<label>Unit price ($)<input name="unitPrice" type="number" min="0" max="9999999.99" step="0.01" required></label>'+
      '<label>Quantity<input name="quantity" type="number" min="1" max="100" step="1" required></label>'+
      '<label class="nmc-discharge-edit-reason">Reason for adjustment<input name="reason" maxlength="250" minlength="5" required placeholder="e.g. Correct duplicate or adjusted service charge"></label>'+
-     '<div class="nmc-discharge-edit-actions"><button type="submit">Save adjustment</button><button class="nmc-discharge-cancel" type="button">Cancel</button></div><p role="status" class="nmc-bill-error"></p>';
+     '<div class="nmc-discharge-edit-actions"><button class="nmc-discharge-save" type="button">Save adjustment</button><button class="nmc-discharge-cancel" type="button">Cancel</button></div><p role="status" class="nmc-bill-error"></p>';
     editor.querySelector('[name="unitPrice"]').value=(item.unitPriceCents/100).toFixed(2);
     editor.querySelector('[name="quantity"]').value=String(item.quantity||1);
     editor.querySelector('[name="reason"]').value=item.billingAdjustmentReason||"";
     editor.querySelector(".nmc-discharge-cancel").onclick=()=>editor.remove();
-    editor.onsubmit=event=>{
-     event.preventDefault();
+    editor.querySelector(".nmc-discharge-save").onclick=()=>{
      try{
-      const data=new FormData(editor);
-      const adjusted=editDischargeCharge(item,{unitPrice:data.get("unitPrice"),quantity:data.get("quantity"),reason:data.get("reason")});
+      const adjusted=editDischargeCharge(item,{unitPrice:editor.querySelector('[name="unitPrice"]').value,
+       quantity:editor.querySelector('[name="quantity"]').value,reason:editor.querySelector('[name="reason"]').value});
       const i=active.indexOf(item);if(i<0)throw Error("The service is no longer on this discharge.");
       active[i]=adjusted;render();
      }catch(error){editor.querySelector(".nmc-bill-error").textContent=error.message}
