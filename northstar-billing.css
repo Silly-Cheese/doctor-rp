@@ -109,3 +109,8 @@
 .nmc-bulk-notice{min-height:1.2em;font-size:.86rem;font-weight:650;color:#235873}
 @media(max-width:850px){.nmc-bulk-toolbar{grid-template-columns:1fr 1fr}.nmc-bulk-toolbar .nmc-bulk-check{grid-column:1/-1}}
 @media(max-width:600px){.nmc-bulk-toolbar{grid-template-columns:1fr}.nmc-bulk-toolbar .nmc-bulk-check{grid-column:1}.nmc-bulk-controls .nmc-bulk-check{margin:0}.nmc-bulk-footer{align-items:stretch}.nmc-bulk-footer>button,.nmc-bulk-import{flex:1;justify-content:center}.nmc-bulk-panel{padding:12px}}
+
+.nmc-bill-expanded-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+.nmc-bill-tools button{cursor:pointer;font-weight:700}
+@media(max-width:900px){.nmc-bill-expanded-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:530px){.nmc-bill-expanded-metrics{grid-template-columns:1fr}}
