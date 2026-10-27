@@ -225,3 +225,35 @@
 .nmc-invoice-override .nmc-override-line-select[hidden]{display:none}
 @media(max-width:1020px){.nmc-account-invoice{flex-wrap:wrap}.nmc-account-invoice-values{flex:1}.nmc-bill-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:690px){.nmc-bill-filters{grid-template-columns:1fr}.nmc-bill-bulk-actions{flex-direction:column;align-items:stretch}.nmc-patient-account>header{align-items:flex-start;flex-direction:column}.nmc-account-invoice{align-items:flex-start}.nmc-account-invoice-values{flex-basis:100%}.nmc-bill-filter-footer>div{width:100%}.nmc-bill-filter-footer button{flex:1}}
+
+
+/* Discharge charge review: edit/remove *individual* automatic or manually-added lines */
+.nmc-discharge-lines-heading{display:grid;gap:4px;margin-bottom:12px}
+.nmc-discharge-lines-heading strong{font-size:1.12rem;color:#123e56;letter-spacing:-.015em}
+.nmc-discharge-lines-heading p{font-size:.82rem;line-height:1.5;margin:0;color:#57798a}
+.nmc-discharge-charge-list{display:grid;gap:10px}
+.nmc-discharge-charge-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;border:1px solid #dae7ee;border-radius:11px;padding:11px 13px;background:#fff}
+.nmc-discharge-charge-info{display:grid;gap:4px;min-width:0}
+.nmc-discharge-charge-info>strong{color:#173d54;font-weight:800;font-size:.9rem;overflow-wrap:anywhere}
+.nmc-discharge-charge-info>small{color:#6b8595;font-size:.74rem;line-height:1.3}
+.nmc-discharge-charge-info>.nmc-discharge-adjusted-tag{color:#0a7190;font-weight:700}
+.nmc-discharge-charge-total{color:#13445f;white-space:nowrap;font-variant-numeric:tabular-nums}
+.nmc-discharge-charge-actions,.nmc-discharge-edit-actions{display:flex;gap:7px;flex-wrap:wrap}
+.nmc-discharge-charge-actions button,.nmc-discharge-removed-row button,.nmc-discharge-edit-actions button{border:1px solid #bcd3df;background:#f0f7fb;color:#135a79;border-radius:8px;padding:8px 12px;font-size:.82rem;font-weight:750;cursor:pointer}
+.nmc-discharge-charge-actions .nmc-discharge-remove{background:#fff8f7;color:#aa3a42;border-color:#e8c7c8}
+.nmc-discharge-charge-actions .nmc-discharge-remove:hover{background:#ffeded}
+.nmc-discharge-edit{grid-column:1/-1;border-top:1px solid #e0ebf1;padding-top:13px;display:grid;grid-template-columns:minmax(120px,1fr) minmax(90px,.5fr);gap:11px}
+.nmc-discharge-edit label{display:grid;gap:6px;color:#31566a;font-size:.8rem;font-weight:800}
+.nmc-discharge-edit label input{min-width:0;width:100%;box-sizing:border-box;border:1px solid #bdd3df;border-radius:8px;padding:10px;background:#fff;color:#183e55}
+.nmc-discharge-edit-reason,.nmc-discharge-edit-actions,.nmc-discharge-edit>.nmc-bill-error{grid-column:1/-1}
+.nmc-discharge-edit-actions button[type=submit]{background:#0e668d;color:#fff;border-color:#0e668d}
+.nmc-discharge-removed{margin-top:13px;border:1px solid #e8dbca;border-radius:11px;padding:12px 14px;background:#fffaf4;display:grid;gap:9px}
+.nmc-discharge-removed>strong{font-size:.84rem;color:#80552e}
+.nmc-discharge-removed-row{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#7a6250;font-size:.82rem}
+.nmc-discharge-removed-row button{background:#fff;border-color:#d9c5ab;color:#865828}
+@media(max-width:650px){
+ .nmc-discharge-charge-row{grid-template-columns:minmax(0,1fr) auto}
+ .nmc-discharge-charge-total{justify-self:end}
+ .nmc-discharge-charge-actions{grid-column:1/-1}
+ .nmc-discharge-charge-actions button{flex:1}
+}
