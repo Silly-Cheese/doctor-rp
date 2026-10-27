@@ -69,7 +69,7 @@ function canWristband() { return state.profile?.role === "administrator" || stat
 function showToast(message) { const toast = document.querySelector("#toast"); if (!toast) return; toast.textContent = message; toast.classList.add("show"); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.remove("show"), 3000); }
 
 function ensureStyles() {
-  if (document.querySelector('link[href="northstar-clinical-plus.css"]')) return;
+  if (document.querySelector('link[href^="northstar-clinical-plus.css"]')) return;
   const link = document.createElement("link"); link.rel = "stylesheet"; link.href = "northstar-clinical-plus.css"; document.head.appendChild(link);
 }
 
