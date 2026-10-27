@@ -61,3 +61,13 @@
 .nmc-priced-row button,.nmc-priced-add button{border:1px solid #b7d5e3;background:#ecf5fa;color:#0e5779;padding:9px;border-radius:8px;font-weight:700}
 .nmc-priced-add{display:flex;gap:9px;margin:14px 0;flex-wrap:wrap}.nmc-priced-add select{min-width:170px;flex:1;border:1px solid #b9d2df;border-radius:9px;padding:10px}
 .nmc-auto-lines{border:1px solid #d2e5ee;border-radius:10px;padding:15px;background:#fff;margin:14px 0;line-height:1.5}
+
+/* Service price deletion: distinct destructive action, never a browser alert */
+.nmc-catalog-actions .nmc-catalog-delete{background:#fff4f3;color:#a63840;border:1px solid #e9b9bb}
+.nmc-catalog-actions .nmc-catalog-delete:hover{background:#fce6e5;border-color:#c86a70}
+.nmc-catalog-delete-dialog .nmc-billing-dialog-inner>p{color:#476777;line-height:1.6}
+.nmc-catalog-delete-dialog .nmc-billing-dialog-inner>label{display:flex;flex-direction:column;gap:8px;font-weight:650;margin:16px 0}
+.nmc-catalog-delete-dialog input{border:1px solid #c2d6e0;border-radius:9px;padding:11px 12px;background:white;color:#173b50}
+.nmc-catalog-delete-dialog .nmc-confirm-delete{background:#a43140;color:white;border-color:#a43140;font-weight:750}
+.nmc-catalog-delete-dialog .nmc-confirm-delete:hover{background:#892432}
+.nmc-catalog-delete-dialog .nmc-confirm-delete:disabled{opacity:.55;cursor:wait}
