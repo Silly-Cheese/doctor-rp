@@ -37,6 +37,16 @@ Bulk actions **skip existing prices by default**. Existing rates change only whe
 
 Northstar does **not** invent or automatically approve financial prices: staff set their own simulated rates. The medication/antibiotic name list is only a billing reference and does **not** create medication orders, default doses, or prescribing instructions.
 
+## Printable patient statements and internal financial reports
+
+The invoice's **Print patient statement** action now opens a self-contained, letter-sized branded statement with itemized services, quantities, rates, total charges, insurer estimate, waiver adjustment, recorded payments, and current patient responsibility. It can be printed or saved as PDF from the browser. The patient copy intentionally excludes internal notes, user IDs, and waiver-authorization reasons.
+
+**Print internal ledger** opens a separate, clearly marked staff copy that also includes the financial adjustment history, reasons, and audit actor identifiers. Both are simulated documents and explicitly state they are not real bills.
+
+Billing & Revenue now also includes an attention queue for overdue balances, insurer follow-up and unbilled discharged encounters; account sorting, true database reload and export to CSV. Invoice adjustments show the fields appropriate to the chosen action. Service prices configured in the charge master remain snapshots on issued invoices.
+
+For manual additions during discharge, Northstar blocks adding a service already present in the automatically generated line items. Repeated clinical administrations should be documented as separate clinical orders rather than silently billed twice.
+
 ## Where to find it
 After signing in with an authorized account, select **Administration → Billing & Revenue** in the left sidebar. Permission-controlled roles can search encounter-linked invoices, review outstanding patient/insurer balances, examine itemized charges and audit entries, print a simulated invoice, and discover older discharged encounters that have no invoice.
 
