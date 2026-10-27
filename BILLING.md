@@ -71,3 +71,5 @@ Alternatively use `./scripts/deploy-northstar.ps1` to deploy rules and existing 
 - Manual signed-in checks for chart discharge, Discharge Center finalization and payment posting
 
 **Never use this simulator for real patient financial obligations or claims without a real secured backend, authorization and regulatory review.**
+
+Administrators can permanently delete individual service prices with confirmation. The application also removes the rate's revisions, retains a deletion audit, and preserves previously issued invoice snapshots.
