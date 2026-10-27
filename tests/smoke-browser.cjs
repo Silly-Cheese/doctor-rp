@@ -70,7 +70,12 @@ const { chromium } = require("playwright");
       const {renderServiceCatalog}=await import("./northstar-service-catalog.js");
       const container=document.createElement("div");document.body.append(container);
       renderServiceCatalog({target:container,records:[{id:"test",name:"Emergency Visit",kind:"visit",priceCents:15000,active:true,version:1}],profile:{role:"administrator",status:"active"}});
-      const good=!!container.querySelector("#nmcCatalogForm")&&container.textContent.includes("Emergency Visit");
+      const deleteButton=container.querySelector(".nmc-catalog-delete");
+      deleteButton?.click();
+      const modal=document.querySelector(".nmc-catalog-delete-dialog");
+      const good=!!container.querySelector("#nmcCatalogForm")&&container.textContent.includes("Emergency Visit")
+        &&!!deleteButton&&!!modal?.open&&modal.textContent.includes("Previously issued invoices");
+      modal?.close();
       container.remove();return good;
     });
     if(!catalogPage)absent.push("Full-page service price editor");
