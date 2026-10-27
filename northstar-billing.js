@@ -166,8 +166,9 @@ export function renderDischargeChargeReview(form,quote){
    };
    remove.onclick=()=>{
     if(!active.includes(item))return;
+    const removedAt=active.indexOf(item);
     active=active.filter(x=>x!==item);
-    removed.push({...item,removalReason:"Removed during discharge review"});
+    removed.push({...item,removedAt,removalReason:"Removed during discharge review"});
     render();
    };
   }
@@ -180,7 +181,8 @@ export function renderDischargeChargeReview(form,quote){
     const undo=document.createElement("button");undo.type="button";undo.textContent="Undo";undo.setAttribute("aria-label","Restore "+item.description);
     undo.onclick=()=>{
      removed=removed.filter(x=>x!==item);
-     active.push({...item});
+     const {removedAt,removalReason,...original}=item;
+     active.splice(Math.min(removedAt??active.length,active.length),0,original);
      render();
     };
     row.append(label,undo);section.append(row);
