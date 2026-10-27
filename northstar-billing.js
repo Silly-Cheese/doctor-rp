@@ -79,48 +79,144 @@ function checkedLines(form){
  return lines;
 }
 export function canAddManualService(lines,serviceId){return !lines.some(x=>x.serviceId===serviceId)}
+/** Per-encounter adjustment; never writes to the system-wide service price catalog. */
+export function editDischargeCharge(item,{unitPrice,quantity,reason}){
+ if(!item||!Number.isInteger(item.amountCents))throw Error("Choose a valid billed service.");
+ const price=moneyValue(unitPrice,true),count=Number(quantity),why=String(reason||"").trim();
+ if(!Number.isInteger(count)||count<1||count>100)throw Error("Quantity must be a whole number from 1 to 100.");
+ if(price*count>999999999)throw Error("The adjusted line exceeds the maximum supported invoice amount.");
+ const changed=price!==item.unitPriceCents||count!==Number(item.quantity||1);
+ if(changed&&why.length<5)throw Error("Enter a reason for changing the charge (at least five characters).");
+ if(why.length>250)throw Error("An adjustment reason cannot exceed 250 characters.");
+ const copy={...item,quantity:count,unitPriceCents:price,amountCents:price*count};
+ if(changed){
+  copy.originalUnitPriceCents=item.originalUnitPriceCents??item.unitPriceCents;
+  copy.originalQuantity=item.originalQuantity??item.quantity??1;
+  copy.billingAdjustmentReason=why;
+ }else if(!item.billingAdjustmentReason){
+  delete copy.originalUnitPriceCents;delete copy.originalQuantity;delete copy.billingAdjustmentReason;
+ }
+ return copy;
+}
+export function dischargeChargeMemo(currentLines,removedLines){
+ const adjustments=[
+  ...currentLines.filter(x=>x.billingAdjustmentReason).map(x=>
+   "Adjusted "+x.description+" ("+money((x.originalUnitPriceCents??x.unitPriceCents)*(x.originalQuantity??x.quantity??1))+" → "+money(x.amountCents)+"): "+x.billingAdjustmentReason),
+  ...removedLines.map(x=>"Excluded "+x.description+" ("+money(x.amountCents)+"): "+(x.removalReason||"Removed during discharge review"))
+ ];
+ return adjustments.join("; ");
+}
 export async function prepareEncounterBilling(form,encounter){
  const box=form.querySelector(".nmc-auto-lines"),charge=form.querySelector('[name="billingCharge"]');
  if(!box||!charge)throw Error("Billing form was not initialized.");
- form.dataset.billingReady="no";
- box.textContent="Loading services and current prices…";
+ form.dataset.billingReady="no";box.textContent="Loading services and current prices…";
  const quote=await collectEncounterCharges(encounter.id);
- const manual=[];
+ // A local copy guarantees edits do not modify clinical orders or global service prices.
+ let active=quote.lines.map(x=>({...x})),removed=[];
  const render=()=>{
-  const lines=[...quote.lines,...manual],total=lines.reduce((n,x)=>n+x.amountCents,0);
-  const missing=quote.unpriced;
+  const total=sum(active),missing=quote.unpriced;
   charge.value=(total/100).toFixed(2);
-  form.dataset.billingLines=JSON.stringify(lines);
-  form.dataset.billingReady=String(lines.length>0&&missing.length===0?"yes":"no");
+  form.dataset.billingLines=JSON.stringify(active);
+  form.dataset.billingRemoved=JSON.stringify(removed);
+  form.dataset.billingReady=String(active.length>0&&total<=999999999&&missing.length===0?"yes":"no");
   box.replaceChildren();
-  const title=document.createElement("strong");title.textContent="Itemized services · "+lines.length+" · "+money(total);box.append(title);
-  for(const item of lines){
-   const row=document.createElement("div");row.className="nmc-priced-row";
-   const label=document.createElement("span");label.textContent=item.description+" · "+money(item.unitPriceCents);
-   row.append(label);
-   if(item.sourceType==="manual"){const remove=document.createElement("button");remove.type="button";remove.textContent="Remove";remove.onclick=()=>{manual.splice(manual.indexOf(item),1);render()};row.append(remove)}
-   box.append(row);
+  const title=document.createElement("div");title.className="nmc-discharge-lines-heading";
+  const heading=document.createElement("strong");heading.textContent="Itemized services · "+active.length+" · "+money(total);
+  const tip=document.createElement("p");tip.textContent="Edit or remove charges for this discharge only. Clinical orders and the hospital price catalog remain unchanged.";
+  title.append(heading,tip);box.append(title);
+  const list=document.createElement("div");list.className="nmc-discharge-charge-list";box.append(list);
+  for(const item of active){
+   const row=document.createElement("article");row.className="nmc-discharge-charge-row";
+   const name=document.createElement("div");name.className="nmc-discharge-charge-info";
+   const label=document.createElement("strong");label.textContent=item.description;
+   const origin=document.createElement("small");origin.textContent=(item.sourceType==="manual"?"Added at discharge":(item.sourceType||"Clinical")+" service")+" · "+Number(item.quantity||1)+" × "+money(item.unitPriceCents);
+   name.append(label,origin);
+   if(item.billingAdjustmentReason){const tag=document.createElement("small");tag.className="nmc-discharge-adjusted-tag";tag.textContent="Adjusted · "+item.billingAdjustmentReason;name.append(tag)}
+   const price=document.createElement("strong");price.className="nmc-discharge-charge-total";price.textContent=money(item.amountCents);
+   const buttons=document.createElement("div");buttons.className="nmc-discharge-charge-actions";
+   const edit=document.createElement("button");edit.type="button";edit.textContent="Edit";edit.setAttribute("aria-label","Edit charge for "+item.description);
+   const remove=document.createElement("button");remove.type="button";remove.textContent="Remove";remove.className="nmc-discharge-remove";remove.setAttribute("aria-label","Remove "+item.description+" from this invoice");
+   buttons.append(edit,remove);row.append(name,price,buttons);list.append(row);
+   edit.onclick=()=>{
+    row.querySelector(".nmc-discharge-edit")?.remove();
+    const editor=document.createElement("form");editor.className="nmc-discharge-edit";
+    editor.innerHTML='<label>Unit price ($)<input name="unitPrice" type="number" min="0" max="9999999.99" step="0.01" required></label>'+
+     '<label>Quantity<input name="quantity" type="number" min="1" max="100" step="1" required></label>'+
+     '<label class="nmc-discharge-edit-reason">Reason for adjustment<input name="reason" maxlength="250" minlength="5" required placeholder="e.g. Correct duplicate or adjusted service charge"></label>'+
+     '<div class="nmc-discharge-edit-actions"><button type="submit">Save adjustment</button><button class="nmc-discharge-cancel" type="button">Cancel</button></div><p role="status" class="nmc-bill-error"></p>';
+    editor.querySelector('[name="unitPrice"]').value=(item.unitPriceCents/100).toFixed(2);
+    editor.querySelector('[name="quantity"]').value=String(item.quantity||1);
+    editor.querySelector('[name="reason"]').value=item.billingAdjustmentReason||"";
+    editor.querySelector(".nmc-discharge-cancel").onclick=()=>editor.remove();
+    editor.onsubmit=event=>{
+     event.preventDefault();
+     try{
+      const data=new FormData(editor);
+      const adjusted=editDischargeCharge(item,{unitPrice:data.get("unitPrice"),quantity:data.get("quantity"),reason:data.get("reason")});
+      const i=active.indexOf(item);if(i<0)throw Error("The service is no longer on this discharge.");
+      active[i]=adjusted;render();
+     }catch(error){editor.querySelector(".nmc-bill-error").textContent=error.message}
+    };
+    row.append(editor);
+    editor.querySelector('[name="unitPrice"]').focus();
+   };
+   remove.onclick=()=>{
+    if(!active.includes(item))return;
+    active=active.filter(x=>x!==item);
+    removed.push({...item,removalReason:"Removed during discharge review"});
+    render();
+   };
   }
-  if(!lines.length){const p=document.createElement("p");p.textContent="No chargeable service was found. Define an Encounter / Facility rate under Service Prices, or add a priced service.";box.append(p)}
-  if(missing.length){const p=document.createElement("p");p.className="nmc-bill-error";p.textContent=missing.length+" clinical service(s) have no matching active price: "+missing.map(x=>x.name).join(", ")+". Create those rates in Service Prices before closing this encounter.";box.append(p)}
+  if(removed.length){
+   const section=document.createElement("section");section.className="nmc-discharge-removed";
+   const title=document.createElement("strong");title.textContent="Removed from this invoice · "+removed.length;section.append(title);
+   for(const item of removed){
+    const row=document.createElement("div");row.className="nmc-discharge-removed-row";
+    const label=document.createElement("span");label.textContent=item.description+" · "+money(item.amountCents);
+    const undo=document.createElement("button");undo.type="button";undo.textContent="Undo";undo.setAttribute("aria-label","Restore "+item.description);
+    undo.onclick=()=>{
+     removed=removed.filter(x=>x!==item);
+     active.push({...item});
+     render();
+    };
+    row.append(label,undo);section.append(row);
+   }
+   box.append(section);
+  }
+  if(!active.length){
+   const p=document.createElement("p");p.className="nmc-bill-error";p.textContent="The invoice needs at least one service line. Restore a removed service, or edit a remaining service to $0 if the encounter is fully waived.";box.append(p);
+  }
+  if(missing.length){
+   const p=document.createElement("p");p.className="nmc-bill-error";p.textContent=missing.length+" clinical service(s) have no active price: "+missing.map(x=>x.name).join(", ")+". Configure their rates in Service Prices before finalizing.";box.append(p);
+  }
   const options=quote.catalog.filter(x=>x.kind!=="visit");
   if(options.length){
    const bar=document.createElement("div");bar.className="nmc-priced-add";
    const sel=document.createElement("select");sel.setAttribute("aria-label","Add a catalog service");
    for(const item of options){const opt=document.createElement("option");opt.value=item.id;opt.textContent=item.name+" — "+money(item.priceCents);sel.append(opt)}
    const add=document.createElement("button");add.type="button";add.textContent="Add priced service";
-   add.onclick=()=>{const item=options.find(x=>x.id===sel.value);if(!item)return;
-    if(!canAddManualService([...quote.lines,...manual],item.id)){
-     let warning=box.querySelector(".nmc-bill-duplicate");if(!warning){warning=document.createElement("p");warning.className="nmc-bill-duplicate";box.append(warning)}
-     warning.textContent=item.name+" is already included on this invoice. Additional administrations should be recorded as separate clinical orders, not duplicated manually.";return;
+   add.onclick=()=>{
+    const item=options.find(x=>x.id===sel.value);if(!item)return;
+    if(!canAddManualService(active,item.id)){
+     const warning=document.createElement("p");warning.className="nmc-bill-duplicate";warning.textContent=item.name+" is already on this invoice. Remove or edit that line instead.";bar.after(warning);return;
     }
-    manual.push({serviceId:item.id,serviceName:item.name,description:item.name,sourceType:"manual",sourceId:"manual:"+item.id,quantity:1,unitPriceCents:item.priceCents,amountCents:item.priceCents,rateVersion:item.version||1});render()};
+    const restored=removed.find(x=>x.serviceId===item.id);
+    if(restored){removed=removed.filter(x=>x!==restored);active.push({...restored});}
+    else active.push({serviceId:item.id,serviceName:item.name,description:item.name,sourceType:"manual",sourceId:"manual:"+item.id,quantity:1,unitPriceCents:item.priceCents,amountCents:item.priceCents,rateVersion:item.version||1});
+    render();
+   };
    bar.append(sel,add);box.append(bar);
   }
   form.dispatchEvent(new Event("change",{bubbles:true}));
  };
  render();
  return quote;
+}
+function mergeDischargeBillingNotes(userNotes,lines,removed){
+ const adjustments=dischargeChargeMemo(lines,removed);
+ const combined=[userNotes,adjustments?"Discharge charge review: "+adjustments:""].filter(Boolean).join("\n");
+ if(combined.length>1500)throw Error("Billing notes and item adjustments exceed 1,500 characters. Shorten the billing notes or adjustment reasons before discharge.");
+ return combined;
 }
 export function buildBillingRecord(form,encounter,userId,extra={}){
  const f=new FormData(form),mode=String(f.get("billingMode")||"");
@@ -142,7 +238,7 @@ export function buildBillingRecord(form,encounter,userId,extra={}){
   chargeCents:charge,insuranceEstimatedCents:insurance,insuranceReceivedCents:0,
   waivedCents:waived,patientPaidCents:0,patientResponsibilityCents:0,patientBalanceCents:0,insurerBalanceCents:0,
   insuranceProvider:insurer,paymentDueDate:"",claimStatus:insurance>0?"not-submitted":"not-applicable",
-  waiverReason,notes:String(f.get("billingNotes")||"").trim(),billingMode:mode,
+  waiverReason,notes:mergeDischargeBillingNotes(String(f.get("billingNotes")||"").trim(),lineItems,JSON.parse(form.dataset.billingRemoved||"[]")),billingMode:mode,
   createdBy:userId,updatedBy:userId,createdAt:serverTimestamp(),updatedAt:serverTimestamp(),
   source:extra.source||"discharge",simulated:true
  };
