@@ -161,12 +161,21 @@ export function buildCatalogQuote({encounterId,catalog,orders,procedures,encount
  const rate=new Map(activeRates.map(x=>[x.kind+":"+normalize(x.name),x]));
  const idRate=new Map(activeRates.map(x=>[x.id,x]));
  const codeRate=new Map(activeRates.filter(x=>x.code).map(x=>[x.kind+":"+normalize(x.code),x]));
+ // A documented procedure can have a rate entered under another service category.
+ // Only use a cross-category match when the name or code uniquely identifies a rate.
+ const uniqueMatch=(field,value)=>{
+  const normalized=normalize(value);if(!normalized)return null;
+  const matches=activeRates.filter(x=>normalize(x[field])===normalized);
+  return matches.length===1?matches[0]:null;
+ };
  const lines=[],unpriced=[];
  const push=(type,name,sourceId,qty=1,code="",rateId="",clinicalGroup="")=>{
   const idMatch=rateId?idRate.get(rateId):null;
-  const item=(idMatch?.kind===type?idMatch:null)||rate.get(type+":"+normalize(name))||(code?codeRate.get(type+":"+normalize(code)):undefined);
-  if(!item){unpriced.push({kind:type,name,sourceId});return;}
-  lines.push({serviceId:item.id,serviceName:item.name,description:item.name,sourceType:type,sourceId,quantity:qty,unitPriceCents:item.priceCents,amountCents:item.priceCents*qty,rateVersion:item.version||1,clinicalGroup});
+  const item=(idMatch?.kind===type?idMatch:null)||rate.get(type+":"+normalize(name))||(code?codeRate.get(type+":"+normalize(code)):undefined)
+   ||(idMatch||null)||uniqueMatch("name",name)||(code?uniqueMatch("code",code):null);
+  if(!item){unpriced.push({kind:type,name,sourceId,code,rateId});return;}
+  lines.push({serviceId:item.id,serviceName:item.name,description:item.name,sourceType:type,sourceId,quantity:qty,unitPriceCents:item.priceCents,amountCents:item.priceCents*qty,rateVersion:item.version||1,clinicalGroup,
+   rateCategory:item.kind});
  };
  const visits=catalog.filter(x=>x.active!==false&&x.kind==="visit");
  const defaultVisit=visits.find(x=>normalize(x.name)==="emergency visit")||(visits.length===1?visits[0]:null);
