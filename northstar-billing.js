@@ -98,11 +98,32 @@ export function editDischargeCharge(item,{unitPrice,quantity,reason}){
  }
  return copy;
 }
-export function dischargeChargeMemo(currentLines,removedLines){
+const normalizedService=x=>String(x||"").trim().toLowerCase().replace(/\s+/g," ");
+export const missingServiceKey=item=>[item.kind,item.sourceId,normalizedService(item.name)].join(":");
+/** One manually added charge can resolve at most one otherwise unpriced clinical record. */
+export function reconcileUnpricedServices(active=[],unpriced=[],excluded=[]){
+ const used=new Set(),pending=[],matched=[];
+ const excludedKeys=new Set(excluded.map(missingServiceKey));
+ for(const service of unpriced){
+  const key=missingServiceKey(service);
+  if(excludedKeys.has(key))continue;
+  const position=active.findIndex((line,index)=>{
+   if(used.has(index))return false;
+   if(line.sourceId===service.sourceId&&line.sourceType===service.kind)return true;
+   return line.sourceType==="manual"&&normalizedService(line.description||line.serviceName)===normalizedService(service.name);
+  });
+  if(position<0)pending.push(service);
+  else {used.add(position);matched.push({service,lineIndex:position});}
+ }
+ return {pending,matched};
+}
+export function dischargeChargeMemo(currentLines,removedLines,excluded=[]){
  const adjustments=[
   ...currentLines.filter(x=>x.billingAdjustmentReason).map(x=>
    "Adjusted "+x.description+" ("+money((x.originalUnitPriceCents??x.unitPriceCents)*(x.originalQuantity??x.quantity??1))+" → "+money(x.amountCents)+"): "+x.billingAdjustmentReason),
-  ...removedLines.map(x=>"Excluded "+x.description+" ("+money(x.amountCents)+"): "+(x.removalReason||"Removed during discharge review"))
+  ...removedLines.map(x=>"Excluded "+x.description+" ("+money(x.amountCents)+"): "+(x.removalReason||"Removed during discharge review")),
+  ...currentLines.filter(x=>x.oneTimeReason).map(x=>"One-time charge "+x.description+" ("+money(x.amountCents)+"): "+x.oneTimeReason),
+  ...excluded.map(x=>"Unpriced clinical service excluded "+x.name+": "+x.reason)
  ];
  return adjustments.join("; ");
 }
@@ -117,13 +138,20 @@ export function renderDischargeChargeReview(form,quote){
  const box=form.querySelector(".nmc-auto-lines"),charge=form.querySelector('[name="billingCharge"]');
  if(!box||!charge)throw Error("Billing form was not initialized.");
  // A local copy guarantees edits do not modify clinical orders or global service prices.
- let active=quote.lines.map(x=>({...x})),removed=[];
+ let active=quote.lines.map(x=>({...x})),removed=[],excluded=[];
  const render=()=>{
-  const total=sum(active),missing=quote.unpriced;
+  const total=sum(active);
+  const {pending,matched}=reconcileUnpricedServices(active,quote.unpriced,excluded);
   charge.value=(total/100).toFixed(2);
   form.dataset.billingLines=JSON.stringify(active);
   form.dataset.billingRemoved=JSON.stringify(removed);
-  form.dataset.billingReady=String(active.length>0&&total<=999999999&&missing.length===0?"yes":"no");
+  form.dataset.billingExcluded=JSON.stringify(excluded);
+  const snapshot=active.map((line,i)=>{
+   const linked=matched.find(x=>x.lineIndex===i);
+   return linked?{...line,linkedClinicalSourceId:linked.service.sourceId,linkedClinicalKind:linked.service.kind}:line;
+  });
+  form.dataset.billingLines=JSON.stringify(snapshot);
+  form.dataset.billingReady=String(active.length>0&&active.length<=100&&total<=999999999&&pending.length===0?"yes":"no");
   box.replaceChildren();
   const title=document.createElement("div");title.className="nmc-discharge-lines-heading";
   const heading=document.createElement("strong");heading.textContent="Itemized services · "+active.length+" · "+money(total);
@@ -192,8 +220,72 @@ export function renderDischargeChargeReview(form,quote){
   if(!active.length){
    const p=document.createElement("p");p.className="nmc-bill-error";p.textContent="The invoice needs at least one service line. Restore a removed service, or edit a remaining service to $0 if the encounter is fully waived.";box.append(p);
   }
-  if(missing.length){
-   const p=document.createElement("p");p.className="nmc-bill-error";p.textContent=missing.length+" clinical service(s) have no active price: "+missing.map(x=>x.name).join(", ")+". Configure their rates in Service Prices before finalizing.";box.append(p);
+  if(matched.length){
+   const note=document.createElement("p");note.className="nmc-billing-linked";
+   note.textContent=matched.length+" clinical service"+(matched.length===1?" is":"s are")+" covered by an existing itemized charge. No duplicate charge was added.";
+   box.append(note);
+  }
+  if(pending.length){
+   const issue=document.createElement("section");issue.className="nmc-discharge-unpriced";
+   const heading=document.createElement("strong");heading.textContent=pending.length+" clinical service"+(pending.length===1?" needs":"s need")+" a billing decision";
+   const hint=document.createElement("p");hint.textContent="A documented clinical service has no matching active price. Set a one-time charge, exclude it with a reason, or configure its price in Service Prices. Do not add it twice.";
+   issue.append(heading,hint);
+   for(const item of pending){
+    const line=document.createElement("div");line.className="nmc-discharge-unpriced-row";
+    const title=document.createElement("strong");title.textContent=item.name+" · "+item.kind;line.append(title);
+    const buttons=document.createElement("div");buttons.className="nmc-discharge-unpriced-actions";
+    const set=document.createElement("button");set.type="button";set.textContent="Set one-time charge";
+    const skip=document.createElement("button");skip.type="button";skip.textContent="Exclude from bill";
+    buttons.append(set,skip);line.append(buttons);
+    const editor=document.createElement("div");editor.className="nmc-unpriced-editor";editor.hidden=true;line.append(editor);
+    const openEditor=exclude=>{
+     editor.hidden=false;
+     editor.replaceChildren();
+     if(!exclude){
+      const label=document.createElement("label");label.textContent="Encounter-only charge ($)";
+      const input=document.createElement("input");input.type="number";input.min="0";input.max="9999999.99";input.step="0.01";input.required=true;input.placeholder="0.00";label.append(input);editor.append(label);
+     }
+     const label=document.createElement("label");label.textContent=exclude?"Reason for not billing this clinical service":"Reason for one-time rate";
+     const reason=document.createElement("input");reason.type="text";reason.maxLength=160;reason.minLength=5;reason.required=true;
+     reason.placeholder=exclude?"e.g. Included in a bundled service":"e.g. Procedure adjustment for this encounter";
+     label.append(reason);editor.append(label);
+     const actions=document.createElement("div");actions.className="nmc-discharge-edit-actions";
+     const save=document.createElement("button");save.type="button";save.textContent=exclude?"Confirm exclusion":"Add charge once";save.className="nmc-discharge-save";
+     const cancel=document.createElement("button");cancel.type="button";cancel.textContent="Cancel";cancel.onclick=()=>{editor.hidden=true;editor.replaceChildren()};
+     actions.append(save,cancel);editor.append(actions);
+     const status=document.createElement("p");status.className="nmc-bill-error";status.setAttribute("role","status");editor.append(status);
+     save.onclick=()=>{
+      try{
+       const why=reason.value.trim();if(why.length<5)throw Error("Enter a reason of at least five characters.");
+       if(exclude){excluded.push({...item,reason:why});}
+       else{
+        const price=moneyValue(editor.querySelector('input[type="number"]').value,true);
+        if(price+sum(active)>999999999)throw Error("Invoice total exceeds the supported amount.");
+        active.push({description:item.name,serviceName:item.name,serviceId:"one-time:"+missingServiceKey(item),
+         sourceType:item.kind,sourceId:item.sourceId,clinicalGroup:item.kind,quantity:1,unitPriceCents:price,
+         amountCents:price,rateVersion:0,oneTimeReason:why});
+       }
+       render();
+      }catch(error){status.textContent=error.message;}
+     };
+     (editor.querySelector("input")||reason).focus();
+    };
+    set.onclick=()=>openEditor(false);skip.onclick=()=>openEditor(true);
+    issue.append(line);
+   }
+   box.append(issue);
+  }
+  if(excluded.length){
+   const section=document.createElement("section");section.className="nmc-discharge-removed";
+   const title=document.createElement("strong");title.textContent="Clinical services excluded from billing · "+excluded.length;section.append(title);
+   for(const item of excluded){
+    const line=document.createElement("div");line.className="nmc-discharge-removed-row";
+    const label=document.createElement("span");label.textContent=item.name+" · "+item.reason;
+    const undo=document.createElement("button");undo.type="button";undo.textContent="Undo exclusion";
+    undo.onclick=()=>{excluded=excluded.filter(x=>x!==item);render();};
+    line.append(label,undo);section.append(line);
+   }
+   box.append(section);
   }
   const options=quote.catalog.filter(x=>x.kind!=="visit");
   if(options.length){
@@ -218,8 +310,8 @@ export function renderDischargeChargeReview(form,quote){
  render();
  return quote;
 }
-function mergeDischargeBillingNotes(userNotes,lines,removed){
- const adjustments=dischargeChargeMemo(lines,removed);
+function mergeDischargeBillingNotes(userNotes,lines,removed,excluded){
+ const adjustments=dischargeChargeMemo(lines,removed,excluded);
  const combined=[userNotes,adjustments?"Discharge charge review: "+adjustments:""].filter(Boolean).join("\n");
  if(combined.length>1500)throw Error("Billing notes and item adjustments exceed 1,500 characters. Shorten the billing notes or adjustment reasons before discharge.");
  return combined;
@@ -244,7 +336,7 @@ export function buildBillingRecord(form,encounter,userId,extra={}){
   chargeCents:charge,insuranceEstimatedCents:insurance,insuranceReceivedCents:0,
   waivedCents:waived,patientPaidCents:0,patientResponsibilityCents:0,patientBalanceCents:0,insurerBalanceCents:0,
   insuranceProvider:insurer,paymentDueDate:"",claimStatus:insurance>0?"not-submitted":"not-applicable",
-  waiverReason,notes:mergeDischargeBillingNotes(String(f.get("billingNotes")||"").trim(),lineItems,JSON.parse(form.dataset.billingRemoved||"[]")),billingMode:mode,
+  waiverReason,notes:mergeDischargeBillingNotes(String(f.get("billingNotes")||"").trim(),lineItems,JSON.parse(form.dataset.billingRemoved||"[]"),JSON.parse(form.dataset.billingExcluded||"[]")),billingMode:mode,
   createdBy:userId,updatedBy:userId,createdAt:serverTimestamp(),updatedAt:serverTimestamp(),
   source:extra.source||"discharge",simulated:true
  };
