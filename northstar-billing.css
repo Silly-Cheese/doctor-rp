@@ -257,3 +257,21 @@
  .nmc-discharge-charge-actions{grid-column:1/-1}
  .nmc-discharge-charge-actions button{flex:1}
 }
+
+
+/* Reconcile an unpriced clinical record with a one-time invoice charge or an exclusion */
+.nmc-billing-linked{border:1px solid #b9dbcc;background:#eefaf3;color:#176044;padding:10px 13px;border-radius:10px;font-size:.84rem;font-weight:700;line-height:1.5}
+.nmc-discharge-unpriced{border:1px solid #edc9a2;background:#fff9f0;border-radius:13px;padding:15px 17px;display:grid;gap:11px}
+.nmc-discharge-unpriced>strong{font-size:1rem;color:#955a24}
+.nmc-discharge-unpriced>p{margin:0;color:#795e44;line-height:1.5;font-size:.84rem}
+.nmc-discharge-unpriced-row{border:1px solid #efd8bb;border-radius:10px;background:#fff;padding:12px 14px;display:grid;gap:9px;min-width:0}
+.nmc-discharge-unpriced-row>strong{font-size:.9rem;color:#254e61;overflow-wrap:anywhere}
+.nmc-discharge-unpriced-actions{display:flex;gap:8px;flex-wrap:wrap}
+.nmc-discharge-unpriced-actions button{border:1px solid #bcd3df;border-radius:9px;padding:9px 12px;color:#195875;background:#eff7fa;font-weight:700;cursor:pointer}
+.nmc-discharge-unpriced-actions button:last-child{border-color:#e9caba;color:#9d6036;background:#fff9f3}
+.nmc-unpriced-editor{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;border-top:1px solid #e8d8c5;padding-top:12px}
+.nmc-unpriced-editor[hidden]{display:none}
+.nmc-unpriced-editor label{display:grid;gap:5px;color:#315a71;font-size:.8rem;font-weight:700}
+.nmc-unpriced-editor input{box-sizing:border-box;width:100%;min-width:0;padding:10px 12px;border:1px solid #bed5df;border-radius:8px;color:#143b52;background:white}
+.nmc-unpriced-editor .nmc-discharge-edit-actions,.nmc-unpriced-editor>.nmc-bill-error{grid-column:1/-1}
+@media(max-width:650px){.nmc-unpriced-editor{grid-template-columns:1fr}}
