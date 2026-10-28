@@ -66,6 +66,12 @@ For manual additions during discharge, Northstar blocks adding a service already
 ## Where to find it
 After signing in with an authorized account, select **Administration → Billing & Revenue** in the left sidebar. Permission-controlled roles can search encounter-linked invoices, review outstanding patient/insurer balances, examine itemized charges and audit entries, print a simulated invoice, and discover older discharged encounters that have no invoice.
 
+### Resolving unpriced clinical services without double charges
+
+If a clinical order or procedure was documented under a different category from its billing price, Northstar now matches the **unique active rate by service name or code** across categories instead of falsely declaring it unpriced. If that service is already on the current discharge invoice as a manual charge, the system recognizes the existing entry and **does not add a duplicate**.
+
+If no suitable price truly exists, the discharge charge-review area offers two encounter-specific options: **Set one-time charge** (with a reason and quantity one) or **Exclude from bill** (with a reason). Both resolve the warning for that clinical record without modifying the clinical chart or hospital-wide pricing catalog. Excluded services remain available for review and can be restored before discharge. The invoice preserves adjustment and exclusion reasons in its internal billing notes.
+
 ### Edit and remove individual discharge charges
 
 Every item in the **Priced encounter services** list now has an **Edit** and **Remove** action, including automatically matched emergency visit, EMS, room, medication, and procedure charges. Edit changes the unit price and/or quantity **for this encounter only** and requires a short adjustment reason. Remove excludes the line from that patient's invoice without deleting the original clinical order or the hospital-wide price. Removed lines remain visible with **Undo** until the discharge is finalized.
