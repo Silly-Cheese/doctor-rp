@@ -372,6 +372,42 @@ const { chromium } = require("playwright");
       return true;
     });
     if(!mismatchedServiceRecovery)absent.push("Unpriced clinical surgery resolved with existing line, one-time price or exclusion");
+    const v3Integration=await page.evaluate(async()=>{
+      const {V3_PAGES,renderV3Page,V3_MODULE_DATA}=await import("./northstar-v3.js");
+      const core=await import("./northstar-v3-core.js");
+      if(V3_PAGES.length!==9||!V3_MODULE_DATA.revenue360.includes("billingAccounts"))return false;
+      const ctx={profile:{role:"administrator",status:"active"},patients:[
+        {id:"patient1",displayName:"Example Patient",mrn:"NMC-EX-1"}
+      ],users:[{id:"staff1",status:"active",role:"physician",displayName:"Example Clinician"}],
+      encounters:[{id:"enc1",patientId:"patient1",patientName:"Example Patient",status:"in-treatment",createdAt:new Date("2026-10-27")},
+        {id:"enc2",patientId:"gone",status:"discharged"}],
+      data:{orders:[{id:"order1",patientId:"patient1",encounterId:"enc1",name:"Complete Blood Count",status:"ordered"}],
+        results:[{id:"result1",patientId:"patient1",encounterId:"enc1",summary:"Abnormal CBC",abnormal:true,status:"pending"}],
+        procedures:[{id:"proc1",patientId:"patient1",encounterId:"enc1",name:"Procedure",status:"planned"}],
+        tasks:[{id:"task1",patientId:"patient1",encounterId:"enc1",title:"Follow up",status:"open"}],
+        billingAccounts:[{id:"inv1",encounterId:"enc1",patientId:"patient1",patientBalanceCents:3000,chargeCents:10000,lineItems:[{amountCents:9000}],createdAt:new Date("2026-09-01")}],
+        serviceCatalog:[],rooms:[{id:"er01",name:"ER-01",status:"available"}],
+        nmcQualityActions:[],nmcEquipment:[],nmcTrainingRecords:[],nmcShiftAssignments:[],
+        shifts:[],caseRuns:[],supplyItems:[],clinicalAlerts:[]}};
+      const stats=core.flowSummary({...ctx.data,encounters:ctx.encounters});
+      const integrity=core.integrityReview({...ctx.data,patients:ctx.patients,encounters:ctx.encounters});
+      const revenue=core.billingReview({...ctx.data,encounters:ctx.encounters});
+      const ready=core.dischargeReadiness(ctx.encounters[0],{...ctx.data,encounters:ctx.encounters});
+      const timeline=core.patientTimeline("patient1",{...ctx.data,encounters:ctx.encounters});
+      if(stats.active!==1||!integrity.some(x=>x.reason==="Missing patient")||!revenue.issues.length||ready.length<3||!timeline.length)return false;
+      for(const [key] of V3_PAGES){
+        const section=document.querySelector("#enterprise-"+key);
+        if(!section)return false;
+        renderV3Page(key,ctx);
+        if(!section.querySelector(".n3-heading")||!section.textContent.includes("NORTHSTAR 3.0"))return false;
+      }
+      if(!document.querySelector("#enterprise-quality360 [data-n3-create='nmcQualityActions']"))return false;
+      if(!document.querySelector("#enterprise-equipment360 [data-n3-create='nmcEquipment']"))return false;
+      if(!document.querySelector("#enterprise-academy360 [data-n3-create='nmcTrainingRecords']"))return false;
+      if(!document.querySelector("#enterprise-identity360 [data-n3-call='northstarV3Integrity']"))return false;
+      return true;
+    });
+    if(!v3Integration)absent.push("Northstar 3.0 integrated patient flow revenue quality equipment training and integrity full-page dashboards");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
