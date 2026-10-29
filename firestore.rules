@@ -824,6 +824,88 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Northstar 3.0 managed operational records. These are intentionally separate
+    // from the clinical chart, SIU reports and historical financial accounts.
+    function v3CreatorFields() {
+      return request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function v3StatusUpdate(allowedStatuses) {
+      return isAdministrator()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt','updatedBy'])
+        && request.resource.data.status in allowedStatuses
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    match /nmcQualityActions/{actionId} {
+      allow read: if isAdministrator();
+      allow create: if isAdministrator()
+        && request.resource.data.keys().hasOnly(['title','category','priority','summary','dueDate','status','createdBy','updatedBy','createdAt','updatedAt'])
+        && v3CreatorFields()
+        && request.resource.data.status == 'open'
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 4 && request.resource.data.title.size() <= 120
+        && request.resource.data.summary is string
+        && request.resource.data.summary.size() >= 5 && request.resource.data.summary.size() <= 800
+        && request.resource.data.category in ['patient-safety','medication','documentation','equipment','operations','training']
+        && request.resource.data.priority in ['routine','high','critical']
+        && request.resource.data.dueDate is string && request.resource.data.dueDate.size() <= 10;
+      allow update: if v3StatusUpdate(['open','assigned','in-progress','completed','cancelled']);
+      allow delete: if false;
+    }
+
+    match /nmcEquipment/{equipmentId} {
+      allow read: if isAdministrator();
+      allow create: if isAdministrator()
+        && request.resource.data.keys().hasOnly(['name','assetCode','department','status','nextServiceDate','createdBy','updatedBy','createdAt','updatedAt'])
+        && v3CreatorFields()
+        && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 120
+        && request.resource.data.assetCode is string && request.resource.data.assetCode.size() >= 2 && request.resource.data.assetCode.size() <= 50
+        && request.resource.data.department is string && request.resource.data.department.size() >= 2 && request.resource.data.department.size() <= 80
+        && request.resource.data.status in ['available','in-use','maintenance','out-of-service']
+        && request.resource.data.nextServiceDate is string && request.resource.data.nextServiceDate.size() <= 10;
+      allow update: if v3StatusUpdate(['available','in-use','maintenance','out-of-service']);
+      allow delete: if false;
+    }
+
+    match /nmcShiftAssignments/{assignmentId} {
+      allow read: if isAdministrator();
+      allow create: if isAdministrator()
+        && request.resource.data.keys().hasOnly(['staffUid','department','shiftDate','startTime','endTime','status','createdBy','updatedBy','createdAt','updatedAt'])
+        && v3CreatorFields()
+        && request.resource.data.staffUid is string && request.resource.data.staffUid.size() > 0
+        && exists(userPath(request.resource.data.staffUid))
+        && get(userPath(request.resource.data.staffUid)).data.status == 'active'
+        && request.resource.data.department in ['Emergency','ICU','Surgery','Laboratory','Imaging','Pharmacy','Registration','Administration']
+        && request.resource.data.shiftDate is string && request.resource.data.shiftDate.size() == 10
+        && request.resource.data.startTime is string && request.resource.data.startTime.size() == 5
+        && request.resource.data.endTime is string && request.resource.data.endTime.size() == 5
+        && request.resource.data.startTime < request.resource.data.endTime
+        && request.resource.data.status == 'scheduled';
+      allow update: if v3StatusUpdate(['scheduled','confirmed','completed','cancelled']);
+      allow delete: if false;
+    }
+
+    match /nmcTrainingRecords/{trainingId} {
+      allow read: if isAdministrator();
+      allow create: if isAdministrator()
+        && request.resource.data.keys().hasOnly(['staffUid','module','title','dueDate','status','createdBy','updatedBy','createdAt','updatedAt'])
+        && v3CreatorFields()
+        && request.resource.data.staffUid is string && request.resource.data.staffUid.size() > 0
+        && exists(userPath(request.resource.data.staffUid))
+        && get(userPath(request.resource.data.staffUid)).data.status == 'active'
+        && request.resource.data.module in ['emergency','medication','documentation','billing','privacy','siu']
+        && request.resource.data.title is string && request.resource.data.title.size() >= 4 && request.resource.data.title.size() <= 120
+        && request.resource.data.dueDate is string && request.resource.data.dueDate.size() <= 10
+        && request.resource.data.status == 'assigned';
+      allow update: if v3StatusUpdate(['assigned','in-progress','completed','cancelled']);
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
