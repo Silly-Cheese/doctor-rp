@@ -979,7 +979,7 @@ service cloud.firestore {
       allow create: if v4Role(['administrator','physician'])
         && request.resource.data.keys().hasOnly([
           'patientId','encounterId','patientName','procedureName','room','scheduledDate',
-          'priority','assignedUid','status','createdBy','updatedBy','createdAt','updatedAt','auditEventId'
+          'priority','assignedUid','consentStatus','preopStatus','anesthesiaStatus','recoveryLocation','status','createdBy','updatedBy','createdAt','updatedAt','auditEventId'
         ])
         && v4Created() && v4PatientEncounter()
         && request.resource.data.status == 'scheduled'
@@ -987,6 +987,10 @@ service cloud.firestore {
         && request.resource.data.room is string && request.resource.data.room.size() > 0 && request.resource.data.room.size() <= 50
         && request.resource.data.scheduledDate is string && request.resource.data.scheduledDate.size() == 10
         && request.resource.data.priority in ['routine','urgent','emergency']
+        && request.resource.data.get('consentStatus','pending') in ['pending','documented']
+        && request.resource.data.get('preopStatus','pending') in ['pending','reviewed']
+        && request.resource.data.get('anesthesiaStatus','pending') in ['pending','requested','reviewed']
+        && request.resource.data.get('recoveryLocation','PACU') in ['PACU','ICU','Inpatient','Observation']
         && request.resource.data.assignedUid is string
         && v4Audit('nmcSurgicalCases',caseId,'created');
       allow update: if v4Role(['administrator','physician','nurse'])
