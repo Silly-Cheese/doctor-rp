@@ -458,12 +458,12 @@ const { chromium } = require("playwright");
       if(!work)return false;
       section.querySelector('[data-n4-panel="new"]')?.click();
       const fields=work.querySelector(".n4-form .n4-fields");
-      const columns=getComputedStyle(fields).gridTemplateColumns.split(" ").filter(Boolean);
-      const debug={overflow:getComputedStyle(work).overflowX,columns,grid:getComputedStyle(fields).gridTemplateColumns,media:matchMedia("(max-width:650px)").matches,styleSheets:[...document.styleSheets].map(x=>x.href).filter(x=>x?.includes("northstar-v4"))};
-      return {...debug,ok:debug.overflow==="hidden"&&columns.length===1};
+      const grid=getComputedStyle(fields).gridTemplateColumns;
+      // A single CSS minmax(0px, 1fr) column contains a space in its value.
+      const singleColumn=/^minmax\([^)]*\)$/.test(grid)||grid.split(" ").filter(Boolean).length===1;
+      return getComputedStyle(work).overflowX==="hidden"&&singleColumn;
     });
-    console.log("NMC4 mobile styles",JSON.stringify(v4Mobile));
-    if(!v4Mobile?.ok)absent.push("Northstar 4.0 responsive narrow-screen forms");
+    if(!v4Mobile)absent.push("Northstar 4.0 responsive narrow-screen forms");
     await page.setViewportSize({width:1365,height:900});
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
