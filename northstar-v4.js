@@ -222,6 +222,7 @@ export function renderDepartment(key,ctx){
   }
  }
  if(priorSearch){target.querySelector("[data-n4-search]").value=priorSearch;renderList();}
+ if(priorView!=="queue")target.querySelector('[data-n4-panel="'+priorView+'"]')?.click();
  if(focusDetails){
   const el=focusDetails.search?target.querySelector("[data-n4-search]"):
    [...target.querySelectorAll("[name]")].find(x=>x.getAttribute("name")===focusDetails.name);
@@ -229,7 +230,6 @@ export function renderDepartment(key,ctx){
    try{el.focus({preventScroll:true});if(focusDetails.start!==null&&typeof el.setSelectionRange==="function")el.setSelectionRange(focusDetails.start,focusDetails.end);}catch{}
   }
  }
- if(priorView!=="queue")target.querySelector('[data-n4-panel="'+priorView+'"]')?.click();
  const contextView=target.querySelector('[data-n4-view="context"]');
  if(key==="sterile4"&&mayUpdateDepartment(ctx.profile?.role,key)){
   contextView.addEventListener("change",async event=>{
