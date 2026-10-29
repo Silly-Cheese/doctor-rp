@@ -36,6 +36,33 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,serverTimestamp}=require
   identityBatch.update(doc(registrar,"encounters","priorvisit"),{patientName:"Jane Identified",updatedAt:serverTimestamp()});
   await assertSucceeds(identityBatch.commit());
   await assertFails(updateDoc(doc(registrar,"encounters","priorvisit"),{patientName:"Wrong name",updatedAt:serverTimestamp()}));
+  // Northstar 3.0 operations require an administrator and immutable creator metadata.
+  const now=()=>serverTimestamp();
+  const base=(status)=>({status,createdBy:"adminstaff",updatedBy:"adminstaff",createdAt:now(),updatedAt:now()});
+  const quality={...base("open"),title:"Quality Improvement",category:"operations",priority:"high",summary:"Review delayed handoffs.",dueDate:"2026-11-02"};
+  await assertSucceeds(setDoc(doc(admin,"nmcQualityActions","v3quality"),quality));
+  await assertFails(setDoc(doc(siu,"nmcQualityActions","unapproved"),{...quality,createdBy:"siumember",updatedBy:"siumember"}));
+  await assertFails(getDoc(doc(siu,"nmcQualityActions","v3quality")));
+  await assertSucceeds(updateDoc(doc(admin,"nmcQualityActions","v3quality"),{status:"completed",updatedBy:"adminstaff",updatedAt:now()}));
+  await assertFails(updateDoc(doc(siu,"nmcQualityActions","v3quality"),{status:"open",updatedBy:"siumember",updatedAt:now()}));
+  await assertFails(deleteDoc(doc(admin,"nmcQualityActions","v3quality")));
+  await assertSucceeds(setDoc(doc(admin,"nmcEquipment","v3equipment"),{
+    ...base("available"),name:"Portable Monitor",assetCode:"MON-01",department:"Emergency",nextServiceDate:"2026-11-04"
+  }));
+  await assertSucceeds(updateDoc(doc(admin,"nmcEquipment","v3equipment"),{status:"maintenance",updatedBy:"adminstaff",updatedAt:now()}));
+  await assertFails(setDoc(doc(siu,"nmcEquipment","staffequipment"),{
+    ...base("available"),name:"Personal Monitor",assetCode:"X-1",department:"Emergency",createdBy:"siumember",updatedBy:"siumember"
+  }));
+  await assertSucceeds(setDoc(doc(admin,"nmcShiftAssignments","v3shift"),{
+    ...base("scheduled"),staffUid:"siumember",department:"Emergency",shiftDate:"2026-11-04",startTime:"08:00",endTime:"16:00"
+  }));
+  await assertFails(setDoc(doc(admin,"nmcShiftAssignments","badshift"),{
+    ...base("scheduled"),staffUid:"siumember",department:"Emergency",shiftDate:"2026-11-04",startTime:"18:00",endTime:"08:00"
+  }));
+  await assertSucceeds(setDoc(doc(admin,"nmcTrainingRecords","v3training"),{
+    ...base("assigned"),staffUid:"siumember",module:"emergency",title:"Simulation training",dueDate:"2026-11-15"
+  }));
+  await assertFails(getDoc(doc(siu,"nmcTrainingRecords","v3training")));
   console.log("Firestore safety regression tests passed.");
  } finally {await environment.cleanup();}
 })().catch(err=>{console.error(err);process.exitCode=1});
