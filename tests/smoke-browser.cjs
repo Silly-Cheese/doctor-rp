@@ -456,8 +456,10 @@ const { chromium } = require("playwright");
     const v4Mobile=await page.evaluate(()=>{
       const section=document.querySelector("#enterprise-surgery4"),work=section?.querySelector(".n4-workspace");
       if(!work)return false;
-      const fields=work.querySelector(".n4-fields");
-      return getComputedStyle(work).overflowX==="hidden"&&getComputedStyle(fields).gridTemplateColumns.split(" ").length===1;
+      section.querySelector('[data-n4-panel="new"]')?.click();
+      const fields=work.querySelector(".n4-form .n4-fields");
+      const columns=getComputedStyle(fields).gridTemplateColumns.split(" ").filter(Boolean);
+      return getComputedStyle(work).overflowX==="hidden"&&columns.length===1;
     });
     if(!v4Mobile)absent.push("Northstar 4.0 responsive narrow-screen forms");
     await page.setViewportSize({width:1365,height:900});
