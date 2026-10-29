@@ -63,6 +63,77 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,serverTimestamp}=require
     ...base("assigned"),staffUid:"siumember",module:"emergency",title:"Simulation training",dueDate:"2026-11-15"
   }));
   await assertFails(getDoc(doc(siu,"nmcTrainingRecords","v3training")));
+  // Northstar 4.0: audited department records, strict roles and linked encounters.
+  const departmentAudit=(collection,recordId,action,to,from="")=>({collection,recordId,action,from,to,actorUid:"adminstaff",createdAt:serverTimestamp()});
+  const surgery=writeBatch(admin);
+  surgery.set(doc(admin,"nmcSurgicalCases","v4surgery"),{
+    patientId:"deceaseddoe",encounterId:"priorvisit",patientName:"Jane Doe",procedureName:"Emergency Surgical Repair",
+    room:"OR-01",scheduledDate:"2026-11-05",priority:"emergency",assignedUid:"",status:"scheduled",
+    createdBy:"adminstaff",updatedBy:"adminstaff",createdAt:serverTimestamp(),updatedAt:serverTimestamp(),auditEventId:"v4audit-surgery"
+  });
+  surgery.set(doc(admin,"nmcDepartmentAudit","v4audit-surgery"),departmentAudit("nmcSurgicalCases","v4surgery","created","scheduled"));
+  await assertSucceeds(surgery.commit());
+  await assertFails(getDoc(doc(siu,"nmcSurgicalCases","v4surgery")));
+  await assertFails(updateDoc(doc(admin,"nmcSurgicalCases","v4surgery"),{status:"completed",updatedAt:serverTimestamp(),updatedBy:"adminstaff"}));
+  const surgeryUpdate=writeBatch(admin);
+  surgeryUpdate.update(doc(admin,"nmcSurgicalCases","v4surgery"),{
+    status:"preparing",updatedBy:"adminstaff",updatedAt:serverTimestamp(),auditEventId:"v4audit-surgery-updated"
+  });
+  surgeryUpdate.set(doc(admin,"nmcDepartmentAudit","v4audit-surgery-updated"),departmentAudit("nmcSurgicalCases","v4surgery","status","preparing","scheduled"));
+  await assertSucceeds(surgeryUpdate.commit());
+  await assertFails(deleteDoc(doc(admin,"nmcSurgicalCases","v4surgery")));
+  await assertFails(deleteDoc(doc(admin,"nmcDepartmentAudit","v4audit-surgery")));
+  const infection=writeBatch(admin);
+  infection.set(doc(admin,"nmcInfectionReviews","v4isolation"),{
+    patientId:"deceaseddoe",encounterId:"priorvisit",patientName:"Jane Doe",
+    reason:"Contact isolation review",precautions:"contact",summary:"Precaution assessment",status:"open",
+    createdBy:"adminstaff",updatedBy:"adminstaff",createdAt:serverTimestamp(),updatedAt:serverTimestamp(),auditEventId:"v4audit-infection"
+  });
+  infection.set(doc(admin,"nmcDepartmentAudit","v4audit-infection"),departmentAudit("nmcInfectionReviews","v4isolation","created","open"));
+  await assertSucceeds(infection.commit());
+  const tray=writeBatch(admin);
+  tray.set(doc(admin,"nmcSterileTrays","v4tray"),{
+    trayName:"Surgical Instrument Set",trayCode:"TRAY-01",department:"Operating Rooms",status:"available",
+    createdBy:"adminstaff",updatedBy:"adminstaff",createdAt:serverTimestamp(),updatedAt:serverTimestamp(),auditEventId:"v4audit-tray"
+  });
+  tray.set(doc(admin,"nmcDepartmentAudit","v4audit-tray"),departmentAudit("nmcSterileTrays","v4tray","created","available"));
+  await assertSucceeds(tray.commit());
+  await environment.withSecurityRulesDisabled(async ctx=>{
+    await setDoc(doc(ctx.firestore(),"nmcSterileRequests","surgery_v4surgery"),{
+      surgeryId:"v4surgery",patientId:"deceaseddoe",encounterId:"priorvisit",procedureName:"Emergency Surgical Repair",
+      status:"requested",createdBy:"system:northstarV4PrepareSurgery"
+    });
+  });
+  const ready=writeBatch(admin);
+  ready.update(doc(admin,"nmcSterileRequests","surgery_v4surgery"),{
+    status:"ready",updatedBy:"adminstaff",updatedAt:serverTimestamp(),auditEventId:"v4audit-ready"
+  });
+  ready.set(doc(admin,"nmcDepartmentAudit","v4audit-ready"),departmentAudit("nmcSterileRequests","surgery_v4surgery","status","ready","requested"));
+  await assertSucceeds(ready.commit());
+  const transport=writeBatch(admin);
+  transport.set(doc(admin,"nmcTransportRequests","v4transport"),{
+    patientId:"deceaseddoe",encounterId:"priorvisit",patientName:"Jane Doe",
+    origin:"ER",destination:"OR-01",priority:"urgent",assignedUid:"",status:"requested",
+    createdBy:"adminstaff",updatedBy:"adminstaff",createdAt:serverTimestamp(),updatedAt:serverTimestamp(),auditEventId:"v4audit-transport"
+  });
+  transport.set(doc(admin,"nmcDepartmentAudit","v4audit-transport"),departmentAudit("nmcTransportRequests","v4transport","created","requested"));
+  await assertSucceeds(transport.commit());
+  const pharmacyStock=writeBatch(admin);
+  pharmacyStock.set(doc(admin,"nmcPharmacyStock","v4stock"),{
+    itemName:"Simulation Medication",sku:"RX-TEST",quantity:12,location:"Main Pharmacy",status:"available",
+    createdBy:"adminstaff",updatedBy:"adminstaff",createdAt:serverTimestamp(),updatedAt:serverTimestamp(),auditEventId:"v4audit-stock"
+  });
+  pharmacyStock.set(doc(admin,"nmcDepartmentAudit","v4audit-stock"),departmentAudit("nmcPharmacyStock","v4stock","created","available"));
+  await assertSucceeds(pharmacyStock.commit());
+  const adjusted=writeBatch(admin);
+  adjusted.update(doc(admin,"nmcPharmacyStock","v4stock"),{quantity:9,updatedAt:serverTimestamp(),
+    updatedBy:"adminstaff",auditEventId:"v4audit-adjust"});
+  adjusted.set(doc(admin,"nmcDepartmentAudit","v4audit-adjust"),{
+    ...departmentAudit("nmcPharmacyStock","v4stock","stock-adjustment","9","12"),reason:"Stocktake adjustment"
+  });
+  await assertSucceeds(adjusted.commit());
+  await assertFails(updateDoc(doc(admin,"nmcPharmacyStock","v4stock"),{quantity:200}));
+  await assertFails(getDoc(doc(siu,"nmcPharmacyStock","v4stock")));
   console.log("Firestore safety regression tests passed.");
  } finally {await environment.cleanup();}
 })().catch(err=>{console.error(err);process.exitCode=1});
