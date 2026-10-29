@@ -14,6 +14,10 @@ export function mayAccessDepartment(role,key,permissions={}){
  const department=DEPARTMENT_BY_KEY[key];
  return !!department&&(role==="administrator"||department.roles.includes(role)||(permissions?.departmentAccess||[]).includes(key));
 }
+const NEW_RECORD_ROLES={surgery4:["administrator","physician"],infection4:["administrator","physician","nurse"],sterile4:["administrator","technician"],transport4:["administrator","nurse","technician","registration"],pharmacy4:["administrator","pharmacist","physician"]};
+const STATUS_ROLES={surgery4:["administrator","physician","nurse"],infection4:["administrator","physician","nurse"],sterile4:["administrator","technician"],transport4:["administrator","nurse","technician","registration"],pharmacy4:["administrator","pharmacist"]};
+export const mayCreateDepartment=(role,key)=>!!NEW_RECORD_ROLES[key]?.includes(role);
+export const mayUpdateDepartment=(role,key)=>!!STATUS_ROLES[key]?.includes(role);
 export const normalizeLabel=v=>String(v??"").trim().replace(/\s+/g," ");
 export function summarizeDepartment(key,records=[]){
  const model=DEPARTMENT_BY_KEY[key];if(!model)return {total:0,open:0,complete:0,alerts:0};
