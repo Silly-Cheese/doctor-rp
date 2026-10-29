@@ -69,3 +69,27 @@ exports.northstarV3BillingAudit=onCall({region:"us-central1",timeoutSeconds:45,m
  return {version:"northstar-3.0",readOnly:true,checked:data.records.length,incomplete:data.truncated,
   issues,issueLimitReached:issues.length>=200,note:"No invoice amounts were changed. Review discrepancies in Billing & Revenue."};
 });
+
+
+/** Northstar 4.0 surgery case preparation (roleplay only).
+ * Deterministic IDs + Firestore transaction make duplicate Cloud Function delivery safe.
+ * No medications are prescribed/administered; no financial charges are posted.
+ */
+const {onDocumentCreated}=require("firebase-functions/v2/firestore");
+exports.northstarV4PrepareSurgery=onDocumentCreated({
+ document:"nmcSurgicalCases/{caseId}",region:"us-central1",retry:false
+},async event=>{
+ const record=event.data?.data(),caseId=event.params.caseId;
+ if(!record||!record.patientId||!record.encounterId||record.status!=="scheduled")return;
+ const sterile=db.doc("nmcSterileRequests/surgery_"+caseId),transport=db.doc("nmcTransportRequests/surgery_"+caseId);
+ await db.runTransaction(async transaction=>{
+  const [sterileSnap,transportSnap]=await Promise.all([transaction.get(sterile),transaction.get(transport)]);
+  const shared={surgeryId:caseId,patientId:record.patientId,encounterId:record.encounterId,
+   patientName:record.patientName||"",priority:record.priority||"routine",createdAt:admin.firestore.FieldValue.serverTimestamp(),
+   updatedAt:admin.firestore.FieldValue.serverTimestamp(),createdBy:"system:northstarV4PrepareSurgery",updatedBy:"system:northstarV4PrepareSurgery",source:"surgical-case"};
+  if(!sterileSnap.exists)transaction.create(sterile,{...shared,procedureName:record.procedureName||"Procedure",
+   room:record.room||"",status:"requested",note:"Verify available instrument sets and record sterilization readiness before surgery."});
+  if(!transportSnap.exists)transaction.create(transport,{...shared,origin:"Current patient location",destination:record.room||"Operating Room",
+   assignedUid:"",status:"requested",note:"Verify patient identity and handoff before transport."});
+ });
+});
