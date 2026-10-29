@@ -2,7 +2,7 @@
 import {getApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {getAuth} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {getFirestore,doc,collection,writeBatch,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import {DEPARTMENT_BY_KEY,DEPARTMENTS,mayAccessDepartment,summarizeDepartment,departmentVisibility,validateDepartmentRecord} from "./northstar-v4-registry.js";
+import {DEPARTMENT_BY_KEY,DEPARTMENTS,mayAccessDepartment,mayCreateDepartment,mayUpdateDepartment,summarizeDepartment,departmentVisibility,validateDepartmentRecord} from "./northstar-v4-registry.js";
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 const money=v=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format((Number(v)||0)/100);
 const time=v=>{const t=v?.toDate?.()||v?.seconds&&new Date(v.seconds*1000);return t instanceof Date&&!isNaN(t)?t.toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"}):"Not recorded"};
@@ -77,10 +77,23 @@ function renderRelated(key,ctx){
   }).join(""),"Automatic requests appear when the Firebase trigger is deployed.")+
   panel("Operating rooms",(d.rooms||[]).slice(0,20).map(x=>mini(x.name||x.number||x.id,x.department||x.type||"Operating room",x.status||"Not set")).join(""))+'</div>';
  }
- if(key==="sterile4")return panel("Surgical instrument requests",(d.nmcSterileRequests||[]).map(x=>mini(x.procedureName||x.surgeryId,x.surgeryId||"",x.status||"requested")).join(""),"Linked from the surgical case workflow.");
+ if(key==="sterile4")return panel("Surgical instrument requests",(d.nmcSterileRequests||[]).map(x=>
+  '<div class="n4-mini"><div><strong>'+esc(x.procedureName||x.surgeryId)+'</strong><small>Case '+esc(x.surgeryId||"")+'</small></div>'+
+  (mayUpdateDepartment(ctx.profile?.role,key)?'<select data-n4-sterile-request="'+esc(x.id)+'" aria-label="Readiness of '+esc(x.procedureName)+'">'+["requested","preparing","ready","delivered","cancelled"].map(t=>'<option value="'+t+'" '+(x.status===t?"selected":"")+'>'+t+'</option>').join("")+'</select>':'<span>'+esc(x.status||"requested")+'</span>')+'</div>'
+ ).join(""),"Linked from surgical cases. Mark readiness after the required checks.");
  if(key==="pharmacy4"){
+  const stock=d.nmcPharmacyStock||[];
+  const stockForm=mayCreateDepartment(ctx.profile?.role,key)?'<form class="n4-stock-form" data-n4-stock-create><h4>Register medication stock</h4><div class="n4-fields">'+
+   input("itemName","Medication or product name","text",true,'minlength="2" maxlength="120"')+
+   input("sku","Stock / inventory code","text",true,'minlength="2" maxlength="50"')+
+   input("quantity","Available units","number",true,'min="0" max="100000" step="1"')+
+   input("location","Stock location","text",true,'maxlength="80" placeholder="Main Pharmacy"')+
+   '</div><button class="n4-primary" type="submit">Add stock item</button><p class="n4-message" role="status"></p></form>':"";
+  const stockRows=stock.map(x=>'<div class="n4-stock-row"><div><strong>'+esc(x.itemName)+'</strong><small>'+esc(x.sku)+' · '+esc(x.location)+'</small></div>'+
+   '<span>'+esc(x.quantity)+' units</span>'+(mayUpdateDepartment(ctx.profile?.role,key)?'<button type="button" data-n4-stock-adjust="'+esc(x.id)+'">Adjust</button>':"")+'</div>').join("");
   return panel("Medication orders awaiting dispense",(d.orders||[]).filter(x=>x.category==="medication"&&!["cancelled","discontinued"].includes(x.status)).slice(0,35).map(x=>mini(x.name,x.patientName||x.patientId,x.status||"Ordered")).join(""),
-   "Dispensing is a separate staff action; it does not mark medication as administered.");
+   "Dispensing is a separate staff action; it does not mark medication as administered.")+
+   panel("Pharmacy inventory",stockRows+stockForm,"Independent stock quantities; no automatic consumption from unverified clinical orders.");
  }
  if(key==="infection4")return panel("Existing laboratory results",(d.results||[]).filter(x=>x.abnormal).slice(0,20).map(x=>mini(x.summary||x.name||"Result",x.patientName||"",x.status)).join(""),"Results are displayed for context only; reviews do not make clinical diagnoses.");
  if(key==="transport4")return panel("Patient movement context",(d.admissions||[]).slice(0,20).map(x=>mini(x.patientName||x.patientId,x.bed||x.room||"No bed",x.status)).join(""));
@@ -156,7 +169,7 @@ export function renderDepartment(key,ctx){
  const label={surgery4:"Surgical cases",infection4:"Prevention reviews",sterile4:"Instrument trays",transport4:"Transport requests",pharmacy4:"Dispensing requests"}[key];
  const markup='<div class="n4-workspace"><header class="n4-head"><div><p class="eyebrow">NORTHSTAR 4.0 / DEPARTMENTS</p><h2>'+esc(model.title)+'</h2><p>'+esc(model.intro)+'</p></div><span class="n4-role">'+esc(userRole)+'</span></header>'+
   '<div class="n4-stats">'+stat("Total records",summary.total)+stat("Active",summary.open)+stat("Completed / closed",summary.complete)+stat("Priority flags",summary.alerts)+'</div>'+
-  '<div class="n4-tools"><button type="button" data-n4-panel="queue" class="n4-selected">Work queue</button><button type="button" data-n4-panel="new">New record</button><button type="button" data-n4-panel="context">Connected work</button></div>'+
+  '<div class="n4-tools"><button type="button" data-n4-panel="queue" class="n4-selected">Work queue</button>'+(mayCreateDepartment(ctx.profile?.role,key)?'<button type="button" data-n4-panel="new">New record</button>':"")+'<button type="button" data-n4-panel="context">Connected work</button></div>'+
   '<div class="n4-view" data-n4-view="queue"><section class="n4-panel"><header><h3>'+esc(label)+'</h3><label class="n4-search">Search records<input type="search" data-n4-search placeholder="Filter by name, status or location"></label></header><div class="n4-list" data-n4-list></div></section></div>'+
   '<div class="n4-view" data-n4-view="new" hidden><form class="n4-panel n4-form"><header><h3>'+esc(createName)+'</h3><small>Creates a simulated operational record. No clinical procedure or medication administration is automatically performed.</small></header><div class="n4-fields">'+formMarkup(key,ctx)+'</div><button type="submit" class="n4-primary">Save record</button><p class="n4-message" role="status"></p></form></div>'+
   '<div class="n4-view" data-n4-view="context" hidden>'+renderRelated(key,ctx)+'</div>'+
@@ -167,7 +180,7 @@ export function renderDepartment(key,ctx){
   const term=target.querySelector("[data-n4-search]").value,visible=departmentVisibility(key,records,term);
   list.innerHTML=visible.length?visible.slice(0,150).map(x=>{
    const [title,sub,detail]=describe(key,x);
-   return '<article class="n4-record"><div class="n4-record-main"><h4>'+esc(title)+'</h4><p>'+esc(sub)+' · '+esc(detail)+'</p><small>Created '+esc(time(x.createdAt))+'</small></div>'+statusFields(key,x)+'</article>';
+   return '<article class="n4-record"><div class="n4-record-main"><h4>'+esc(title)+'</h4><p>'+esc(sub)+' · '+esc(detail)+'</p><small>Created '+esc(time(x.createdAt))+'</small></div>'+(mayUpdateDepartment(ctx.profile?.role,key)?statusFields(key,x):'<span class="n4-role">'+esc(x.status)+'</span>')+'</article>';
   }).join(""):'<p class="n4-empty">No matching records. Create the first one using New record.</p>';
  };
  target.querySelector("[data-n4-search]").addEventListener("input",renderList);renderList();
@@ -176,7 +189,61 @@ export function renderDepartment(key,ctx){
   target.querySelectorAll("[data-n4-view]").forEach(node=>node.hidden=node.dataset.n4View!==view);
   target.querySelectorAll("[data-n4-panel]").forEach(node=>node.classList.toggle("n4-selected",node===button));
  });
- bindForm(target.querySelector(".n4-form"),key,ctx);
+ if(mayCreateDepartment(ctx.profile?.role,key))bindForm(target.querySelector(".n4-form"),key,ctx);
+ const contextView=target.querySelector('[data-n4-view="context"]');
+ if(key==="sterile4"&&mayUpdateDepartment(ctx.profile?.role,key)){
+  contextView.addEventListener("change",async event=>{
+   const sel=event.target.closest("[data-n4-sterile-request]");if(!sel)return;
+   const record=(ctx.data.nmcSterileRequests||[]).find(x=>x.id===sel.dataset.n4SterileRequest);
+   if(!record)return;
+   const old=record.status,next=sel.value;if(old===next)return;
+   sel.disabled=true;
+   try{const u=account();if(!u)throw Error("Sign in again.");
+    const reference=doc(store(),"nmcSterileRequests",record.id),auditRef=doc(collection(store(),"nmcDepartmentAudit")),batch=writeBatch(store());
+    batch.update(reference,{status:next,updatedBy:u.uid,updatedAt:serverTimestamp(),auditEventId:auditRef.id});
+    batch.set(auditRef,{collection:"nmcSterileRequests",recordId:record.id,action:"status",from:old,to:next,actorUid:u.uid,createdAt:serverTimestamp()});
+    await batch.commit();
+   }catch(err){sel.value=old;const p=document.createElement("p");p.className="n4-error";p.textContent=err.message;sel.after(p);}
+   finally{sel.disabled=false;}
+  });
+ }
+ if(key==="pharmacy4"){
+  const stockForm=contextView.querySelector("[data-n4-stock-create]");
+  if(stockForm)stockForm.onsubmit=async event=>{
+   event.preventDefault();const message=stockForm.querySelector(".n4-message"),button=stockForm.querySelector("button[type=submit]");button.disabled=true;
+   try{
+    const payload=Object.fromEntries(new FormData(stockForm));
+    if(!payload.itemName||payload.itemName.length<2||!payload.sku||payload.sku.length<2||!payload.location)throw Error("Complete the stock item details.");
+    const qty=Number(payload.quantity);if(!Number.isSafeInteger(qty)||qty<0||qty>100000)throw Error("Enter a valid stock count.");
+    const u=account(),reference=doc(collection(store(),"nmcPharmacyStock")),auditRef=doc(collection(store(),"nmcDepartmentAudit")),batch=writeBatch(store());
+    batch.set(reference,{...payload,quantity:qty,status:"available",createdAt:serverTimestamp(),updatedAt:serverTimestamp(),createdBy:u.uid,updatedBy:u.uid,auditEventId:auditRef.id});
+    batch.set(auditRef,{collection:"nmcPharmacyStock",recordId:reference.id,action:"created",from:"",to:"available",actorUid:u.uid,createdAt:serverTimestamp()});
+    await batch.commit();message.textContent="Stock item registered.";stockForm.reset();
+   }catch(err){message.textContent=err.message;}finally{button.disabled=false;}
+  };
+  contextView.addEventListener("click",async event=>{
+   const button=event.target.closest("[data-n4-stock-adjust]");if(!button||!mayUpdateDepartment(ctx.profile?.role,key))return;
+   const item=(ctx.data.nmcPharmacyStock||[]).find(x=>x.id===button.dataset.n4StockAdjust);if(!item)return;
+   if(contextView.querySelector(".n4-stock-adjust-editor"))contextView.querySelector(".n4-stock-adjust-editor").remove();
+   const panel=document.createElement("div");panel.className="n4-stock-adjust-editor";
+   panel.innerHTML='<label>New inventory units<input type="number" name="units" min="0" max="100000" step="1" required></label><label>Reason for adjustment<input name="reason" required minlength="5" maxlength="200"></label><button type="button" class="n4-primary">Save audited adjustment</button><button type="button" class="n4-cancel">Cancel</button><p class="n4-message" role="status"></p>';
+   panel.querySelector("[name=units]").value=String(item.quantity);
+   panel.querySelector(".n4-cancel").onclick=()=>panel.remove();
+   panel.querySelector(".n4-primary").onclick=async()=>{
+    const qty=Number(panel.querySelector("[name=units]").value),reason=panel.querySelector("[name=reason]").value.trim(),save=panel.querySelector(".n4-primary");
+    try{
+     if(!Number.isSafeInteger(qty)||qty<0||qty>100000)throw Error("Invalid stock quantity.");
+     if(reason.length<5)throw Error("Adjustment reason must be at least five characters.");
+     save.disabled=true;
+     const u=account(),auditRef=doc(collection(store(),"nmcDepartmentAudit")),batch=writeBatch(store());
+     batch.update(doc(store(),"nmcPharmacyStock",item.id),{quantity:qty,updatedBy:u.uid,updatedAt:serverTimestamp(),auditEventId:auditRef.id});
+     batch.set(auditRef,{collection:"nmcPharmacyStock",recordId:item.id,action:"stock-adjustment",from:String(item.quantity),to:String(qty),reason,actorUid:u.uid,createdAt:serverTimestamp()});
+     await batch.commit();panel.querySelector(".n4-message").textContent="Stock change saved.";
+    }catch(err){panel.querySelector(".n4-message").textContent=err.message;save.disabled=false;}
+   };
+   button.closest(".n4-stock-row").after(panel);
+  });
+ }
  list.onchange=async e=>{
   const select=e.target.closest("[data-n4-status]");if(!select)return;
   const model=DEPARTMENT_BY_KEY[select.dataset.n4Status],record=records.find(x=>x.id===select.dataset.recordId);
