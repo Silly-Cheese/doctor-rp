@@ -134,8 +134,9 @@ function bindForm(form,key,ctx){
     const patient=ctx.patients.find(x=>x.id===payload.patientId);
     base.patientName=displayPatient(patient);
    }
-   const batch=writeBatch(store());batch.set(reference,base);
-   batch.set(doc(collection(store(),"nmcDepartmentAudit")),auditEnvelope(key,reference.id,"created","",base.status,user));
+   const batch=writeBatch(store()),auditRef=doc(collection(store(),"nmcDepartmentAudit"));base.auditEventId=auditRef.id;
+   batch.set(reference,base);
+   batch.set(auditRef,auditEnvelope(key,reference.id,"created","",base.status,user));
    await batch.commit();
    box.textContent="Saved. New record is linked to the existing hospital data.";
    form.reset();populateLinked(form,ctx);
@@ -185,9 +186,9 @@ export function renderDepartment(key,ctx){
   select.disabled=true;
   try{
    const user=account();if(!user)throw Error("Sign in again.");
-   const batch=writeBatch(store());
-   batch.update(doc(store(),model.collection,record.id),{status:next,updatedBy:user.uid,updatedAt:serverTimestamp()});
-   batch.set(doc(collection(store(),"nmcDepartmentAudit")),auditEnvelope(key,record.id,"status",old,next,user));
+   const batch=writeBatch(store()),auditRef=doc(collection(store(),"nmcDepartmentAudit"));
+   batch.update(doc(store(),model.collection,record.id),{status:next,updatedBy:user.uid,updatedAt:serverTimestamp(),auditEventId:auditRef.id});
+   batch.set(auditRef,auditEnvelope(key,record.id,"status",old,next,user));
    await batch.commit();
   }catch(error){select.value=old;const msg=document.createElement("p");msg.className="n4-error";msg.textContent=error.message;select.after(msg);}
   finally{select.disabled=false;}
