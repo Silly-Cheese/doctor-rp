@@ -906,6 +906,168 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Northstar 4.0 — independent, role-scoped department worklists.
+    // Every client create/status update must include a matching immutable audit
+    // document in the same atomic write batch.
+    function v4Role(roles) {
+      return isActive() && currentUser().role in roles;
+    }
+    function v4Created() {
+      return request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.auditEventId is string;
+    }
+    function v4Audit(collectionName, recordId, action) {
+      let audit = getAfter(/databases/$(database)/documents/nmcDepartmentAudit/$(request.resource.data.auditEventId)).data;
+      return audit.actorUid == request.auth.uid
+        && audit.collection == collectionName
+        && audit.recordId == recordId
+        && audit.action == action
+        && audit.to == request.resource.data.status
+        && audit.createdAt == request.time;
+    }
+    function v4Update(collectionName,recordId,statuses) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status','updatedBy','updatedAt','auditEventId'
+        ])
+        && request.resource.data.status in statuses
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.auditEventId != resource.data.auditEventId
+        && v4Audit(collectionName,recordId,'status');
+    }
+    function v4PatientEncounter() {
+      return request.resource.data.patientId is string
+        && request.resource.data.encounterId is string
+        && exists(/databases/$(database)/documents/patients/$(request.resource.data.patientId))
+        && exists(/databases/$(database)/documents/encounters/$(request.resource.data.encounterId))
+        && get(/databases/$(database)/documents/encounters/$(request.resource.data.encounterId)).data.patientId
+            == request.resource.data.patientId
+        && request.resource.data.patientName is string
+        && request.resource.data.patientName.size() <= 120;
+    }
+    match /nmcDepartmentAudit/{auditId} {
+      allow read: if isAdministrator();
+      allow create: if isActive()
+        && request.resource.data.keys().hasOnly([
+          'collection','recordId','action','from','to','actorUid','createdAt'
+        ])
+        && request.resource.data.collection in [
+          'nmcSurgicalCases','nmcInfectionReviews','nmcSterileTrays',
+          'nmcTransportRequests','nmcPharmacyDispenses','nmcPharmacyStock',
+          'nmcSterileRequests'
+        ]
+        && request.resource.data.recordId is string
+        && request.resource.data.recordId.size() >= 1
+        && request.resource.data.action in ['created','status']
+        && request.resource.data.from is string
+        && request.resource.data.to is string
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/$(request.resource.data.collection)/$(request.resource.data.recordId)).data.auditEventId == auditId;
+      allow update, delete: if false;
+    }
+    match /nmcSurgicalCases/{caseId} {
+      allow read: if v4Role(['administrator','physician','nurse']);
+      allow create: if v4Role(['administrator','physician'])
+        && request.resource.data.keys().hasOnly([
+          'patientId','encounterId','patientName','procedureName','room','scheduledDate',
+          'priority','assignedUid','status','createdBy','updatedBy','createdAt','updatedAt','auditEventId'
+        ])
+        && v4Created() && v4PatientEncounter()
+        && request.resource.data.status == 'scheduled'
+        && request.resource.data.procedureName is string && request.resource.data.procedureName.size() >= 2 && request.resource.data.procedureName.size() <= 140
+        && request.resource.data.room is string && request.resource.data.room.size() > 0 && request.resource.data.room.size() <= 50
+        && request.resource.data.scheduledDate is string && request.resource.data.scheduledDate.size() == 10
+        && request.resource.data.priority in ['routine','urgent','emergency']
+        && request.resource.data.assignedUid is string
+        && v4Audit('nmcSurgicalCases',caseId,'created');
+      allow update: if v4Role(['administrator','physician','nurse'])
+        && v4Update('nmcSurgicalCases',caseId,['scheduled','preparing','in-progress','recovery','completed','cancelled']);
+      allow delete: if false;
+    }
+    match /nmcInfectionReviews/{reviewId} {
+      allow read: if v4Role(['administrator','physician','nurse']);
+      allow create: if v4Role(['administrator','physician','nurse'])
+        && request.resource.data.keys().hasOnly([
+          'patientId','encounterId','patientName','reason','precautions','summary','status',
+          'createdBy','updatedBy','createdAt','updatedAt','auditEventId'
+        ])
+        && v4Created() && v4PatientEncounter()
+        && request.resource.data.status == 'open'
+        && request.resource.data.reason is string && request.resource.data.reason.size() >= 5 && request.resource.data.reason.size() <= 160
+        && request.resource.data.precautions in ['standard','contact','droplet','airborne','review']
+        && request.resource.data.summary is string && request.resource.data.summary.size() <= 240
+        && v4Audit('nmcInfectionReviews',reviewId,'created');
+      allow update: if v4Role(['administrator','physician','nurse'])
+        && v4Update('nmcInfectionReviews',reviewId,['open','precautions','review','resolved','closed']);
+      allow delete: if false;
+    }
+    match /nmcSterileTrays/{trayId} {
+      allow read: if v4Role(['administrator','technician','nurse']);
+      allow create: if v4Role(['administrator','technician'])
+        && request.resource.data.keys().hasOnly([
+          'trayName','trayCode','department','status','createdBy','updatedBy','createdAt','updatedAt','auditEventId'
+        ])
+        && v4Created()
+        && request.resource.data.status == 'available'
+        && request.resource.data.trayName is string && request.resource.data.trayName.size() >= 3 && request.resource.data.trayName.size() <= 120
+        && request.resource.data.trayCode is string && request.resource.data.trayCode.size() >= 2 && request.resource.data.trayCode.size() <= 50
+        && request.resource.data.department is string && request.resource.data.department.size() > 0 && request.resource.data.department.size() <= 80
+        && v4Audit('nmcSterileTrays',trayId,'created');
+      allow update: if v4Role(['administrator','technician'])
+        && v4Update('nmcSterileTrays',trayId,['available','in-use','decontamination','sterilizing','inspection','quarantined']);
+      allow delete: if false;
+    }
+    match /nmcSterileRequests/{requestId} {
+      allow read: if v4Role(['administrator','technician','nurse','physician']);
+      // Requests are created by a verified surgical-case backend trigger.
+      allow create, update, delete: if false;
+    }
+    match /nmcTransportRequests/{requestId} {
+      allow read: if v4Role(['administrator','nurse','technician','registration','physician']);
+      allow create: if v4Role(['administrator','nurse','technician','registration'])
+        && request.resource.data.keys().hasOnly([
+          'patientId','encounterId','patientName','origin','destination','priority','assignedUid',
+          'status','createdBy','updatedBy','createdAt','updatedAt','auditEventId'
+        ])
+        && v4Created() && v4PatientEncounter()
+        && request.resource.data.status == 'requested'
+        && request.resource.data.origin is string && request.resource.data.origin.size() > 0 && request.resource.data.origin.size() <= 100
+        && request.resource.data.destination is string && request.resource.data.destination.size() > 0 && request.resource.data.destination.size() <= 100
+        && request.resource.data.priority in ['routine','urgent','stat']
+        && request.resource.data.assignedUid is string
+        && v4Audit('nmcTransportRequests',requestId,'created');
+      allow update: if v4Role(['administrator','nurse','technician','registration'])
+        && v4Update('nmcTransportRequests',requestId,['requested','assigned','en-route','arrived','completed','cancelled']);
+      allow delete: if false;
+    }
+    match /nmcPharmacyDispenses/{requestId} {
+      allow read: if v4Role(['administrator','pharmacist','physician','nurse']);
+      allow create: if v4Role(['administrator','pharmacist','physician'])
+        && request.resource.data.keys().hasOnly([
+          'patientId','encounterId','patientName','orderId','medicationName','quantity',
+          'note','status','createdBy','updatedBy','createdAt','updatedAt','auditEventId'
+        ])
+        && v4Created() && v4PatientEncounter()
+        && request.resource.data.status == 'requested'
+        && request.resource.data.medicationName is string && request.resource.data.medicationName.size() > 0 && request.resource.data.medicationName.size() <= 120
+        && request.resource.data.quantity is string
+        && request.resource.data.quantity.matches('^[0-9]{1,5}$')
+        && request.resource.data.orderId is string
+        && exists(/databases/$(database)/documents/orders/$(request.resource.data.orderId))
+        && get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.patientId == request.resource.data.patientId
+        && get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.encounterId == request.resource.data.encounterId
+        && get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.category == 'medication'
+        && request.resource.data.note is string && request.resource.data.note.size() <= 220
+        && v4Audit('nmcPharmacyDispenses',requestId,'created');
+      allow update: if v4Role(['administrator','pharmacist'])
+        && v4Update('nmcPharmacyDispenses',requestId,['requested','verified','dispensed','returned','cancelled']);
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
