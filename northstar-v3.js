@@ -144,14 +144,16 @@ function renderIdentity(c){
 }
 function renderPortal(c){
  if(!admin(c))return renderRestricted("Patient Portal Preview");
- const p=c.patients||[],selected=p.find(x=>x.id===chosenPatient)||p[0];
+ const patients=c.patients||[];
+ const selected=patients.find(x=>x.id===chosenPatient)||patients[0];
  if(selected)chosenPatient=selected.id;
  const visits=(c.encounters||[]).filter(x=>x.patientId===selected?.id);
  const bills=(c.data.billingAccounts||[]).filter(x=>x.patientId===selected?.id);
- return heading("Patient Portal Preview","Internal staff-only preview of a future limited patient-facing experience.","Phase 3")+
- '<div class="n3-hint">NOT PUBLIC. This preview does not grant patient or family access. External identities, guardian consent, and permissions require a separate secure implementation.</div>'+
- (selected?section("Portal card — "+patientLabel(selected),'<div class="n3-metrics">'+stat("Recorded visits",visits.length)+stat("Billing statements",bills.length)+stat("Discharged visits",visits.filter(x=>x.status==="discharged").length)+'</div>'+
- '<p class="n3-hint">Only the patient's own eligible visit summaries and simulated statements would be shown after a separately authenticated, consent-checked portal is built.</p>'):section("Portal",'<div class="n3-empty">No patients found.</div>'));
+ const disclaimer='<div class="n3-hint">NOT PUBLIC. No patient or family can access this preview. An external portal requires separate authenticated identities, verified guardian authorization and explicit consent.</div>';
+ if(!selected)return heading("Patient Portal Preview","Staff-only preview of limited patient-facing account information.","Phase 3")+disclaimer+section("Portal",'<div class="n3-empty">No patients found.</div>');
+ const summaries='<div class="n3-metrics">'+stat("Recorded visits",visits.length)+stat("Billing statements",bills.length)+stat("Discharged visits",visits.filter(x=>x.status==="discharged").length)+'</div>';
+ const note='<p class="n3-hint">An eventual portal would only show records explicitly approved for that authenticated patient or guardian.</p>';
+ return heading("Patient Portal Preview","Staff-only preview of limited patient-facing account information.","Phase 3")+disclaimer+section("Portal card — "+patientLabel(selected),summaries+note);
 }
 function renderRestricted(name){return heading(name,"Administrator access required for this operational workspace.","Access control")+section("Access restricted",'<p class="n3-hint">An active Northstar administrator account is required.</p>');}
 function recordLine(collectionName,x,title,detail,status,c){
