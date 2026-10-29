@@ -1,0 +1,46 @@
+
+/* Northstar 3.0 shared full-page hospital design */
+.n3-workspace{box-sizing:border-box;width:100%;padding:clamp(14px,2vw,24px);background:#f1f6fa;min-height:70vh;color:#193d54}
+.n3-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:22px;flex-wrap:wrap;margin-bottom:23px}
+.n3-heading h2{font:700 clamp(1.55rem,2.5vw,2.25rem)/1.16 Inter,Arial,sans-serif;color:#102f46;margin:5px 0 9px;letter-spacing:-.035em}
+.n3-heading p:not(.eyebrow){color:#5e7b8d;line-height:1.6;max-width:760px;margin:0}
+.n3-simulation{border:1px solid #c7dce7;border-radius:40px;padding:9px 13px;background:white;color:#35687f;font-size:.68rem;letter-spacing:.07em;font-weight:800}
+.n3-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin:18px 0 24px}
+.n3-stat{padding:19px;background:#fff;border:1px solid #d8e5ed;border-radius:15px;min-width:0;box-shadow:0 5px 20px #103a5009}
+.n3-stat span{font-size:.73rem;letter-spacing:.04em;text-transform:uppercase;color:#648496;font-weight:800;display:block}
+.n3-stat strong{display:block;color:#102f47;font-size:clamp(1.3rem,2vw,1.9rem);font-weight:800;margin:8px 0 4px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.n3-stat small{font-size:.74rem;color:#668798;line-height:1.4}
+.n3-grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:16px 0}
+.n3-panel{min-width:0;background:#fff;border:1px solid #d8e6ee;border-radius:15px;margin:17px 0;padding:clamp(14px,2vw,21px);box-shadow:0 5px 20px #163d5409}
+.n3-grid-2>.n3-panel{margin:0}
+.n3-panel-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:13px;border-bottom:1px solid #e4edf2;padding-bottom:13px}
+.n3-panel-head h3{font-size:1rem;line-height:1.3;margin:0;color:#163a52}
+.n3-panel-head span{font-size:.76rem;color:#638397;font-weight:700}
+.n3-item,.n3-record{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:12px 3px;border-bottom:1px solid #e6eef3;min-width:0}
+.n3-item:last-child,.n3-record:last-child{border-bottom:0}
+.n3-item div,.n3-record div{min-width:0;flex:1}
+.n3-item strong,.n3-record strong{display:block;font-weight:750;color:#173d54;font-size:.84rem;overflow-wrap:anywhere}
+.n3-item small,.n3-record small{display:block;color:#708b9b;font-size:.75rem;margin-top:4px;overflow-wrap:anywhere;line-height:1.5}
+.n3-item>span,.n3-status{color:#386b81;font-size:.78rem;font-weight:750;text-align:right;overflow-wrap:anywhere;flex-shrink:0;max-width:40%}
+.n3-empty{padding:29px 15px;text-align:center;color:#70889a;border:1px dashed #d5e5ec;border-radius:11px;background:#f9fcfd;line-height:1.55}
+.n3-good{background:#eef8f3;color:#166848;border-radius:10px;padding:13px 15px;border:1px solid #cbe7d8;line-height:1.5}
+.n3-hint{background:#edf5fa;border:1px solid #cfdfeb;color:#4a7389;padding:13px 15px;border-radius:10px;font-size:.83rem;line-height:1.6;margin:16px 0}
+.n3-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.n3-btn,.n3-primary{padding:10px 15px;border:1px solid #bcd4e1;border-radius:10px;color:#185b7b;font-weight:750;background:#f5f9fc;cursor:pointer;min-height:43px}
+.n3-primary{background:#11648a;color:#fff;border-color:#11648a}
+.n3-btn:hover{background:#e8f3f8}.n3-primary:hover{background:#0d5477}
+.n3-filters{display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#fff;padding:16px;border:1px solid #d8e6ed;border-radius:14px}
+.n3-filters label,.n3-create label{display:grid;gap:8px;font-size:.79rem;font-weight:800;color:#315c71}
+.n3-workspace input,.n3-workspace select,.n3-workspace textarea{min-width:0;width:100%;box-sizing:border-box;border:1px solid #c1d6e0;border-radius:9px;background:white;color:#183f53;padding:11px 12px;font:inherit}
+.n3-workspace textarea{min-height:100px;resize:vertical}
+.n3-timeline{max-height:670px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.n3-create{border:1px solid #d4e6ee;border-radius:15px;background:#fff;padding:20px;margin:18px 0;display:grid;gap:15px}
+.n3-create h3{margin:0;color:#153c53;font-size:1.04rem}
+.n3-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.n3-create .n3-primary{justify-self:start}
+.n3-message{color:#1b5e81;font-weight:750;font-size:.82rem;min-height:1.3em;margin:0}
+.n3-record select{width:auto;max-width:180px;font-size:.78rem;padding:8px}
+.n3-result{font-size:.75rem;line-height:1.5;background:#102d43;color:#e2f4ff;border:1px solid #244f69;border-radius:12px;padding:16px;max-height:420px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.n3-error{color:#a63b42}
+@media(max-width:950px){.n3-grid-2{grid-template-columns:1fr}.n3-form-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.n3-workspace{padding:10px}.n3-filters,.n3-form-grid{grid-template-columns:1fr}.n3-heading{margin-bottom:13px}.n3-record{flex-wrap:wrap}.n3-record select{flex-basis:100%;max-width:none}.n3-actions button{flex:1}}
