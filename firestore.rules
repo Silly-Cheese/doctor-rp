@@ -952,7 +952,7 @@ service cloud.firestore {
       allow read: if isAdministrator();
       allow create: if isActive()
         && request.resource.data.keys().hasOnly([
-          'collection','recordId','action','from','to','actorUid','createdAt'
+          'collection','recordId','action','from','to','reason','actorUid','createdAt'
         ])
         && request.resource.data.collection in [
           'nmcSurgicalCases','nmcInfectionReviews','nmcSterileTrays',
