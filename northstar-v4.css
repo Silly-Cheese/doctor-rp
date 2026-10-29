@@ -53,3 +53,5 @@
 .nav-group .nav-item{width:100%}
 @media(max-width:920px){.n4-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.n4-panels{grid-template-columns:1fr}}
 @media(max-width:650px){.n4-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.n4-fields{grid-template-columns:1fr}.n4-record{align-items:stretch;flex-wrap:wrap}.n4-status-control{width:100%}.n4-status-control select{max-width:100%}.n4-tools{width:100%}.n4-tools button{flex:1;padding:10px 8px}.n4-search{width:100%}.n4-search input{min-width:0;width:100%}}
+
+@media (max-width:650px){.n4-workspace .n4-form .n4-fields,.n4-workspace .n4-stock-form .n4-fields{grid-template-columns:minmax(0,1fr)!important}}
