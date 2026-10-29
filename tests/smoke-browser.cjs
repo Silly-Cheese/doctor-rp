@@ -408,6 +408,59 @@ const { chromium } = require("playwright");
       return true;
     });
     if(!v3Integration)absent.push("Northstar 3.0 integrated patient flow revenue quality equipment training and integrity full-page dashboards");
+    const v4Departments=await page.evaluate(async()=>{
+      const {DEPARTMENTS,DEPARTMENT_DATA,validateDepartmentRecord,mayAccessDepartment,summarizeDepartment}=await import("./northstar-v4-registry.js");
+      const {renderDepartment}=await import("./northstar-v4.js");
+      if(DEPARTMENTS.length!==5||!DEPARTMENT_DATA.surgery4.includes("nmcSterileRequests"))return false;
+      if(mayAccessDepartment("staff","surgery4")||!mayAccessDepartment("physician","surgery4"))return false;
+      const ctx={profile:{role:"administrator",status:"active"},patients:[{id:"pt",displayName:"Example Patient"}],
+        encounters:[{id:"enc",patientId:"pt",status:"active"}],users:[{id:"staff1",displayName:"Example Physician",status:"active"}],
+        data:{nmcSurgicalCases:[{id:"case1",patientId:"pt",encounterId:"enc",procedureName:"Wound Repair",room:"OR-1",status:"scheduled"}],
+          nmcSterileRequests:[{id:"preparation1",surgeryId:"case1",procedureName:"Wound Repair",status:"requested"}],
+          nmcTransportRequests:[],nmcInfectionReviews:[],nmcSterileTrays:[],nmcPharmacyDispenses:[],
+          nmcPharmacyStock:[{id:"stock1",itemName:"Medication",sku:"RX1",quantity:4,location:"Pharmacy",status:"available"}],
+          orders:[{id:"order1",name:"Medication",patientId:"pt",encounterId:"enc",category:"medication",status:"ordered"}],
+          rooms:[],procedures:[],results:[],serviceCatalog:[],admissions:[],medicationAdministrations:[]}};
+      for(const model of DEPARTMENTS){
+        const section=document.querySelector("#enterprise-"+model.key);if(!section)return false;
+        renderDepartment(model.key,ctx);
+        if(!section.querySelector(".n4-head")||!section.querySelector(".n4-form")||
+           !section.querySelector('[data-n4-panel="queue"]')||!section.textContent.includes("NORTHSTAR 4.0"))return false;
+        section.querySelector('[data-n4-panel="new"]').click();
+        if(section.querySelector('[data-n4-view="new"]').hidden)return false;
+        section.querySelector('[data-n4-panel="context"]').click();
+        if(section.querySelector('[data-n4-view="context"]').hidden)return false;
+      }
+      if(!document.querySelector('#enterprise-sterile4 [data-n4-sterile-request="preparation1"]'))return false;
+      if(!document.querySelector('#enterprise-pharmacy4 [data-n4-stock-create]'))return false;
+      try{
+        validateDepartmentRecord("transport4",{patientId:"pt",encounterId:"missing",origin:"ER",destination:"OR",priority:"urgent"},ctx);return false;
+      }catch(error){if(!String(error.message).includes("patient"))return false;}
+      const valid=validateDepartmentRecord("transport4",{patientId:"pt",encounterId:"enc",origin:"ER",destination:"OR",priority:"urgent"},ctx);
+      if(valid.encounterId!=="enc")return false;
+      return summarizeDepartment("surgery4",ctx.data.nmcSurgicalCases).open===1;
+    });
+    if(!v4Departments)absent.push("Northstar 4.0 five full-page department workspaces and linked record selection");
+    const v4Nav=await page.evaluate(()=>{
+      const sidebar=document.querySelector(".nav-list"),links=sidebar?.querySelectorAll(".nav-group-departments .enterprise-nav")||[];
+      const group=sidebar?.querySelector(".nav-group-departments");
+      if(links.length!==5||!group||!group.classList.contains("is-collapsed"))return false;
+      const toggle=group.querySelector(".nav-group-title-toggle");
+      toggle.click();
+      if(group.classList.contains("is-collapsed")||toggle.getAttribute("aria-expanded")!=="true")return false;
+      toggle.click();
+      return group.classList.contains("is-collapsed")&&toggle.getAttribute("aria-expanded")==="false";
+    });
+    if(!v4Nav)absent.push("Collapsible Departments navigation and explicit module registry");
+    await page.setViewportSize({width:390,height:740});
+    const v4Mobile=await page.evaluate(()=>{
+      const section=document.querySelector("#enterprise-surgery4"),work=section?.querySelector(".n4-workspace");
+      if(!work)return false;
+      const fields=work.querySelector(".n4-fields");
+      return getComputedStyle(work).overflowX==="hidden"&&getComputedStyle(fields).gridTemplateColumns.split(" ").length===1;
+    });
+    if(!v4Mobile)absent.push("Northstar 4.0 responsive narrow-screen forms");
+    await page.setViewportSize({width:1365,height:900});
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
