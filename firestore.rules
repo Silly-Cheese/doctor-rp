@@ -935,7 +935,7 @@ service cloud.firestore {
         && request.resource.data.status in statuses
         && request.resource.data.updatedBy == request.auth.uid
         && request.resource.data.updatedAt == request.time
-        && request.resource.data.auditEventId != resource.data.auditEventId
+        && request.resource.data.auditEventId != resource.data.get('auditEventId', '')
         && v4Audit(collectionName,recordId,'status');
     }
     function v4PatientEncounter() {
@@ -961,9 +961,14 @@ service cloud.firestore {
         ]
         && request.resource.data.recordId is string
         && request.resource.data.recordId.size() >= 1
-        && request.resource.data.action in ['created','status']
+        && request.resource.data.action in ['created','status','stock-adjustment']
         && request.resource.data.from is string
         && request.resource.data.to is string
+        && request.resource.data.keys().hasOnly([
+          'collection','recordId','action','from','to','reason','actorUid','createdAt'
+        ])
+        && request.resource.data.get('reason','') is string
+        && request.resource.data.get('reason','').size() <= 200
         && request.resource.data.actorUid == request.auth.uid
         && request.resource.data.createdAt == request.time
         && getAfter(/databases/$(database)/documents/$(request.resource.data.collection)/$(request.resource.data.recordId)).data.auditEventId == auditId;
@@ -1024,7 +1029,9 @@ service cloud.firestore {
     match /nmcSterileRequests/{requestId} {
       allow read: if v4Role(['administrator','technician','nurse','physician']);
       // Requests are created by a verified surgical-case backend trigger.
-      allow create, update, delete: if false;
+      allow create, delete: if false;
+      allow update: if v4Role(['administrator','technician'])
+        && v4Update('nmcSterileRequests',requestId,['requested','preparing','ready','delivered','cancelled']);
     }
     match /nmcTransportRequests/{requestId} {
       allow read: if v4Role(['administrator','nurse','technician','registration','physician']);
@@ -1042,6 +1049,42 @@ service cloud.firestore {
         && v4Audit('nmcTransportRequests',requestId,'created');
       allow update: if v4Role(['administrator','nurse','technician','registration'])
         && v4Update('nmcTransportRequests',requestId,['requested','assigned','en-route','arrived','completed','cancelled']);
+      allow delete: if false;
+    }
+    match /nmcPharmacyStock/{stockId} {
+      allow read: if v4Role(['administrator','pharmacist','physician','nurse']);
+      allow create: if v4Role(['administrator','pharmacist'])
+        && request.resource.data.keys().hasOnly([
+          'itemName','sku','quantity','location','status','createdBy','updatedBy',
+          'createdAt','updatedAt','auditEventId'
+        ])
+        && v4Created()
+        && request.resource.data.itemName is string
+        && request.resource.data.itemName.size() >= 2 && request.resource.data.itemName.size() <= 120
+        && request.resource.data.sku is string
+        && request.resource.data.sku.size() >= 2 && request.resource.data.sku.size() <= 50
+        && request.resource.data.location is string
+        && request.resource.data.location.size() >= 1 && request.resource.data.location.size() <= 80
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity >= 0 && request.resource.data.quantity <= 100000
+        && request.resource.data.status == 'available'
+        && v4Audit('nmcPharmacyStock',stockId,'created');
+      allow update: if v4Role(['administrator','pharmacist'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'quantity','updatedAt','updatedBy','auditEventId'
+        ])
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity >= 0 && request.resource.data.quantity <= 100000
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.auditEventId != resource.data.auditEventId
+        && getAfter(/databases/$(database)/documents/nmcDepartmentAudit/$(request.resource.data.auditEventId)).data.action == 'stock-adjustment'
+        && getAfter(/databases/$(database)/documents/nmcDepartmentAudit/$(request.resource.data.auditEventId)).data.collection == 'nmcPharmacyStock'
+        && getAfter(/databases/$(database)/documents/nmcDepartmentAudit/$(request.resource.data.auditEventId)).data.recordId == stockId
+        && getAfter(/databases/$(database)/documents/nmcDepartmentAudit/$(request.resource.data.auditEventId)).data.actorUid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/nmcDepartmentAudit/$(request.resource.data.auditEventId)).data.to == string(request.resource.data.quantity)
+        && getAfter(/databases/$(database)/documents/nmcDepartmentAudit/$(request.resource.data.auditEventId)).data.from == string(resource.data.quantity)
+        && getAfter(/databases/$(database)/documents/nmcDepartmentAudit/$(request.resource.data.auditEventId)).data.reason.size() >= 5;
       allow delete: if false;
     }
     match /nmcPharmacyDispenses/{requestId} {
