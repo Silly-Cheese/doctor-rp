@@ -530,6 +530,7 @@ async function loadPendingStaff() {
             <option value="physician" ${staff.requestedRole === "physician" ? "selected" : ""}>Physician</option>
             <option value="nurse" ${staff.requestedRole === "nurse" ? "selected" : ""}>Registered Nurse</option>
             <option value="registration" ${staff.requestedRole === "registration" ? "selected" : ""}>Registration</option>
+            <option value="pharmacist" ${staff.requestedRole === "pharmacist" ? "selected" : ""}>Pharmacist</option>
             <option value="technician" ${staff.requestedRole === "technician" ? "selected" : ""}>Clinical Technician</option>
             <option value="administrator">Administrator</option>
           </select>
