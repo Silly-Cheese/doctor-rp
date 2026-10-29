@@ -465,6 +465,39 @@ const { chromium } = require("playwright");
     });
     if(!v4Mobile)absent.push("Northstar 4.0 responsive narrow-screen forms");
     await page.setViewportSize({width:1365,height:900});
+    // Northstar 4.1: recovered shortcuts stay inside collapsible groups,
+    // and typing in the sidebar filters links locally rather than opening a modal.
+    const cleanSidebar=await page.evaluate(()=>{
+      const nav=document.querySelector(".nav-list"),search=document.querySelector("#enterpriseNavSearch");
+      const recovered=document.querySelector("#nsNav-nsEmergencyLaunch");
+      if(!nav||!search||!recovered||!recovered.closest(".nav-group-items"))return false;
+      const groups=[...nav.querySelectorAll(".nav-group")];
+      const emergencyGroup=recovered.closest(".nav-group");
+      if(!emergencyGroup?.querySelector(".nav-group-title-toggle")?.textContent.includes("Care"))return false;
+      search.value="Surgical";search.dispatchEvent(new Event("input",{bubbles:true}));
+      const filtered=nav.querySelectorAll(".nav-item.nmc-clean-filtered").length>8;
+      const overlay=document.querySelector("#enterpriseFinder");
+      const noPopup=!overlay.open;
+      const departments=nav.querySelector(".nav-group-departments");
+      const expanded=!departments.classList.contains("is-collapsed");
+      search.value="";search.dispatchEvent(new Event("input",{bubbles:true}));
+      const restored=nav.querySelectorAll(".nav-item.nmc-clean-filtered").length===0;
+      const collapsed=departments.classList.contains("is-collapsed");
+      return filtered&&noPopup&&expanded&&restored&&collapsed;
+    });
+    if(!cleanSidebar)absent.push("Grouped feature navigation, inline search and collapsed-state restoration");
+    const cleanRoleSearch=await page.evaluate(()=>{
+      const dialog=document.querySelector("#enterpriseFinder");
+      const input=document.querySelector("#enterpriseFinderInput");
+      if(!dialog||!input)return false;
+      document.dispatchEvent(new KeyboardEvent("keydown",{key:"k",ctrlKey:true,bubbles:true}));
+      if(!dialog.open)return false;
+      input.value="Surgical";input.dispatchEvent(new Event("input",{bubbles:true}));
+      const inaccessible=!document.querySelector("#enterpriseFinderResults").textContent.includes("Surgical & Perioperative");
+      dialog.close();
+      return inaccessible;
+    });
+    if(!cleanRoleSearch)absent.push("Global finder excludes restricted department destinations while signed out");
     const navSync = await page.evaluate(async () => {
       const launch=document.getElementById("nsEmergencyLaunch");
       const navigation=document.getElementById("nsNav-nsEmergencyLaunch");
