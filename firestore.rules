@@ -79,11 +79,11 @@ service cloud.firestore {
     }
 
     function validRequestedRole(role) {
-      return role in ['physician', 'nurse', 'registration', 'technician', 'staff'];
+      return role in ['physician', 'nurse', 'registration', 'technician', 'pharmacist', 'staff'];
     }
 
     function validAssignedRole(role) {
-      return role in ['administrator', 'physician', 'nurse', 'registration', 'technician', 'staff'];
+      return role in ['administrator', 'physician', 'nurse', 'registration', 'technician', 'pharmacist', 'staff'];
     }
 
     function validStaffStatus(status) {
