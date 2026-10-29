@@ -11,7 +11,7 @@ const store=()=>getFirestore(getApp()),account=()=>getAuth(getApp()).currentUser
 const priority={routine:"Routine",urgent:"Urgent",emergency:"Emergency",stat:"STAT"};
 const describe=(key,x)=>{
  switch(key){
-  case "surgery4":return [x.procedureName,x.patientName||x.patientId,x.room+" · "+x.scheduledDate];
+  case "surgery4":return [x.procedureName,x.patientName||x.patientId,x.room+" · "+x.scheduledDate+" · "+(x.recoveryLocation||"Recovery TBD")];
   case "infection4":return [x.reason,x.patientName||x.patientId,x.precautions];
   case "sterile4":return [x.trayName,x.trayCode,x.department];
   case "transport4":return [x.origin+" → "+x.destination,x.patientName||x.patientId,x.priority||"Routine"];
@@ -41,6 +41,10 @@ function formMarkup(key,ctx){
   case "surgery4":return patient+input("procedureName","Surgical case / procedure","text",true,'maxlength="140" placeholder="Documented surgical service"')+
    input("room","Operating room / planned room","text",true,'maxlength="50" placeholder="OR-01"')+
    input("scheduledDate","Scheduled date","date")+select("priority","Priority",Object.entries(priority).filter(x=>x[0]!=="stat"))+
+   select("consentStatus","Consent documentation",[["pending","Pending review"],["documented","Documented"]])+
+   select("preopStatus","Preoperative readiness",[["pending","Not yet verified"],["reviewed","Checklist reviewed"]])+
+   select("anesthesiaStatus","Anesthesia consultation",[["pending","Pending"],["requested","Consultation requested"],["reviewed","Reviewed"]])+
+   select("recoveryLocation","Planned recovery",[["PACU","PACU"],["ICU","ICU"],["Inpatient","Inpatient"],["Observation","Observation"]])+
    select("assignedUid","Surgeon or case owner",[["","Unassigned"],...(ctx.users||[]).filter(x=>x.status==="active").map(x=>[x.id,x.displayName||x.email||x.id])],false);
   case "infection4":return patient+input("reason","Precaution or infection concern","text",true,'minlength="5" maxlength="160"')+
    select("precautions","Precaution category",[["standard","Standard"],["contact","Contact"],["droplet","Droplet"],["airborne","Airborne"],["review","Pending review"]])+
