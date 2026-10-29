@@ -99,10 +99,37 @@ function openSection(key){
  if(!canOpenWorkflow(key)){toast("This workspace is unavailable for your staff role.");return;}
 state.activeSection=key;const navSearch=document.querySelector("#enterpriseNavSearch");if(navSearch?.value){navSearch.value="";applyNavigationFilter("");}document.querySelectorAll(".content-section").forEach(s=>s.classList.add("hidden"));document.querySelector(`#enterprise-${key}`)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(n=>n.classList.toggle("active",n.dataset.enterpriseOpen===key));const title=WORKFLOWS.find(x=>x[0]===key)?.[1]||"Northstar";const h=document.querySelector("#pageTitle");if(h)h.textContent=title;document.querySelector(".sidebar")?.classList.remove("open");const nav=document.querySelector(`[data-enterprise-open="${key}"]`);const group=nav?.closest(".nav-group");if(group?.classList.contains("is-collapsed"))group.querySelector(".nav-group-title-toggle")?.click();startLazy(key);renderActive();}
 function stopLazy(){state.lazyUnsubs.forEach(u=>{try{u()}catch{}});state.lazyUnsubs=[];state.data={};state.dataErrors={};}
-function listen(name,key= name){const u=onSnapshot(collection(db,name),s=>{state.data[key]=s.docs.map(d=>({id:d.id,...d.data()}));renderActive();},error=>{console.warn("Northstar data access:",name,error);state.dataErrors[name]=error.message||"Data unavailable";renderActive();});state.lazyUnsubs.push(u);}
+function listen(name,key=name){
+ const u=onSnapshot(collection(db,name),snapshot=>{
+  state.data[key]=snapshot.docs.map(d=>({id:d.id,...d.data()}));
+  delete state.dataErrors[name];scheduleActiveRender();
+ },error=>{
+  console.warn("Northstar data access:",name,error);
+  state.dataErrors[name]=error.message||"Data unavailable";
+  scheduleActiveRender();
+ });
+ state.lazyUnsubs.push(u);
+}
 function startLazy(key){stopLazy();const map={inbox:["tasks","messages","clinicalAlerts","orders","results"],lab:["orders","labSpecimens"],imaging:["orders","imagingStudies"],admissions:["admissions","rooms"],ems:["emsArrivals"],discharge:["dischargePlans"],billing:["billingAccounts"],catalog:["serviceCatalog"],procedures:["procedures"],blood:["bloodBankRequests"],supplies:["supplyItems"],debrief:["auditEvents"],...V3_MODULE_DATA,...DEPARTMENT_DATA};(map[key]||[]).forEach(n=>listen(n));}
 window.addEventListener("northstar:prices-saved",()=>{if(state.activeSection==="catalog")renderActive()});
-function renderActive(){if(!state.activeSection)return;({inbox:renderInbox,lab:renderLab,imaging:renderImaging,admissions:renderAdmissions,ems:renderEms,discharge:renderDischarge,procedures:renderProcedures,blood:renderBlood,supplies:renderSupplies,debrief:renderDebrief,billing:()=>renderBillingPage({target:document.querySelector("#enterprise-billing"),records:state.data.billingAccounts||[],encounters:state.encounters,patients:state.patients,profile:state.profile}),catalog:()=>renderServiceCatalog({target:document.querySelector("#enterprise-catalog"),records:state.data.serviceCatalog||[],profile:state.profile}),...Object.fromEntries(V3_PAGES.map(([key])=>[key,()=>renderV3Page(key,{profile:state.profile,data:state.data,patients:state.patients,encounters:state.encounters,users:state.users})])),...Object.fromEntries(DEPARTMENTS.map(({key})=>[key,()=>renderDepartment(key,{profile:state.profile,data:state.data,patients:state.patients,encounters:state.encounters,users:state.users})]))}[state.activeSection]||(()=>{}))();}
+let redrawScheduled=false;
+function scheduleActiveRender(){
+ if(redrawScheduled)return;
+ redrawScheduled=true;
+ requestAnimationFrame(()=>{redrawScheduled=false;if(state.activeSection&&canOpenWorkflow(state.activeSection))renderActive();});
+}
+function renderActive(){if(!state.activeSection||!canOpenWorkflow(state.activeSection))return;({inbox:renderInbox,lab:renderLab,imaging:renderImaging,admissions:renderAdmissions,ems:renderEms,discharge:renderDischarge,procedures:renderProcedures,blood:renderBlood,supplies:renderSupplies,debrief:renderDebrief,billing:()=>renderBillingPage({target:document.querySelector("#enterprise-billing"),records:state.data.billingAccounts||[],encounters:state.encounters,patients:state.patients,profile:state.profile}),catalog:()=>renderServiceCatalog({target:document.querySelector("#enterprise-catalog"),records:state.data.serviceCatalog||[],profile:state.profile}),...Object.fromEntries(V3_PAGES.map(([key])=>[key,()=>renderV3Page(key,{profile:state.profile,data:state.data,patients:state.patients,encounters:state.encounters,users:state.users})])),...Object.fromEntries(DEPARTMENTS.map(({key})=>[key,()=>renderDepartment(key,{profile:state.profile,data:state.data,patients:state.patients,encounters:state.encounters,users:state.users})]))}[state.activeSection]||(()=>{}))();
+ const section=document.querySelector("#enterprise-"+state.activeSection);
+ if(section){
+  let note=section.querySelector(":scope > .nmc-clean-data-warning");
+  const failures=Object.keys(state.dataErrors);
+  if(!failures.length){note?.remove();}
+  else{
+   if(!note){note=document.createElement("div");note.className="nmc-clean-data-warning";note.setAttribute("role","status");section.prepend(note);}
+   note.textContent="Some department data could not be loaded ("+failures.join(", ")+"). This view may be incomplete. Check staff permissions or reload.";
+  }
+ }
+}
 function empty(t,d){return `<div class="enterprise-empty"><strong>${esc(t)}</strong><span>${esc(d)}</span></div>`;}
 function heading(k,sub,action=""){return `<div class="section-heading enterprise-heading"><div><p class="eyebrow">Northstar Medical Center</p><h3>${esc(WORKFLOWS.find(x=>x[0]===k)?.[1]||k)}</h3><p>${esc(sub)}</p></div>${action}</div>`;}
 
@@ -304,6 +331,46 @@ function applyNavigationFilter(query=""){
 function bind(){document.addEventListener("click",async e=>{const n=e.target.closest("[data-enterprise-open]");if(n){openSection(n.dataset.enterpriseOpen);return;}if(e.target.closest("[data-new-admission]")){openAdmission();return;}if(e.target.closest("[data-new-ems]")){openEms();return;}if(e.target.closest("[data-new-discharge]")){openDischarge();return;}if(e.target.closest("[data-new-procedure]")){openProcedure();return;}if(e.target.closest("[data-new-blood]")){openBlood();return;}if(e.target.closest("[data-new-supply]")){openSupply();return;}const l=e.target.closest("[data-lab-order]");if(l){await advanceLab(l.dataset.labOrder);return;}const im=e.target.closest("[data-imaging-order]");if(im){await advanceImaging(im.dataset.imagingOrder);return;}const em=e.target.closest("[data-accept-ems]");if(em){await updateDoc(doc(db,"emsArrivals",em.dataset.acceptEms),{status:"accepted",acceptedAt:serverTimestamp(),acceptedBy:auth.currentUser.uid});return;}const pt=e.target.closest("[data-procedure-timeout]");if(pt){openProcedureTimeout(pt.dataset.procedureTimeout);return;}const pc=e.target.closest("[data-procedure-complete]");if(pc){openProcedureCompletion(pc.dataset.procedureComplete);return;}const br=e.target.closest("[data-advance-blood]");if(br){const x=(state.data.bloodBankRequests||[]).find(y=>y.id===br.dataset.advanceBlood);const c=["requested","type-screen","crossmatched","released","bedside-verified","transfusing","complete"];const next=c[Math.min(c.indexOf(x.status)+1,c.length-1)];await updateDoc(doc(db,"bloodBankRequests",x.id),{status:next,updatedAt:serverTimestamp()});return;}const su=e.target.closest("[data-use-supply]");if(su){const x=(state.data.supplyItems||[]).find(y=>y.id===su.dataset.useSupply);await updateDoc(doc(db,"supplyItems",x.id),{quantity:Math.max(0,Number(x.quantity||0)-1),updatedAt:serverTimestamp()});return;}const fd=e.target.closest("[data-finalize-discharge]");if(fd){if(!isProvider()){toast("Provider authorization is required to discharge.");return;}const x=(state.data.dischargePlans||[]).find(y=>y.id===fd.dataset.finalizeDischarge);if(!x)return;const enc=state.encounters.find(y=>y.id===x.encounterId);if(!enc||enc.status==="discharged"){toast("The encounter is missing or already discharged.");return;}try{const saved=await openBillingDialogForEncounter({encounter:enc,plan:x});if(saved)toast("Discharge finalized with billing recorded.");}catch(err){toast(err.message||"Could not complete discharge.");}return;}const fi=e.target.closest("[data-finder-index]");if(fi){const r=document.querySelector("#enterpriseFinderResults");r._items?.[Number(fi.dataset.finderIndex)]?.action();document.querySelector("#enterpriseFinder")?.close();}});document.addEventListener("input",e=>{if(e.target.id==="enterpriseNavSearch"){applyNavigationFilter(e.target.value);}if(e.target.id==="enterpriseFinderInput")renderFinder(e.target.value)});document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openFinder()}if(e.key==="Enter"&&e.target.id==="enterpriseNavSearch"){e.preventDefault();openFinder();const q=e.target.value;document.querySelector("#enterpriseFinderInput").value=q;renderFinder(q)}if(e.key==="Escape"&&document.querySelector("#enterpriseFinder")?.open)document.querySelector("#enterpriseFinder").close()});window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();state.installPrompt=e;addInstallButton()});}
 function addInstallButton(){if(!state.installPrompt||document.querySelector("#installNorthstar"))return;const f=document.querySelector(".sidebar-footer");const b=document.createElement("button");b.id="installNorthstar";b.className="text-button";b.textContent="Install Northstar";b.onclick=async()=>{await state.installPrompt.prompt();state.installPrompt=null;b.remove()};f?.prepend(b)}
 
-function startBase(user){state.patients=[];state.encounters=[];state.users=[];state.profile=null;const billingNav=document.querySelector('[data-enterprise-open="billing"]');if(billingNav)billingNav.hidden=true;const catalogNav=document.querySelector('[data-enterprise-open="catalog"]');if(catalogNav)catalogNav.hidden=true;document.querySelectorAll(".enterprise-nav").forEach(b=>{if(V3_PAGES.some(x=>x[0]===b.dataset.enterpriseOpen)&&["quality360","staff360","equipment360","academy360","identity360","portal360"].includes(b.dataset.enterpriseOpen))b.hidden=true;});document.querySelectorAll(".enterprise-nav").forEach(b=>{if(DEPARTMENTS.some(d=>d.key===b.dataset.enterpriseOpen))b.hidden=true;});if(!user)return;Promise.all([getDoc(doc(db,"users",user.uid))]).then(([p])=>{if(!p.exists())return;state.profile={id:p.id,...p.data()};document.querySelectorAll(".enterprise-nav").forEach(b=>{if(DEPARTMENTS.some(d=>d.key===b.dataset.enterpriseOpen))b.hidden=!mayAccessDepartment(state.profile.role,b.dataset.enterpriseOpen);});document.querySelectorAll(".enterprise-nav").forEach(b=>{if(V3_PAGES.some(x=>x[0]===b.dataset.enterpriseOpen)&&["quality360","staff360","equipment360","academy360","identity360","portal360"].includes(b.dataset.enterpriseOpen))b.hidden=!isAdmin();});const billingNav=document.querySelector('[data-enterprise-open="billing"]');if(billingNav)billingNav.hidden=!billingCanAccess(state.profile);const catalogNav=document.querySelector('[data-enterprise-open="catalog"]');if(catalogNav)catalogNav.hidden=!(state.profile.role==="administrator"||state.profile.permissions?.billingManage===true);});onSnapshot(collection(db,"patients"),s=>state.patients=s.docs.map(d=>({id:d.id,...d.data()})),()=>{});onSnapshot(collection(db,"encounters"),s=>state.encounters=s.docs.map(d=>({id:d.id,...d.data()})),()=>{});onSnapshot(collection(db,"users"),s=>state.users=s.docs.map(d=>({id:d.id,...d.data()})),()=>{});}
+function refreshRoleNavigation(){
+ document.querySelectorAll(".enterprise-nav").forEach(button=>{
+  const key=button.dataset.enterpriseOpen;
+  // Unauthenticated staff should not be offered institutional workspaces.
+  button.hidden=!canOpenWorkflow(key);
+ });
+ applyNavigationFilter(document.querySelector("#enterpriseNavSearch")?.value||"");
+}
+function startBase(user){
+ ++state.authGeneration;
+ const generation=state.authGeneration;
+ stopLazy();
+ for(const unsubscribe of state.baseUnsubs){try{unsubscribe();}catch{}}
+ state.baseUnsubs=[];
+ state.patients=[];state.encounters=[];state.users=[];state.profile=null;
+ state.activeSection=null;
+ refreshRoleNavigation();
+ if(!user)return;
+ const current=()=>generation===state.authGeneration&&auth.currentUser?.uid===user.uid;
+ // Listen to the signed-in user's actual role. Revocations apply without reloading.
+ const profileUnsub=onSnapshot(doc(db,"users",user.uid),snapshot=>{
+  if(!current())return;
+  state.profile=snapshot.exists()?{id:snapshot.id,...snapshot.data()}:null;
+  refreshRoleNavigation();
+  if(state.activeSection&&!canOpenWorkflow(state.activeSection)){
+   document.querySelector("#enterprise-"+state.activeSection)?.classList.add("hidden");
+   stopLazy();state.activeSection=null;
+   toast("Your staff permissions have changed. Please select an available workspace.");
+  }else if(state.activeSection)renderActive();
+ },error=>{if(current()){console.warn("Northstar profile unavailable:",error);state.profile=null;refreshRoleNavigation();}});
+ state.baseUnsubs.push(profileUnsub);
+ const sources=[["patients","patients"],["encounters","encounters"],["users","users"]];
+ for(const [collectionName,field] of sources){
+  const unsub=onSnapshot(collection(db,collectionName),snapshot=>{
+   if(!current())return;
+   state[field]=snapshot.docs.map(d=>({id:d.id,...d.data()}));
+   if(state.activeSection&&canOpenWorkflow(state.activeSection))scheduleActiveRender();
+  },error=>{if(current())console.warn("Northstar "+collectionName+" unavailable:",error);});
+  state.baseUnsubs.push(unsub);
+ }
+}
 
 ensureStyles();ensureSections();organizeNavigation();bind();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js").catch(()=>{});onAuthStateChanged(auth,startBase);
