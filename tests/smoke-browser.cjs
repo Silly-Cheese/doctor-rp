@@ -450,6 +450,10 @@ const { chromium } = require("playwright");
         data:{nmcSurgicalCases:[],nmcSterileRequests:[],nmcTransportRequests:[],rooms:[],procedures:[]}};
       renderDepartment("surgery4",ctx);
       const target=document.querySelector("#enterprise-surgery4");
+      // These unit-style page tests run signed out, with main content hidden.
+      // Mount the test section visibly so browser focus/selection behaves as it does after login.
+      const parent=target.parentNode,next=target.nextSibling,wasHidden=target.classList.contains("hidden");
+      document.body.append(target);target.classList.remove("hidden");
       target.querySelector('[data-n4-panel="new"]').click();
       const form=target.querySelector(".n4-form");
       const patient=form.elements.namedItem("patientId");patient.value="p1";
@@ -460,12 +464,15 @@ const { chromium } = require("playwright");
       renderDepartment("surgery4",ctx);
       const updated=target.querySelector(".n4-form");
       const field=updated.elements.namedItem("procedureName");
-      return updated.elements.namedItem("patientId").value==="p1"
+      const ok=updated.elements.namedItem("patientId").value==="p1"
         &&updated.elements.namedItem("encounterId").value==="e1"
         &&field.value==="Surgery sample"
         &&document.activeElement===field
         &&field.selectionStart===4&&field.selectionEnd===8
         &&!target.querySelector('[data-n4-view="new"]').hidden;
+      if(next)parent.insertBefore(target,next);else parent.append(target);
+      target.classList.toggle("hidden",wasHidden);
+      return ok;
     });
     if(!v4FormStability)absent.push("Northstar department keeps focused form, linked patient and cursor on live refresh");
     const v4Nav=await page.evaluate(()=>{
