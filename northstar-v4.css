@@ -1,0 +1,55 @@
+/* Northstar 4.0 unified departmental design (no new global theme override). */
+.n4-workspace{background:#f4f8fb;color:#16374d;padding:clamp(12px,2vw,25px);box-sizing:border-box;min-height:72vh;max-width:100%;overflow-x:hidden}
+.n4-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:22px;flex-wrap:wrap}
+.n4-head h2{font:800 clamp(1.65rem,2.5vw,2.3rem)/1.17 Inter,Arial,sans-serif;letter-spacing:-.03em;color:#11374e;margin:4px 0 9px}
+.n4-head>div>p:last-child{color:#638093;line-height:1.5;margin:0;max-width:750px;font-size:.9rem}
+.n4-role{padding:9px 14px;border-radius:25px;border:1px solid #c9dce7;background:#fff;text-transform:capitalize;color:#48768c;font-size:.78rem;font-weight:800}
+.n4-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:22px}
+.n4-stat{background:#fff;border:1px solid #d6e4ed;border-radius:15px;padding:18px;box-shadow:0 6px 18px #1b47600a;min-width:0}
+.n4-stat span{font-size:.71rem;font-weight:750;letter-spacing:.07em;color:#648398;text-transform:uppercase;display:block}
+.n4-stat strong{color:#103e59;display:block;font-size:clamp(1.35rem,2.4vw,1.9rem);font-variant-numeric:tabular-nums;margin:9px 0 3px}
+.n4-stat small{font-size:.74rem;color:#668395}
+.n4-tools{display:flex;gap:5px;border:1px solid #cfdfeb;background:#eaf3f8;border-radius:12px;width:fit-content;padding:5px;max-width:100%;flex-wrap:wrap;margin-bottom:18px}
+.n4-tools button{border:0;background:transparent;border-radius:8px;padding:11px 17px;color:#476e85;font-weight:750;cursor:pointer;font-size:.85rem}
+.n4-tools button.n4-selected{background:#fff;color:#095d85;box-shadow:0 3px 9px #174d6419}
+.n4-panel{padding:clamp(15px,2vw,23px);border:1px solid #d8e6ee;background:#fff;border-radius:15px;box-shadow:0 5px 22px #1c445b0b;min-width:0}
+.n4-panel header{display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #e6eff3;padding-bottom:16px;margin-bottom:9px}
+.n4-panel header h3{font-size:1.08rem;color:#183e55;margin:0}
+.n4-panel header small{color:#7691a0;line-height:1.5;max-width:580px}
+.n4-search{display:grid;gap:5px;font-size:.75rem;font-weight:800;color:#66859a}
+.n4-search input{min-width:210px;border:1px solid #c9dce6;border-radius:9px;padding:10px;background:#fff;color:#20435a}
+.n4-record{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:15px 4px;border-bottom:1px solid #e5edf2}
+.n4-record:last-child{border:0}
+.n4-record-main{min-width:0;flex:1}
+.n4-record-main h4{font-size:.94rem;color:#183d54;margin:0 0 5px;overflow-wrap:anywhere}
+.n4-record-main p{color:#668193;margin:0 0 4px;font-size:.79rem;line-height:1.5;overflow-wrap:anywhere}
+.n4-record-main small{font-size:.72rem;color:#8297a6}
+.n4-status-control{display:grid;gap:6px;min-width:145px;font-size:.73rem;font-weight:750;color:#52768e}
+.n4-status-control select{width:100%;border:1px solid #c9dfe9;border-radius:9px;background:#edf6fa;padding:10px;color:#135a7c;text-transform:capitalize;font-weight:700}
+.n4-form header{margin-bottom:22px}
+.n4-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px;margin-bottom:22px}
+.n4-fields label{display:grid;gap:8px;font-size:.82rem;font-weight:750;color:#365b6f}
+.n4-fields input,.n4-fields select{box-sizing:border-box;min-width:0;width:100%;padding:12px 13px;border:1px solid #bdd3e0;color:#143d53;background:#fff;border-radius:10px;font:inherit}
+.n4-fields input:focus,.n4-fields select:focus,.n4-search input:focus{outline:2px solid #7fb9d4;outline-offset:1px}
+.n4-primary{background:#0b638d;color:#fff;border:1px solid #0b638d;border-radius:10px;padding:12px 18px;font-weight:800;cursor:pointer}
+.n4-primary:disabled{opacity:.5;cursor:wait}
+.n4-message{color:#245d78;font-size:.85rem;font-weight:750;line-height:1.5;min-height:1em;margin:13px 0}
+.n4-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.n4-mini{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid #e4edf2}
+.n4-mini:last-child{border:0}
+.n4-mini>div{min-width:0}
+.n4-mini strong{color:#1a4157;font-size:.86rem;display:block}
+.n4-mini small{color:#758da0;display:block;line-height:1.4;margin-top:4px;font-size:.75rem}
+.n4-mini>span{color:#46728a;font-size:.75rem;text-align:right;font-weight:750}
+.n4-empty{padding:25px 15px;background:#f8fbfd;border:1px dashed #d1e3ed;color:#6e899a;border-radius:9px;text-align:center;line-height:1.5}
+.n4-foot{border-top:1px solid #dce9ef;margin-top:23px;padding-top:15px;color:#7890a0;font-size:.75rem}
+.n4-error{font-size:.8rem;font-weight:700;color:#a43643}
+.n4-view[hidden],.n4-workspace [hidden]{display:none!important}
+.nav-group-departments{margin-top:8px}
+.nav-group-title-toggle{border:0;background:none;color:#a5c5d6;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;width:100%;padding:12px 14px;text-align:left;font-weight:850;cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+.nav-group-title-toggle:hover{color:#fff}
+.nav-group.is-collapsed .nav-group-items{display:none!important}
+.nav-group .nav-group-items{display:grid;gap:4px}
+.nav-group .nav-item{width:100%}
+@media(max-width:920px){.n4-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.n4-panels{grid-template-columns:1fr}}
+@media(max-width:650px){.n4-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.n4-fields{grid-template-columns:1fr}.n4-record{align-items:stretch;flex-wrap:wrap}.n4-status-control{width:100%}.n4-status-control select{max-width:100%}.n4-tools{width:100%}.n4-tools button{flex:1;padding:10px 8px}.n4-search{width:100%}.n4-search input{min-width:0;width:100%}}
