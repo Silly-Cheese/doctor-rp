@@ -33,9 +33,10 @@
           document.querySelector(".sidebar")?.classList.remove("open");
         });
       }
-      const target = [...nav.querySelectorAll(".nav-group")].find(g =>
-        g.querySelector(".nav-group-title")?.textContent?.trim() === group
-      ) || nav;
+      const navGroup = [...nav.querySelectorAll(".nav-group")].find(g =>
+        (g.querySelector(".nav-group-title-toggle, .nav-group-title")?.textContent||"").replace(/[▾▸]/g,"").trim() === group
+      );
+      const target = navGroup?.querySelector(".nav-group-items") || navGroup || nav;
       if (button.parentElement !== target) target.appendChild(button);
       if (button.hidden !== origin.hidden) button.hidden = origin.hidden;
       button.disabled = origin.hidden;
