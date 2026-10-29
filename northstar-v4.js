@@ -174,6 +174,10 @@ export function renderDepartment(key,ctx){
   '<div class="n4-view" data-n4-view="new" hidden><form class="n4-panel n4-form"><header><h3>'+esc(createName)+'</h3><small>Creates a simulated operational record. No clinical procedure or medication administration is automatically performed.</small></header><div class="n4-fields">'+formMarkup(key,ctx)+'</div><button type="submit" class="n4-primary">Save record</button><p class="n4-message" role="status"></p></form></div>'+
   '<div class="n4-view" data-n4-view="context" hidden>'+renderRelated(key,ctx)+'</div>'+
   '<footer class="n4-foot">All records use shared patient/encounter identifiers. State changes have an append-only audit trail. This module does not delete clinical records.</footer></div>';
+ const priorForm=target.querySelector(".n4-form");
+ const priorValues=priorForm?Object.fromEntries(new FormData(priorForm).entries()):null;
+ const priorView=target.querySelector('[data-n4-panel].n4-selected')?.dataset.n4Panel||"queue";
+ const priorSearch=target.querySelector("[data-n4-search]")?.value||"";
  target.innerHTML=markup;
  const list=target.querySelector("[data-n4-list]");
  const renderList=()=>{
@@ -189,7 +193,19 @@ export function renderDepartment(key,ctx){
   target.querySelectorAll("[data-n4-view]").forEach(node=>node.hidden=node.dataset.n4View!==view);
   target.querySelectorAll("[data-n4-panel]").forEach(node=>node.classList.toggle("n4-selected",node===button));
  });
- if(mayCreateDepartment(ctx.profile?.role,key))bindForm(target.querySelector(".n4-form"),key,ctx);
+ if(mayCreateDepartment(ctx.profile?.role,key)){
+  bindForm(target.querySelector(".n4-form"),key,ctx);
+  if(priorValues){
+   const form=target.querySelector(".n4-form");
+   for(const [name,value] of Object.entries(priorValues)){
+    const field=form.elements.namedItem(name);if(!field)continue;
+    field.value=value;
+    if(name==="patientId"||name==="encounterId"||name==="orderId")field.dispatchEvent(new Event("change"));
+   }
+  }
+ }
+ if(priorSearch){target.querySelector("[data-n4-search]").value=priorSearch;renderList();}
+ if(priorView!=="queue")target.querySelector('[data-n4-panel="'+priorView+'"]')?.click();
  const contextView=target.querySelector('[data-n4-view="context"]');
  if(key==="sterile4"&&mayUpdateDepartment(ctx.profile?.role,key)){
   contextView.addEventListener("change",async event=>{
