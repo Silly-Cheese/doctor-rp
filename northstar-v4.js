@@ -182,6 +182,12 @@ export function renderDepartment(key,ctx){
  const priorValues=priorForm?Object.fromEntries(new FormData(priorForm).entries()):null;
  const priorView=target.querySelector('[data-n4-panel].n4-selected')?.dataset.n4Panel||"queue";
  const priorSearch=target.querySelector("[data-n4-search]")?.value||"";
+ const focused=target.contains(document.activeElement)?document.activeElement:null;
+ const focusDetails=focused?{
+  name:focused.getAttribute("name"),search:focused.matches("[data-n4-search]"),
+  start:typeof focused.selectionStart==="number"?focused.selectionStart:null,
+  end:typeof focused.selectionEnd==="number"?focused.selectionEnd:null
+ }:null;
  target.innerHTML=markup;
  const list=target.querySelector("[data-n4-list]");
  const renderList=()=>{
@@ -201,14 +207,28 @@ export function renderDepartment(key,ctx){
   bindForm(target.querySelector(".n4-form"),key,ctx);
   if(priorValues){
    const form=target.querySelector(".n4-form");
+   // Restore linked selectors in dependency order: patient > encounter > medication order.
+   for(const fieldName of ["patientId","encounterId","orderId"]){
+    const field=form.elements.namedItem(fieldName);
+    if(field&&Object.hasOwn(priorValues,fieldName)){
+     field.value=priorValues[fieldName];
+     field.dispatchEvent(new Event("change"));
+    }
+   }
    for(const [name,value] of Object.entries(priorValues)){
-    const field=form.elements.namedItem(name);if(!field)continue;
-    field.value=value;
-    if(name==="patientId"||name==="encounterId"||name==="orderId")field.dispatchEvent(new Event("change"));
+    if(["patientId","encounterId","orderId"].includes(name))continue;
+    const field=form.elements.namedItem(name);if(field)field.value=value;
    }
   }
  }
  if(priorSearch){target.querySelector("[data-n4-search]").value=priorSearch;renderList();}
+ if(focusDetails){
+  const el=focusDetails.search?target.querySelector("[data-n4-search]"):
+   [...target.querySelectorAll("[name]")].find(x=>x.getAttribute("name")===focusDetails.name);
+  if(el){
+   try{el.focus({preventScroll:true});if(focusDetails.start!==null&&typeof el.setSelectionRange==="function")el.setSelectionRange(focusDetails.start,focusDetails.end);}catch{}
+  }
+ }
  if(priorView!=="queue")target.querySelector('[data-n4-panel="'+priorView+'"]')?.click();
  const contextView=target.querySelector('[data-n4-view="context"]');
  if(key==="sterile4"&&mayUpdateDepartment(ctx.profile?.role,key)){
