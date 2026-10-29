@@ -1,0 +1,64 @@
+/* Northstar 4.1 — targeted presentation cleanup.
+   Small consistent overrides, no replacements for existing clinical components. */
+:root{
+ --nmc-clean-border:#d5e4ed;
+ --nmc-clean-shadow:0 6px 24px rgba(17,58,82,.055);
+ --nmc-clean-focus:#167aa5;
+}
+.nav-list{scrollbar-width:thin;scrollbar-color:#547c91 transparent}
+.nav-list .sidebar-search{position:sticky;top:0;z-index:8;margin:0 8px 12px;box-shadow:0 6px 18px rgba(4,27,42,.16)}
+.nav-list .sidebar-search:focus-within{outline:2px solid #84cdea;outline-offset:2px}
+.nav-list .nav-group{min-width:0;margin:0 6px 5px;border-radius:10px;overflow:visible}
+.nav-list .nav-group-title-toggle{border-radius:9px;min-height:38px;padding:10px 13px;line-height:1.35}
+.nav-list .nav-group-title-toggle>span{font-size:.9rem;opacity:.8}
+.nav-list .nav-group-items{display:grid;gap:2px;padding:0 0 7px}
+.nav-list .nav-group-items .nav-item{display:flex;align-items:center;gap:10px;min-height:40px;white-space:normal;line-height:1.35;box-sizing:border-box;border-radius:9px;padding:10px 12px}
+.nav-list .nav-group-items .nav-item>span:first-child{flex:0 0 21px;text-align:center}
+.nav-list .nav-group-items .nav-item:focus-visible,.nav-list .nav-group-title-toggle:focus-visible{outline:2px solid #9bd5ee;outline-offset:2px}
+.nav-list .nav-item[hidden],.nav-list .nmc-clean-filtered,.nav-list .nmc-clean-no-match{display:none!important}
+.nmc-clean-no-results{margin:14px 10px;padding:13px;color:#d0e1eb;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:9px;font-size:.81rem;line-height:1.45}
+.nmc-clean-no-results[hidden]{display:none!important}
+.nmc-clean-empty-search{font-size:.86rem;color:#5a7b8d;margin:0;padding:25px 18px;text-align:center}
+.nmc-clean-data-warning{padding:13px 17px;margin:10px 0 18px;background:#fff7ec;color:#7c582c;border:1px solid #eddbbf;border-radius:12px;line-height:1.55;font-size:.84rem;font-weight:650}
+:is(.enterprise-section,.nmc-fullpage-section){min-width:0;max-width:100%;box-sizing:border-box}
+:is(.n4-workspace,.n3-workspace,.nmc-billing-page) h2{overflow-wrap:anywhere}
+:is(.n4-workspace,.n3-workspace,.nmc-billing-page) :is(.n4-panel,.n3-panel,.nmc-bill-attention){box-shadow:var(--nmc-clean-shadow);border-color:var(--nmc-clean-border)}
+:is(.n4-workspace,.n3-workspace) :is(button,input,textarea,select){font-family:inherit}
+:is(.n4-workspace,.n3-workspace,.nmc-billing-page) :is(button,input,textarea,select):focus-visible{outline:2px solid var(--nmc-clean-focus);outline-offset:2px}
+.n4-workspace .n4-form .n4-fields{align-items:start}
+.n4-workspace .n4-form .n4-fields>label{min-width:0}
+.n4-workspace .n4-tools{width:min(100%,max-content);overflow-x:auto;scrollbar-width:thin;max-width:100%}
+.n4-workspace .n4-panel .n4-list{max-height:min(70vh,820px);overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable}
+.n4-workspace .n4-record{min-width:0}
+.n4-workspace .n4-record-main{overflow-wrap:anywhere}
+.n4-workspace .n4-status-control select{min-height:41px}
+.n4-workspace .n4-record .n4-status-control{align-self:center}
+.n4-workspace .n4-tools button,.n4-workspace .n4-primary{transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease}
+.n4-workspace .n4-tools button:hover{background:#fff}
+.n4-workspace .n4-panel h3{letter-spacing:-.01em}
+.n4-workspace .n4-stats .n4-stat{min-height:100px}
+.n4-workspace .n4-message:empty{display:none}
+.n4-workspace .n4-error,.nmc-clean-data-warning{overflow-wrap:anywhere}
+@media (max-width:900px){
+ .n4-workspace .n4-panel .n4-list{max-height:none}
+ :is(.n4-workspace,.n3-workspace){padding:14px}
+}
+@media (max-width:650px){
+ .n4-workspace .n4-head{gap:10px}
+ .n4-workspace .n4-role{font-size:.71rem}
+ .n4-workspace .n4-stats{gap:8px}
+ .n4-workspace .n4-stat{min-height:0;padding:13px}
+ .n4-workspace .n4-stats .n4-stat{min-height:0}
+ .n4-workspace .n4-tools{width:100%}
+ .n4-workspace .n4-tools button{flex:1 1 auto;min-height:42px}
+ .n4-workspace .n4-panel{padding:13px}
+ .n4-workspace .n4-record{gap:9px}
+ .n4-workspace .n4-status-control{width:100%;min-width:0}
+ .n4-workspace .n4-status-control select{max-width:none}
+ .n4-workspace .n4-form .n4-fields{grid-template-columns:minmax(0,1fr)!important}
+ .n4-workspace .n4-search{width:100%}
+ .n4-workspace .n4-search input{width:100%;min-width:0}
+}
+@media (prefers-reduced-motion:reduce){
+ .n4-workspace .n4-tools button,.n4-workspace .n4-primary{transition:none}
+}
