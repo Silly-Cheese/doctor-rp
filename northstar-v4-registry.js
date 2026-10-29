@@ -12,7 +12,7 @@ export const DEPARTMENT_BY_COLLECTION=Object.fromEntries(DEPARTMENTS.map(x=>[x.c
 export const ROLE_LABELS={administrator:"Administrator",physician:"Provider",nurse:"Nursing",technician:"Technician",registration:"Registration",pharmacist:"Pharmacy"};
 export function mayAccessDepartment(role,key,permissions={}){
  const department=DEPARTMENT_BY_KEY[key];
- return !!department&&(role==="administrator"||department.roles.includes(role)||(permissions?.departmentAccess||[]).includes(key));
+ return !!department&&(role==="administrator"||department.roles.includes(role));
 }
 const NEW_RECORD_ROLES={surgery4:["administrator","physician"],infection4:["administrator","physician","nurse"],sterile4:["administrator","technician"],transport4:["administrator","nurse","technician","registration"],pharmacy4:["administrator","pharmacist","physician"]};
 const STATUS_ROLES={surgery4:["administrator","physician","nurse"],infection4:["administrator","physician","nurse"],sterile4:["administrator","technician"],transport4:["administrator","nurse","technician","registration"],pharmacy4:["administrator","pharmacist"]};
