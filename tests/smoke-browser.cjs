@@ -459,6 +459,7 @@ const { chromium } = require("playwright");
       section.querySelector('[data-n4-panel="new"]')?.click();
       const fields=work.querySelector(".n4-form .n4-fields");
       const columns=getComputedStyle(fields).gridTemplateColumns.split(" ").filter(Boolean);
+      console.log("NMC4-mobile-debug",JSON.stringify({overflow:getComputedStyle(work).overflowX,columns,grid:getComputedStyle(fields).gridTemplateColumns,media:matchMedia("(max-width:650px)").matches,styleSheets:[...document.styleSheets].map(x=>x.href).filter(x=>x?.includes("northstar-v4"))}));
       return getComputedStyle(work).overflowX==="hidden"&&columns.length===1;
     });
     if(!v4Mobile)absent.push("Northstar 4.0 responsive narrow-screen forms");
