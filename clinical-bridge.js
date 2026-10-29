@@ -1,4 +1,4 @@
-const NORTHSTAR_BUILD = "20261029-northstar-v4.0.1";
+const NORTHSTAR_BUILD = "20261029-northstar-v4.1.0";
 const moduleUrl = path => `${path}?v=${NORTHSTAR_BUILD}`;
 window.NorthstarBuild = NORTHSTAR_BUILD;
 const failedModules = [];
@@ -70,6 +70,10 @@ async function bootNorthstar() {
     lightTheme.href = "northstar-light-theme.css?v=20261022-stable";
     document.head.appendChild(lightTheme);
   }
+
+  // Consolidation styles should be last, after dynamically imported module CSS.
+  const cleanupTheme = document.querySelector('link[href^="northstar-cleanup.css"]');
+  if (cleanupTheme) document.head.appendChild(cleanupTheme);
 
   document.documentElement.dataset.northstarBoot = failedModules.length ? "degraded" : "ready";
   document.documentElement.dataset.northstarBootMs = String(Math.round(performance.now() - startedAt));
