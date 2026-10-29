@@ -55,3 +55,20 @@
 @media(max-width:650px){.n4-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.n4-fields{grid-template-columns:1fr}.n4-record{align-items:stretch;flex-wrap:wrap}.n4-status-control{width:100%}.n4-status-control select{max-width:100%}.n4-tools{width:100%}.n4-tools button{flex:1;padding:10px 8px}.n4-search{width:100%}.n4-search input{min-width:0;width:100%}}
 
 @media (max-width:650px){.n4-workspace .n4-form .n4-fields,.n4-workspace .n4-stock-form .n4-fields{grid-template-columns:minmax(0,1fr)!important}}
+
+/* Pharmacy inventory and sterile readiness are part of the same component family. */
+.n4-stock-form{padding:18px 0 0;margin-top:16px;border-top:1px solid #dfeaf0}
+.n4-stock-form h4{font-size:.95rem;color:#21485f;margin:0 0 15px}
+.n4-stock-form .n4-fields{margin-bottom:13px}
+.n4-stock-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid #e4edf2;flex-wrap:wrap}
+.n4-stock-row strong{font-size:.86rem;color:#194159;display:block}
+.n4-stock-row small{color:#7591a3;font-size:.76rem;display:block;margin-top:4px}
+.n4-stock-row>span{font-weight:750;font-size:.84rem;color:#275e79}
+.n4-stock-row button,.n4-stock-adjust-editor .n4-cancel{border:1px solid #c4d8e3;background:#f2f8fb;border-radius:9px;padding:9px 14px;color:#1a5977;font-weight:750;cursor:pointer}
+.n4-stock-adjust-editor{padding:15px;display:grid;grid-template-columns:1fr 1.4fr auto auto;gap:12px;align-items:end;border:1px solid #cde1ea;background:#f5fafc;border-radius:12px;margin:10px 0}
+.n4-stock-adjust-editor label{display:grid;gap:6px;font-size:.76rem;font-weight:750;color:#466e83}
+.n4-stock-adjust-editor input{box-sizing:border-box;width:100%;min-width:0;background:white;color:#143f56;border-radius:9px;border:1px solid #c5dae4;padding:10px}
+.n4-stock-adjust-editor .n4-message{grid-column:1/-1}
+.n4-mini select{max-width:180px;min-width:120px;padding:9px;background:#f2f8fb;color:#145979;border:1px solid #c6dbe5;border-radius:8px}
+@media(max-width:950px){.n4-stock-adjust-editor{grid-template-columns:1fr 1fr}.n4-stock-adjust-editor button{width:100%}}
+@media(max-width:600px){.n4-stock-adjust-editor{grid-template-columns:1fr}.n4-stock-row>span{margin-left:auto}.n4-mini{flex-wrap:wrap}.n4-mini select{width:100%;max-width:none}}
