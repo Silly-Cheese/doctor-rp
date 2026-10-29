@@ -441,6 +441,33 @@ const { chromium } = require("playwright");
       return summarizeDepartment("surgery4",ctx.data.nmcSurgicalCases).open===1;
     });
     if(!v4Departments)absent.push("Northstar 4.0 five full-page department workspaces and linked record selection");
+    const v4FormStability=await page.evaluate(async()=>{
+      const {renderDepartment}=await import("./northstar-v4.js");
+      const ctx={profile:{role:"administrator",status:"active"},
+        patients:[{id:"p1",displayName:"Test Patient"}],
+        encounters:[{id:"e1",patientId:"p1",status:"active"}],
+        users:[{id:"doctor1",displayName:"Doctor",status:"active"}],
+        data:{nmcSurgicalCases:[],nmcSterileRequests:[],nmcTransportRequests:[],rooms:[],procedures:[]}};
+      renderDepartment("surgery4",ctx);
+      const target=document.querySelector("#enterprise-surgery4");
+      target.querySelector('[data-n4-panel="new"]').click();
+      const form=target.querySelector(".n4-form");
+      const patient=form.elements.namedItem("patientId");patient.value="p1";
+      patient.dispatchEvent(new Event("change"));
+      const encounter=form.elements.namedItem("encounterId");encounter.value="e1";
+      const procedure=form.elements.namedItem("procedureName");procedure.value="Surgery sample";
+      procedure.focus();procedure.setSelectionRange(4,8);
+      renderDepartment("surgery4",ctx);
+      const updated=target.querySelector(".n4-form");
+      const field=updated.elements.namedItem("procedureName");
+      return updated.elements.namedItem("patientId").value==="p1"
+        &&updated.elements.namedItem("encounterId").value==="e1"
+        &&field.value==="Surgery sample"
+        &&document.activeElement===field
+        &&field.selectionStart===4&&field.selectionEnd===8
+        &&!target.querySelector('[data-n4-view="new"]').hidden;
+    });
+    if(!v4FormStability)absent.push("Northstar department keeps focused form, linked patient and cursor on live refresh");
     const v4Nav=await page.evaluate(()=>{
       const sidebar=document.querySelector(".nav-list"),links=sidebar?.querySelectorAll(".nav-group-departments .enterprise-nav")||[];
       const group=sidebar?.querySelector(".nav-group-departments");
