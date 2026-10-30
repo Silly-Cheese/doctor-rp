@@ -79,12 +79,32 @@ export function mountNorthstarDonations({target,records=[],encounters=[],patient
  const patientOptions=patients.slice().sort((a,b)=>String(names.get(a.id)).localeCompare(String(names.get(b.id))))
   .map(p=>'<option value="'+esc(p.id)+'">'+esc(names.get(p.id)||"Unknown")+' · '+esc(p.mrn||"No MRN")+'</option>').join("");
  host.innerHTML='<header class="nmc-gifts-header"><div><p class="eyebrow">Giving & Support · Simulation</p><h3>Donations and Gifts</h3><p>Record voluntary donations or requests. Only donations marked received count as collected revenue.</p></div>'+
- (manage?'<button type="button" class="primary-button" id="nmcGiftNew" aria-expanded="false">Record donation</button>':"")+'</header>'+
+ '<div class="nmc-gift-header-actions"><button type="button" id="nmcGiftExport">Export CSV</button>'+
+ (manage?'<button type="button" class="primary-button" id="nmcGiftNew" aria-expanded="false">Record donation</button>':"")+'</div></header>'+
  '<div class="nmc-gift-metrics"><div><span>Donations received</span><strong id="nmcGiftReceived">$0.00</strong></div><div><span>Requested / pledged</span><strong id="nmcGiftPledged">$0.00</strong></div><div><span>Received gifts</span><strong id="nmcGiftCount">0</strong></div></div>'+
  '<div id="nmcGiftEditor" class="nmc-gift-editor hidden"></div>'+
  '<div class="nmc-gift-controls"><label>Find donor or reference<input id="nmcGiftSearch" type="search" placeholder="Donor, purpose or receipt #"></label><label>Status<select id="nmcGiftFilter"><option value="">All donations</option><option value="received">Received</option><option value="pledged">Requested / pledged</option><option value="reversed">Reversed</option><option value="cancelled">Cancelled</option></select></label></div>'+
  '<div id="nmcGiftList" class="nmc-gift-list" aria-live="polite"><p class="muted">Loading donations…</p></div>';
  const el=id=>host.querySelector("#"+id),edit=el("nmcGiftEditor"),list=el("nmcGiftList");
+
+ // Donation ledger export includes received and reversed history for reconciliation.
+ const csv=v=>{
+  let value=String(v??"");
+  if(/^[=+\-@]/.test(value))value="'"+value;
+  return '"'+value.replaceAll('"','""').replaceAll(/\r?\n/g," ")+'"';
+ };
+ el("nmcGiftExport").addEventListener("click",()=>{
+  const fields=["Reference","Donor","Patient ID","Purpose","Amount cents","Status","Received method","Created","Received","Reversal reason","Cancellation reason"];
+  const rows=donations.map(d=>[
+   d.receiptNumber,d.donorName,d.patientId||"",d.purpose,d.amountCents,d.status,d.method,
+   fmtDate(d.createdAt),d.receivedAt?fmtDate(d.receivedAt):"",d.reversalReason||"",d.cancelReason||""
+  ]);
+  const text=[fields,...rows].map(row=>row.map(csv).join(",")).join("\r\n")+"\r\n";
+  const url=URL.createObjectURL(new Blob([text],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a");a.href=url;a.download="northstar-donations-ledger.csv";
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);
+ });
+
  let donations=[];
  function displayMetrics(){
   const totals=summarizeBilling(records,encounters,new Date(),donations);
