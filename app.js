@@ -23,6 +23,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 import {billingFieldsMarkup,bindBillingPreview,buildBillingRecord,prepareEncounterBilling} from "./northstar-billing.js";
+import {renderRecordWorkspace} from "./northstar-medical-records.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBPtNWvmmYl-6hFb7NlmNszapMwQH4Xm7I",
@@ -887,7 +888,9 @@ function renderPatientChart(patientId) {
     <section class="chart-section history-section">
       <div class="chart-section-title"><p class="eyebrow">Encounter History</p><h4>Previous Visits</h4></div>
       ${history.length ? `<div class="history-list">${history.map(historyRow).join("")}</div>` : '<div class="chart-empty"><p>No previous encounters recorded.</p></div>'}
-    </section>`;
+    </section>
+    <section class="chart-section history-section" id="nmcRecordWorkspace"></section>`;
+  renderRecordWorkspace({db,patientId,encounters,canEdit:canRegisterPatients(),onNotice:showToast});
 }
 
 function currentEncounterChart(encounter) {
