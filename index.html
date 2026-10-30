@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="northstar-v3.css?v=3.0.1">
   <link rel="stylesheet" href="northstar-v4.css?v=4.0.1">
   <link rel="stylesheet" href="northstar-cleanup.css?v=4.1.0">
+  <link rel="stylesheet" href="northstar-patient-registry.css?v=1">
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -162,7 +163,13 @@
               <div><p class="eyebrow">Master Patient Index</p><h3>Patient Search</h3><p>Search Northstar patient records by name or medical record number.</p></div>
               <button id="newPatientButton" class="primary-button registration-action" type="button">Register Patient</button>
             </div>
-            <div class="search-bar"><span>⌕</span><input id="patientSearchInput" type="search" placeholder="Search by patient name or MRN" autocomplete="off"></div>
+            <div class="nmc-registry-summary" id="patientRegistrySummary" aria-live="polite"></div>
+            <div class="nmc-registry-tools">
+              <label class="search-bar nmc-registry-search"><span aria-hidden="true">⌕</span><input id="patientSearchInput" type="search" placeholder="Search name, MRN, phone, or date of birth" aria-label="Search patient records" autocomplete="off"></label>
+              <label class="nmc-registry-field"><span>Status</span><select id="patientStatusFilter"><option value="all">All patients</option><option value="active">Active encounters</option><option value="waiting">Waiting / triage</option><option value="admitted">Admitted</option><option value="inactive">No active encounter</option><option value="identity">Identity pending</option></select></label>
+              <label class="nmc-registry-field"><span>Sort by</span><select id="patientSortBy"><option value="recent">Most recent</option><option value="name">Name A–Z</option><option value="mrn">Medical record number</option></select></label>
+            </div>
+            <div class="nmc-registry-count" id="patientRegistryCount" aria-live="polite"></div>
             <div id="patientResults"></div>
           </section>
 
