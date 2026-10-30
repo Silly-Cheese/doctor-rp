@@ -424,6 +424,19 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Standard registration MRN reservations: create once, never overwrite.
+    match /patientMrns/{mrn} {
+      allow read: if isActive();
+      allow create: if canManageRegistration()
+        && request.resource.data.keys().hasOnly(['mrn','patientId','createdAt'])
+        && request.resource.data.mrn == mrn
+        && request.resource.data.patientId is string
+        && existsAfter(/databases/$(database)/documents/patients/$(request.resource.data.patientId))
+        && getAfter(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.get('mrn', '') == mrn
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
     match /patients/{patientId} {
       allow read: if isActive();
       allow create: if canManageRegistration()
