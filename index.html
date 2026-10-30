@@ -180,6 +180,11 @@
               <label class="nmc-registry-field"><span>Status</span><select id="patientStatusFilter"><option value="all">All patients</option><option value="active">Active encounters</option><option value="waiting">Waiting / triage</option><option value="admitted">Admitted</option><option value="inactive">No active encounter</option><option value="identity">Identity pending</option></select></label>
               <label class="nmc-registry-field"><span>Sort by</span><select id="patientSortBy"><option value="recent">Most recent</option><option value="name">Name A–Z</option><option value="mrn">Medical record number</option></select></label>
             </div>
+            <div class="nmc-integrity-toolbar"><button type="button" class="secondary-button" id="nmcIntegrityToggle" hidden>Record Integrity Scanner</button></div>
+            <section id="nmcIntegrityPanel" class="nmc-integrity-panel hidden" aria-label="Record integrity results">
+              <div class="nmc-reception-title"><div><p class="eyebrow">Administrator Diagnostics</p><h4>Hospital record integrity</h4><p>Read-only scan for missing patient links, duplicate MRNs and encounter mismatches.</p></div><button id="nmcRunIntegrity" class="primary-button" type="button">Run scan</button></div>
+              <div id="nmcIntegrityOutput" aria-live="polite"><p class="muted">No scan has been run in this session. Existing data will not be changed.</p></div>
+            </section>
             <div class="nmc-registry-count" id="patientRegistryCount" aria-live="polite"></div>
             <div id="patientResults"></div>
           </section>
