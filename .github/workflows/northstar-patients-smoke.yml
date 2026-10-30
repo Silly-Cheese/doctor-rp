@@ -1,0 +1,38 @@
+name: Northstar Patient Workflows
+on:
+  push:
+    paths:
+      - "app.js"
+      - "index.html"
+      - "firestore.rules"
+      - "storage.rules"
+      - "firebase.json"
+      - "northstar-medical-records.js"
+      - "northstar-record-quality.js"
+      - "northstar-attachments.js"
+      - "northstar-patient-registry.css"
+      - "scripts/check-patient-workflows.mjs"
+      - ".github/workflows/northstar-patients-smoke.yml"
+  pull_request:
+    paths:
+      - "app.js"
+      - "index.html"
+      - "firestore.rules"
+      - "storage.rules"
+      - "firebase.json"
+      - "northstar-medical-records.js"
+      - "northstar-record-quality.js"
+      - "northstar-attachments.js"
+      - "northstar-patient-registry.css"
+      - "scripts/check-patient-workflows.mjs"
+      - ".github/workflows/northstar-patients-smoke.yml"
+jobs:
+  patient-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate patient page and modules
+        run: node scripts/check-patient-workflows.mjs
