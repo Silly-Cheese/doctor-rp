@@ -28,3 +28,22 @@
 #patientChartBody .detail-list dd { overflow-wrap:anywhere; }
 #patientChartBody .history-list { max-height:440px; overflow-y:auto; }
 @media(max-width:700px) { #patientChartBody .nmc-chart-overview { grid-template-columns:repeat(2,minmax(0,1fr)); } #patientChartDialog { width:calc(100vw - 12px); max-height:96dvh; } }
+
+#nmcRecordWorkspace { margin-top:16px; }
+.nmc-record-header {display:flex;gap:14px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+.nmc-record-header h4 {margin:3px 0;}
+.nmc-record-header p {margin-bottom:0;}
+.nmc-record-toolbar,.nmc-record-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0;}
+.nmc-record-toolbar label,.nmc-record-fields label,.nmc-record-editor label {display:flex;flex-direction:column;gap:6px;font-size:.85rem;font-weight:600;}
+.nmc-record-toolbar select,.nmc-record-toolbar input,.nmc-record-editor input,.nmc-record-editor select,.nmc-record-editor textarea {width:100%;border:1px solid var(--border,#d8e1e8);border-radius:10px;padding:10px;background:var(--surface,#fff);color:var(--text,#183b4b);font:inherit;min-width:0;}
+.nmc-record-editor {padding:16px;background:var(--surface-secondary,#f6f9fb);border:1px solid var(--border,#d8e1e8);border-radius:14px;margin:12px 0;}
+.nmc-record-editor form {display:grid;gap:12px;}
+.nmc-record-actions {display:flex;justify-content:flex-end;gap:10px;}
+.nmc-record-item {border:1px solid var(--border,#d8e1e8);border-radius:12px;padding:13px 15px;margin-bottom:10px;}
+.nmc-record-item.is-archived{opacity:.75;}
+.nmc-record-item-head{display:flex;justify-content:space-between;gap:12px;align-items:center;}
+.nmc-record-item-head p{font-size:.75rem;color:var(--muted,#64748b);margin:5px 0;}
+.nmc-record-tag{font-size:.7rem;background:var(--surface-secondary,#f1f5f9);border-radius:999px;padding:5px 9px;}
+.nmc-record-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;}
+.nmc-record-item details{margin:10px 0;}
+@media(max-width:650px){.nmc-record-toolbar,.nmc-record-fields{grid-template-columns:1fr;}}
