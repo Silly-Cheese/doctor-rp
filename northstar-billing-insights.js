@@ -1,4 +1,7 @@
-export function summarizeBilling(accounts=[],encounters=[],now=new Date()){
+export function summarizeBilling(accounts=[],encounters=[],now=new Date(),donations=[]){
+ const clinicalCollected=accounts.reduce((a,x)=>a+(x.patientPaidCents||0)+(x.insuranceReceivedCents||0),0);
+ const donationCollected=donations.filter(x=>x.status==="received").reduce((a,x)=>a+(Number(x.amountCents)||0),0);
+ const donationPledged=donations.filter(x=>x.status==="pledged").reduce((a,x)=>a+(Number(x.amountCents)||0),0);
  const pending=new Set(accounts.map(x=>x.encounterId));
  const unbilled=encounters.filter(x=>x.status==="discharged"&&x.patientId&&!pending.has(x.id));
  const today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,"0"),String(now.getDate()).padStart(2,"0")].join("-");
@@ -7,7 +10,7 @@ export function summarizeBilling(accounts=[],encounters=[],now=new Date()){
  return {
   invoices:accounts.length,unbilled:unbilled.length,overdue:due.length,claimsToReview:claimPending.length,
   totalCharges:accounts.reduce((a,x)=>a+(x.chargeCents||0),0),
-  collected:accounts.reduce((a,x)=>a+(x.patientPaidCents||0)+(x.insuranceReceivedCents||0),0),
+  clinicalCollected,donationCollected,donationPledged,collected:clinicalCollected+donationCollected,
   waived:accounts.reduce((a,x)=>a+(x.waivedCents||0),0),
   patientBalance:accounts.reduce((a,x)=>a+(x.patientBalanceCents||0),0),
   insuranceBalance:accounts.reduce((a,x)=>a+(x.insurerBalanceCents||0),0),
