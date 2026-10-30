@@ -18,6 +18,7 @@ import {
   getDocs,
   serverTimestamp,
   writeBatch,
+  runTransaction,
   updateDoc,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -925,7 +926,85 @@ function historyRow(encounter) {
     </div>`;
 }
 
-function openCheckIn(patientId) {
+// Reception lookup operates inside the existing Patients page.
+const normalizeIdentity = value => String(value || "").trim().toLocaleLowerCase().replace(/\s+/g," ");
+let lastReceptionLookup = null;
+function updateReceptionMode() {
+  const byName=document.querySelector("#nmcReceptionSearchMode").value==="name";
+  document.querySelector("#nmcReceptionNameWrap").classList.toggle("hidden",!byName);
+  document.querySelector("#nmcReceptionDobWrap").classList.toggle("hidden",byName);
+  document.querySelector("#nmcReceptionResults").innerHTML='<p class="muted">Search by the selected method to find an existing patient.</p>';
+  lastReceptionLookup=null;
+}
+function performReceptionSearch(event) {
+  event?.preventDefault();
+  const mode=document.querySelector("#nmcReceptionSearchMode").value;
+  const value=mode==="dob"?document.querySelector("#nmcReceptionDob").value:normalizeIdentity(document.querySelector("#nmcReceptionName").value);
+  const target=document.querySelector("#nmcReceptionResults");
+  if(mode==="dob"&&!/^\d{4}-\d{2}-\d{2}$/.test(value)){
+    target.innerHTML='<p class="muted">Enter a complete date of birth before searching.</p>';return;
+  }
+  if(mode==="name"&&value.length<2){
+    target.innerHTML='<p class="muted">Enter at least two letters of the patient name.</p>';return;
+  }
+  lastReceptionLookup={method:mode,value};
+  const matches=patients.filter(p=>mode==="dob"
+    ?p.dob===value
+    :normalizeIdentity(`${p.firstName||""} ${p.lastName||""}`).includes(value)||normalizeIdentity(`${p.lastName||""}, ${p.firstName||""}`).includes(value)).slice(0,30);
+  target.innerHTML=matches.length?
+    `<p class="muted">${matches.length} possible match${matches.length===1?"":"es"}. Select and confirm the correct patient.</p><div class="nmc-reception-matches">${matches.map(p=>`<button type="button" class="nmc-reception-match" data-nmc-reception-patient="${safe(p.id)}"><span><strong>${safe(p.firstName)} ${safe(p.lastName)}</strong><small>MRN: ${safe(p.mrn||"Unassigned")} · DOB: ${safe(p.dob?formatDateOnly(p.dob):"Unknown")} · ${safe(p.identityStatus==="unidentified"?"Unidentified":"Registered")}</small></span><span>Continue →</span></button>`).join("")}</div>`:
+    '<p class="muted">No matching record found. Verify the details before registering a new patient.</p>';
+}
+function updateCheckInVerificationMode(){
+  const mode=document.querySelector("#nmcIdentityMethod").value;
+  for(const [kind,id] of [["dob","nmcVerifyDobWrap"],["name","nmcVerifyNameWrap"],["temporary","nmcVerifyTempWrap"]])
+    document.getElementById(id).classList.toggle("hidden",mode!==kind);
+  document.querySelector("#nmcIdentityMessage").textContent=mode==="temporary"
+    ?"Emergency identifier only. This does not establish the patient’s legal identity."
+    :"Confirm the supplied value against the selected patient record.";
+}
+function verifiedCheckInIdentity(patient){
+  if(!document.querySelector("#nmcVerifyConfirmed").checked)throw new Error("Confirm the patient's identity before checking in.");
+  const mode=document.querySelector("#nmcIdentityMethod").value;
+  if(mode==="dob"){
+    const dob=document.querySelector("#nmcVerifyDob").value;
+    if(!dob||!patient.dob||dob!==patient.dob)throw new Error("Date of birth does not match the selected patient.");
+    return "date-of-birth";
+  }
+  if(mode==="name"){
+    const searched=normalizeIdentity(document.querySelector("#nmcVerifyName").value);
+    const expected=normalizeIdentity(`${patient.firstName||""} ${patient.lastName||""}`);
+    if(searched.length<3||searched!==expected)throw new Error("Search and confirm the patient's full registered name.");
+    return "name-search";
+  }
+  if(mode==="temporary"&&patient.identityStatus==="unidentified"){
+    if(normalizeIdentity(document.querySelector("#nmcVerifyTemp").value)!==normalizeIdentity(patient.mrn))
+      throw new Error("Temporary medical record number does not match.");
+    return "temporary-emergency-id";
+  }
+  throw new Error("Choose an accepted patient verification method.");
+}
+document.querySelector("#nmcReceptionToggle").addEventListener("click",()=>{
+  const desk=document.querySelector("#nmcReceptionDesk");
+  desk.classList.toggle("hidden");
+  document.querySelector("#nmcReceptionToggle").setAttribute("aria-expanded",String(!desk.classList.contains("hidden")));
+  if(!desk.classList.contains("hidden"))document.querySelector("#nmcReceptionSearchMode").focus();
+});
+document.querySelector("#nmcReceptionSearchMode").addEventListener("change",updateReceptionMode);
+document.querySelector("#nmcReceptionSearchForm").addEventListener("submit",performReceptionSearch);
+document.querySelector("#nmcEmergencyShortcut").addEventListener("click",()=>{
+  const launch=document.querySelector("#nsEmergencyLaunch");
+  if(launch&&!launch.hidden)launch.click();
+  else showToast("Emergency intake is not available for this staff account.");
+});
+document.querySelector("#nmcReceptionResults").addEventListener("click",event=>{
+  const btn=event.target.closest("[data-nmc-reception-patient]");
+  if(!btn||!canRegisterPatients()||!lastReceptionLookup)return;
+  openCheckIn(btn.dataset.nmcReceptionPatient,lastReceptionLookup);
+});
+document.querySelector("#nmcIdentityMethod").addEventListener("change",updateCheckInVerificationMode);
+
+function openCheckIn(patientId,verification=null) {
   if (!canRegisterPatients()) return;
   const patient = patients.find((item) => item.id === patientId);
   if (!patient) return;
@@ -940,78 +1019,73 @@ function openCheckIn(patientId) {
   selectedPatientId = patientId;
   els.checkInPatientLabel.innerHTML = `<strong>${safe(patient.lastName)}, ${safe(patient.firstName)}</strong><span>${safe(patient.mrn)} · DOB ${safe(formatDateOnly(patient.dob))}</span>`;
   els.checkInForm.reset();
+  const method=verification?.method==="dob"?"dob":verification?.method==="name"?"name":patient.identityStatus==="unidentified"?"temporary":"dob";
+  const select=document.querySelector("#nmcIdentityMethod");
+  select.querySelector('[value="temporary"]').hidden=patient.identityStatus!=="unidentified";
+  select.value=method;
+  if(verification?.method==="dob")document.querySelector("#nmcVerifyDob").value=verification.value;
+  if(verification?.method==="name")document.querySelector("#nmcVerifyName").value=`${patient.firstName||""} ${patient.lastName||""}`.trim();
+  if(method==="temporary")document.querySelector("#nmcVerifyTemp").value=patient.mrn||"";
+  updateCheckInVerificationMode();
   els.checkInDialog.showModal();
 }
 
-async function checkInPatient(event) {
+async function checkInPatient(event){
   event.preventDefault();
-  if (!selectedPatientId || !canRegisterPatients()) return;
-  const patient = patients.find((item) => item.id === selectedPatientId);
-  if (!patient) return;
-  if (patient.vitalStatus === "deceased" || patient.currentStatus === "deceased") {
-    showToast("Check-in blocked: this patient is recorded as deceased.");
+  if(!selectedPatientId||!canRegisterPatients())return;
+  const patient=patients.find(item=>item.id===selectedPatientId);
+  if(!patient)return;
+  const submit=els.checkInForm.querySelector('button[type="submit"]');
+  submit.disabled=true;submit.textContent="Checking In…";
+  try{
+    const verificationMethod=verifiedCheckInIdentity(patient);
+    const complaint=document.querySelector("#chiefComplaint").value.trim();
+    if(!complaint)throw new Error("Enter the reason for the patient's visit.");
+    const arrivalMethod=document.querySelector("#arrivalMethod").value;
+    const initialPriority=document.querySelector("#initialPriority").value;
+    const patientRef=doc(db,"patients",patient.id);
+    const encounterRef=doc(collection(db,"encounters"));
+    const auditRef=doc(collection(db,"auditEvents"));
+    await runTransaction(db,async transaction=>{
+      const snapshot=await transaction.get(patientRef);
+      if(!snapshot.exists())throw new Error("Patient record no longer exists.");
+      const live=snapshot.data();
+      if(live.vitalStatus==="deceased"||live.currentStatus==="deceased")
+        throw new Error("This patient is recorded as deceased.");
+      if(live.activeEncounterId||activeEncounterForPatient(patient.id))throw new Error("active-encounter");
+      if(verificationMethod==="date-of-birth"&&live.dob!==document.querySelector("#nmcVerifyDob").value)
+        throw new Error("Date of birth changed. Verify the patient again.");
+      if(verificationMethod==="name-search"&&normalizeIdentity(`${live.firstName||""} ${live.lastName||""}`)!==normalizeIdentity(document.querySelector("#nmcVerifyName").value))
+        throw new Error("Name changed. Search the patient again.");
+      if(verificationMethod==="temporary-emergency-id"&&(live.identityStatus!=="unidentified"||normalizeIdentity(live.mrn)!==normalizeIdentity(document.querySelector("#nmcVerifyTemp").value)))
+        throw new Error("Temporary identity must be verified again.");
+      transaction.set(encounterRef,{
+        patientId:patient.id,mrn:live.mrn,patientName:`${live.lastName||""}, ${live.firstName||""}`,
+        department:"Emergency Department",chiefComplaint:complaint,arrivalMethod,initialPriority,
+        status:"waiting",room:null,arrivalAt:serverTimestamp(),
+        checkedInBy:auth.currentUser.uid,checkedInByName:currentStaff.displayName,
+        identityVerificationMethod:verificationMethod,identityVerifiedBy:auth.currentUser.uid,
+        identityVerifiedAt:serverTimestamp(),updatedAt:serverTimestamp()
+      });
+      transaction.update(patientRef,{
+        activeEncounterId:encounterRef.id,currentStatus:"checked-in",
+        currentEncounterStatus:"waiting",lastCheckInAt:serverTimestamp(),updatedAt:serverTimestamp()
+      });
+      transaction.set(auditRef,{
+        type:"patient-checked-in",actorUid:auth.currentUser.uid,
+        actorName:currentStaff.displayName,patientId:patient.id,encounterId:encounterRef.id,
+        verificationMethod,at:serverTimestamp()
+      });
+    });
     els.checkInDialog.close();
-    return;
-  }
-
-  const submit = els.checkInForm.querySelector("button[type='submit']");
-  submit.disabled = true;
-  submit.textContent = "Checking In…";
-
-  try {
-    if (activeEncounterForPatient(patient.id)) throw new Error("active-encounter");
-
-    const encounterRef = doc(collection(db, "encounters"));
-    const auditRef = doc(collection(db, "auditEvents"));
-    const batch = writeBatch(db);
-    const complaint = document.querySelector("#chiefComplaint").value.trim();
-    const arrivalMethod = document.querySelector("#arrivalMethod").value;
-    const initialPriority = document.querySelector("#initialPriority").value;
-
-    batch.set(encounterRef, {
-      patientId: patient.id,
-      mrn: patient.mrn,
-      patientName: `${patient.lastName}, ${patient.firstName}`,
-      department: "Emergency Department",
-      chiefComplaint: complaint,
-      arrivalMethod,
-      initialPriority,
-      status: "waiting",
-      room: null,
-      arrivalAt: serverTimestamp(),
-      checkedInBy: auth.currentUser.uid,
-      checkedInByName: currentStaff.displayName,
-      updatedAt: serverTimestamp()
-    });
-
-    batch.update(doc(db, "patients", patient.id), {
-      activeEncounterId: encounterRef.id,
-      currentStatus: "checked-in",
-      currentEncounterStatus: "waiting",
-      lastCheckInAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-
-    batch.set(auditRef, {
-      type: "patient-checked-in",
-      actorUid: auth.currentUser.uid,
-      actorName: currentStaff.displayName,
-      patientId: patient.id,
-      encounterId: encounterRef.id,
-      at: serverTimestamp()
-    });
-
-    await batch.commit();
-    els.checkInDialog.close();
-    if (els.patientChartDialog.open) els.patientChartDialog.close();
-    showToast(`${patient.firstName} ${patient.lastName} checked in.`);
+    if(els.patientChartDialog.open)els.patientChartDialog.close();
+    showToast("Patient checked in with identity verification.");
     openSection("waiting");
-  } catch (error) {
-    showToast(error.message === "active-encounter" ? "This patient already has an active encounter." : friendlyError(error));
-  } finally {
-    submit.disabled = false;
-    submit.textContent = "Complete Check-In";
-  }
+  }catch(error){
+    if(error.message==="active-encounter")showToast("This patient already has an active encounter.");
+    else if(error?.code)showToast(friendlyError(error));
+    else showToast(error.message||"Unable to complete check-in.");
+  }finally{submit.disabled=false;submit.textContent="Complete Check-In";}
 }
 
 function openTriage(encounterId) {
