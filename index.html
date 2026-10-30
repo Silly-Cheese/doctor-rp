@@ -258,6 +258,12 @@
            <p id="nmcIdentityMessage" class="muted" role="status"></p>
          </fieldset>
         <label><span>Chief complaint</span><textarea id="chiefComplaint" rows="3" required placeholder="Reason for visit"></textarea></label>
+         <fieldset class="nmc-identity-fieldset nmc-reception-checklist"><legend>Reception details</legend>
+           <div class="field-row"><label><span>Visit category</span><select id="nmcVisitCategory"><option value="emergency">Emergency</option><option value="walk-in">Walk-in visit</option><option value="scheduled">Scheduled arrival</option><option value="transfer">Facility transfer</option></select></label>
+           <label><span>Reception notes (optional)</span><textarea id="nmcReceptionNote" rows="2" maxlength="500" placeholder="Arrival, paperwork or access needs — no sensitive clinical details"></textarea></label></div>
+           <label class="nmc-reception-attest"><input type="checkbox" id="nmcContactReviewed"> Contact information reviewed with patient or accompanying party</label>
+           <label class="nmc-reception-attest"><input type="checkbox" id="nmcInterpreterRequested"> Interpreter or language assistance requested</label>
+         </fieldset>
         <div class="field-row">
           <label><span>Arrival method</span><select id="arrivalMethod" required><option>Walk-in</option><option>Private vehicle</option><option>EMS</option><option>Police</option><option>Transfer</option></select></label>
           <label><span>Initial priority</span><select id="initialPriority"><option value="routine">Routine</option><option value="urgent">Urgent</option><option value="critical">Critical</option></select></label>
