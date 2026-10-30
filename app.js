@@ -898,7 +898,7 @@ function renderPatientChart(patientId) {
     <section class="chart-section history-section" id="nmcRecordWorkspace"></section>
     <section class="chart-section history-section" id="nmcAttachmentVault"></section>`;
   renderRecordWorkspace({db,patientId,encounters,canEdit:canRegisterPatients() && (currentStaff?.role === "administrator" || currentStaff?.permissions?.editPatients !== false),onNotice:showToast});
-  renderPatientRecordQuality({db,patient,patients,encounters,canFlag:canRegisterPatients(),onNotice:showToast});
+  renderPatientRecordQuality({db,patient,patients,encounters,canFlag:canRegisterPatients(),canResolve:currentStaff?.role === "administrator",onNotice:showToast});
   renderAttachmentVault({db,patient,encounters,canEdit:canRegisterPatients() && (currentStaff?.role === "administrator" || currentStaff?.permissions?.editPatients !== false),onNotice:showToast});
 }
 
@@ -937,6 +937,7 @@ function historyRow(encounter) {
 // Reception lookup operates inside the existing Patients page.
 const normalizeIdentity = value => String(value || "").trim().toLocaleLowerCase().replace(/\s+/g," ");
 let lastReceptionLookup = null;
+let currentCheckInNameSearch = false;
 function updateReceptionMode() {
   const byName=document.querySelector("#nmcReceptionSearchMode").value==="name";
   document.querySelector("#nmcReceptionNameWrap").classList.toggle("hidden",!byName);
@@ -980,6 +981,7 @@ function verifiedCheckInIdentity(patient){
     return "date-of-birth";
   }
   if(mode==="name"){
+    if(!currentCheckInNameSearch)throw new Error("Search by patient name in Reception before using name verification.");
     const searched=normalizeIdentity(document.querySelector("#nmcVerifyName").value);
     const expected=normalizeIdentity(`${patient.firstName||""} ${patient.lastName||""}`);
     if(searched.length<3||searched!==expected)throw new Error("Search and confirm the patient's full registered name.");
@@ -1025,6 +1027,7 @@ function openCheckIn(patientId,verification=null) {
     return;
   }
   selectedPatientId = patientId;
+  currentCheckInNameSearch = verification?.method === "name";
   els.checkInPatientLabel.innerHTML = `<strong>${safe(patient.lastName)}, ${safe(patient.firstName)}</strong><span>${safe(patient.mrn)} · DOB ${safe(formatDateOnly(patient.dob))}</span>`;
   els.checkInForm.reset();
   const method=verification?.method==="dob"?"dob":verification?.method==="name"?"name":patient.identityStatus==="unidentified"?"temporary":"dob";
