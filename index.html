@@ -161,8 +161,19 @@
           <section id="patientsSection" class="content-section hidden">
             <div class="section-heading">
               <div><p class="eyebrow">Master Patient Index</p><h3>Patient Search</h3><p>Search Northstar patient records by name or medical record number.</p></div>
-              <button id="newPatientButton" class="primary-button registration-action" type="button">Register Patient</button>
+              <div class="nmc-reception-heading-actions"><button id="nmcReceptionToggle" class="secondary-button registration-action" type="button" aria-expanded="false" aria-controls="nmcReceptionDesk">Reception Check-In</button><button id="newPatientButton" class="primary-button registration-action" type="button">Register Patient</button></div>
             </div>
+            <section id="nmcReceptionDesk" class="nmc-reception-desk hidden" aria-label="Reception check-in">
+              <div class="nmc-reception-title"><div><p class="eyebrow">Front Desk · Existing Patients</p><h4>Find and check in a patient</h4><p>Search by date of birth or name. Choose the correct record before creating a visit.</p></div><button id="nmcEmergencyShortcut" class="secondary-button" type="button">Unidentified emergency</button></div>
+              <form id="nmcReceptionSearchForm" class="nmc-reception-form">
+                <label>Search method<select id="nmcReceptionSearchMode"><option value="dob">Date of birth</option><option value="name">Patient name</option></select></label>
+                <label id="nmcReceptionDobWrap">Date of birth<input id="nmcReceptionDob" type="date"></label>
+                <label id="nmcReceptionNameWrap" class="hidden">Patient name<input id="nmcReceptionName" type="search" placeholder="First and/or last name" autocomplete="off"></label>
+                <button type="submit" class="primary-button">Search records</button>
+              </form>
+              <div id="nmcReceptionResults" aria-live="polite"><p class="muted">Choose a search method to locate an existing record.</p></div>
+              <p class="nmc-reception-help">No match? Verify spelling or date of birth before registering a new patient. For an unidentified emergency use the emergency workflow, without inventing a DOB.</p>
+            </section>
             <div class="nmc-registry-summary" id="patientRegistrySummary" aria-live="polite"></div>
             <div class="nmc-registry-tools">
               <label class="search-bar nmc-registry-search"><span aria-hidden="true">⌕</span><input id="patientSearchInput" type="search" placeholder="Search name, MRN, phone, or date of birth" aria-label="Search patient records" autocomplete="off"></label>
@@ -230,6 +241,17 @@
       <div class="modal-header"><div><p class="eyebrow">Emergency Department</p><h3>Check In Patient</h3></div><button class="icon-button" type="button" data-close-dialog="checkInDialog" aria-label="Close">×</button></div>
       <div class="modal-body form-grid">
         <div id="checkInPatientLabel" class="patient-context"></div>
+         <fieldset class="nmc-identity-fieldset"><legend>Reception identity check</legend>
+           <p>Enter an exact date of birth <strong>or</strong> confirm the name from a patient search. Select the correct record before proceeding.</p>
+           <div class="field-row">
+             <label><span>Verification method</span><select id="nmcIdentityMethod"><option value="dob">Date of birth</option><option value="name">Searched patient name</option><option value="temporary" hidden>Unidentified emergency identifier</option></select></label>
+             <label id="nmcVerifyDobWrap"><span>Verified DOB</span><input id="nmcVerifyDob" type="date"></label>
+             <label id="nmcVerifyNameWrap" class="hidden"><span>Searched full name</span><input id="nmcVerifyName" type="search" placeholder="First and last name" autocomplete="off"></label>
+             <label id="nmcVerifyTempWrap" class="hidden"><span>Temporary MRN</span><input id="nmcVerifyTemp" type="text" placeholder="NMC-TEMP-..."></label>
+           </div>
+           <label class="nmc-reception-attest"><input id="nmcVerifyConfirmed" type="checkbox" required> I matched the patient with the selected record and verified their identity information.</label>
+           <p id="nmcIdentityMessage" class="muted" role="status"></p>
+         </fieldset>
         <label><span>Chief complaint</span><textarea id="chiefComplaint" rows="3" required placeholder="Reason for visit"></textarea></label>
         <div class="field-row">
           <label><span>Arrival method</span><select id="arrivalMethod" required><option>Walk-in</option><option>Private vehicle</option><option>EMS</option><option>Police</option><option>Transfer</option></select></label>
