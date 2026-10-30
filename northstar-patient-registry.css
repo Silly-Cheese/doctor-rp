@@ -92,3 +92,14 @@
 #nmcIntegrityOutput li{margin:6px 0;}
 .nmc-identity-case{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--border,#d9e2e9);}
 .nmc-identity-case span{flex:1;min-width:180px;}
+
+
+#nmcPatientContacts{margin-top:16px;}
+.nmc-contact-edit{border:1px solid var(--border,#d9e2e9);border-radius:11px;background:var(--surface-secondary,#f7fafc);padding:12px 15px;}
+.nmc-contact-edit>summary{cursor:pointer;font-weight:600;font-size:.86rem;}
+.nmc-contact-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px;}
+.nmc-contact-form label{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:.8rem;font-weight:600;}
+.nmc-contact-form input{width:100%;min-height:42px;padding:9px;border:1px solid var(--border,#d9e2e9);border-radius:8px;background:var(--surface,#fff);color:var(--text,#17354b);}
+.nmc-contact-form p{grid-column:1/-1;margin:0;}
+.nmc-contact-form button{justify-self:start;}
+@media(max-width:600px){.nmc-contact-form{grid-template-columns:1fr;}}
