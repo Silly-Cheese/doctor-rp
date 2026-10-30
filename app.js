@@ -785,7 +785,11 @@ async function registerPatient(event) {
     const patientRef = doc(collection(db, "patients"));
     const auditRef = doc(collection(db, "auditEvents"));
     const mrn = generateMrn();
+    // Reservation documents prevent two simultaneous standard registrations
+    // from silently receiving the same newly generated medical record number.
+    const mrnReservationRef = doc(db, "patientMrns", mrn);
     const batch = writeBatch(db);
+    batch.set(mrnReservationRef,{mrn,patientId:patientRef.id,createdAt:serverTimestamp()});
 
     batch.set(patientRef, {
       mrn,
