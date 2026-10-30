@@ -313,7 +313,7 @@ service cloud.firestore {
       allow create: if canEditPatients()
         && exists(/databases/$(database)/documents/patients/$(patientId))
         && get(/databases/$(database)/documents/patients/$(patientId)).data.get('recordConfidential', false) == false
-        && request.resource.data.keys().hasOnly(['patientId','category','encounterId','title','body','status','version','createdAt','updatedAt'])
+        && request.resource.data.keys().hasOnly(['patientId','category','encounterId','title','body','status','version','amendsId','createdAt','updatedAt'])
         && request.resource.data.patientId == patientId
         && request.resource.data.category in ['Intake','Clinical note','Discharge','Referral','Consent','Imaging report','Laboratory report','Other']
         && request.resource.data.encounterId is string
@@ -324,7 +324,22 @@ service cloud.firestore {
         && request.resource.data.body.size() >= 3
         && request.resource.data.body.size() <= 12000
         && request.resource.data.status == 'active'
-        && request.resource.data.version == 1
+        && request.resource.data.version is int
+        && request.resource.data.version >= 1
+        && request.resource.data.version <= 50
+        && (
+          (request.resource.data.version == 1 && request.resource.data.get('amendsId', '') == '')
+          || (
+            request.resource.data.version > 1
+            && request.resource.data.get('amendsId', '') is string
+            && request.resource.data.amendsId != documentId
+            && exists(/databases/$(database)/documents/patients/$(patientId)/recordDocuments/$(request.resource.data.amendsId))
+            && get(/databases/$(database)/documents/patients/$(patientId)/recordDocuments/$(request.resource.data.amendsId)).data.get('patientId', '') == patientId
+            && get(/databases/$(database)/documents/patients/$(patientId)/recordDocuments/$(request.resource.data.amendsId)).data.get('version', 0) == request.resource.data.version - 1
+            && get(/databases/$(database)/documents/patients/$(patientId)/recordDocuments/$(request.resource.data.amendsId)).data.get('category', '') == request.resource.data.category
+            && get(/databases/$(database)/documents/patients/$(patientId)/recordDocuments/$(request.resource.data.amendsId)).data.get('encounterId', '') == request.resource.data.encounterId
+          )
+        )
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
       allow update: if canEditPatients()
