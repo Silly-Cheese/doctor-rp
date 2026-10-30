@@ -1,0 +1,40 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function staffPath() {
+      return /databases/(default)/documents/users/$(request.auth.uid);
+    }
+    function patientPath(patientId) {
+      return /databases/(default)/documents/patients/$(patientId);
+    }
+    function isActive() {
+      return request.auth != null
+        && firestore.exists(staffPath())
+        && firestore.get(staffPath()).data.status == 'active';
+    }
+    function isAdmin() {
+      return isActive() && firestore.get(staffPath()).data.role == 'administrator';
+    }
+    function canEdit() {
+      return isActive()
+        && firestore.get(staffPath()).data.role in ['administrator', 'physician', 'nurse', 'registration']
+        && (isAdmin() || firestore.get(staffPath()).data.get('permissions', {}).get('editPatients', true) == true);
+    }
+    function canReadPatient(patientId) {
+      return isActive() && firestore.exists(patientPath(patientId))
+        && (firestore.get(patientPath(patientId)).data.get('recordConfidential', false) == false || isAdmin());
+    }
+    function canUploadPatient(patientId) {
+      return canEdit() && firestore.exists(patientPath(patientId))
+        && firestore.get(patientPath(patientId)).data.get('recordConfidential', false) == false;
+    }
+    match /rp-patient-documents/{patientId}/{documentId}/file {
+      allow read: if canReadPatient(patientId);
+      allow create: if canUploadPatient(patientId)
+        && request.resource.size > 0
+        && request.resource.size <= 5242880
+        && request.resource.contentType in ['application/pdf','image/png','image/jpeg','text/plain'];
+      allow update, delete: if false;
+    }
+  }
+}
