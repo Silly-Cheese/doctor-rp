@@ -600,7 +600,9 @@ function renderClinicalState() {
   renderPatientSearch();
   renderWaitingRoom();
   renderActiveEncounters();
-  if (selectedPatientId && els.patientChartDialog.open) renderPatientChart(selectedPatientId);
+  // Keep unfinished chart documents and file selections intact during realtime updates.
+  const editingDocument=els.patientChartBody?.querySelector(".nmc-record-editor:not(.hidden)");
+  if(selectedPatientId && els.patientChartDialog.open && !editingDocument)renderPatientChart(selectedPatientId);
 }
 
 function emptyPanel(title, text) {
