@@ -25,6 +25,7 @@ import {
 
 import {billingFieldsMarkup,bindBillingPreview,buildBillingRecord,prepareEncounterBilling} from "./northstar-billing.js";
 import {renderRecordWorkspace} from "./northstar-medical-records.js";
+import {renderPatientRecordQuality} from "./northstar-record-quality.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBPtNWvmmYl-6hFb7NlmNszapMwQH4Xm7I",
@@ -890,8 +891,10 @@ function renderPatientChart(patientId) {
       <div class="chart-section-title"><p class="eyebrow">Encounter History</p><h4>Previous Visits</h4></div>
       ${history.length ? `<div class="history-list">${history.map(historyRow).join("")}</div>` : '<div class="chart-empty"><p>No previous encounters recorded.</p></div>'}
     </section>
+    <section class="chart-section history-section" id="nmcPatientQuality"></section>
     <section class="chart-section history-section" id="nmcRecordWorkspace"></section>`;
-  renderRecordWorkspace({db,patientId,encounters,canEdit:canRegisterPatients(),onNotice:showToast});
+  renderRecordWorkspace({db,patientId,encounters,canEdit:canRegisterPatients() && (currentStaff?.role === "administrator" || currentStaff?.permissions?.editPatients !== false),onNotice:showToast});
+  renderPatientRecordQuality({db,patient,patients,encounters,canFlag:canRegisterPatients(),onNotice:showToast});
 }
 
 function currentEncounterChart(encounter) {
