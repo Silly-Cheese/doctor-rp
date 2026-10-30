@@ -35,3 +35,15 @@
 .nmc-gift-error{color:#9c3131;background:#fdf2f2}
 @media(max-width:740px){.nmc-gifts-workspace{padding:16px}.nmc-gift-metrics{gap:7px}.nmc-gift-metrics>div{padding:10px}.nmc-gift-metrics strong{font-size:1rem}.nmc-gift-record-top{align-items:flex-start}.nmc-gift-fields,.nmc-gift-controls{grid-template-columns:1fr}}
 @media(max-width:440px){.nmc-gift-metrics{grid-template-columns:1fr}.nmc-gift-record-top{flex-direction:column}.nmc-gift-record-top>div:last-child{text-align:left}.nmc-gift-actions{flex-direction:column;align-items:stretch}}
+
+
+.nmc-gift-dialog{width:min(95vw,480px);max-height:92dvh;border:0;border-radius:16px;padding:0;box-shadow:0 22px 80px #0d314055;background:#fff;color:#193c50}
+.nmc-gift-dialog::backdrop{background:#091a2788}
+.nmc-gift-dialog-content{padding:24px;display:grid;gap:15px}
+.nmc-gift-dialog-content header{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}
+.nmc-gift-dialog-content h3{font-size:1.18rem;margin:3px 0 6px}
+.nmc-gift-dialog-content header p{margin:0;color:#688092}
+.nmc-gift-close{border:0;border-radius:9px;padding:4px 12px;background:#eff5f8;font-size:1.4rem;cursor:pointer}
+.nmc-gift-dialog-hint{margin:0;font-size:.84rem;color:#587487;line-height:1.6}
+.nmc-gift-dialog-content label{display:grid;gap:7px;font-size:.82rem;font-weight:700}
+.nmc-gift-dialog-content select,.nmc-gift-dialog-content textarea{width:100%;padding:10px;border:1px solid #cadce5;border-radius:9px;font:inherit;background:#fff;color:#193c50}
