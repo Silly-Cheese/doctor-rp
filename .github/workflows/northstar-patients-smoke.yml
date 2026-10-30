@@ -12,6 +12,11 @@ on:
       - "northstar-attachments.js"
       - "northstar-patient-registry.css"
       - "scripts/check-patient-workflows.mjs"
+      - "scripts/check-donation-revenue.mjs"
+      - "northstar-donations.js"
+      - "northstar-donations.css"
+      - "northstar-billing.js"
+      - "northstar-billing-insights.js"
       - ".github/workflows/northstar-patients-smoke.yml"
   pull_request:
     paths:
@@ -25,6 +30,11 @@ on:
       - "northstar-attachments.js"
       - "northstar-patient-registry.css"
       - "scripts/check-patient-workflows.mjs"
+      - "scripts/check-donation-revenue.mjs"
+      - "northstar-donations.js"
+      - "northstar-donations.css"
+      - "northstar-billing.js"
+      - "northstar-billing-insights.js"
       - ".github/workflows/northstar-patients-smoke.yml"
 jobs:
   patient-checks:
@@ -36,3 +46,5 @@ jobs:
           node-version: "22"
       - name: Validate patient page and modules
         run: node scripts/check-patient-workflows.mjs
+      - name: Validate simulated donation revenue
+        run: node scripts/check-donation-revenue.mjs
