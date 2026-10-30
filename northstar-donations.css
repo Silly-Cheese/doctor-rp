@@ -47,3 +47,8 @@
 .nmc-gift-dialog-hint{margin:0;font-size:.84rem;color:#587487;line-height:1.6}
 .nmc-gift-dialog-content label{display:grid;gap:7px;font-size:.82rem;font-weight:700}
 .nmc-gift-dialog-content select,.nmc-gift-dialog-content textarea{width:100%;padding:10px;border:1px solid #cadce5;border-radius:9px;font:inherit;background:#fff;color:#193c50}
+
+.nmc-gift-header-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.nmc-gift-header-actions button{padding:10px 14px;border:1px solid #cbdce5;border-radius:10px;color:#1b5672;background:#fff;font-weight:700;cursor:pointer}
+.nmc-gift-header-actions .primary-button{color:#fff;background:#0d587b;border-color:#0d587b}
+@media(max-width:530px){.nmc-gift-header-actions{width:100%}.nmc-gift-header-actions button{flex:1}}
