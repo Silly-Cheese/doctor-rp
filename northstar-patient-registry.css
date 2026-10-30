@@ -47,3 +47,24 @@
 .nmc-record-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;}
 .nmc-record-item details{margin:10px 0;}
 @media(max-width:650px){.nmc-record-toolbar,.nmc-record-fields{grid-template-columns:1fr;}}
+
+
+/* Northstar Reception — same Patients section and existing check-in dialog. */
+.nmc-reception-heading-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.nmc-reception-desk{padding:18px 20px;border:1px solid var(--border,#d4e0e8);background:var(--surface,#fff);border-radius:16px;box-shadow:0 8px 30px rgba(6,40,65,.05);margin:14px 0 18px;}
+.nmc-reception-title{display:flex;align-items:start;justify-content:space-between;gap:15px;flex-wrap:wrap;}
+.nmc-reception-title h4{margin:2px 0 6px;font-size:1.18rem}.nmc-reception-title p{margin:0;}
+.nmc-reception-form{display:grid;grid-template-columns:180px minmax(200px,1fr) auto;align-items:end;gap:12px;margin:18px 0 12px;}
+.nmc-reception-form label{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:.81rem;font-weight:600;}
+.nmc-reception-form input,.nmc-reception-form select,.nmc-identity-fieldset input,.nmc-identity-fieldset select{min-height:42px;max-width:100%;width:100%;padding:9px;border:1px solid var(--border,#d4e0e8);border-radius:9px;background:var(--surface,#fff);color:var(--text,#17354b);}
+.nmc-reception-matches{display:grid;gap:8px;margin:8px 0;}
+.nmc-reception-match{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:12px 14px;border:1px solid var(--border,#d4e0e8);border-radius:10px;background:var(--surface,#fff);color:var(--text,#17354b);text-align:left;cursor:pointer;}
+.nmc-reception-match:hover,.nmc-reception-match:focus-visible{background:rgba(35,125,179,.07);border-color:#83b7cf;}
+.nmc-reception-match strong,.nmc-reception-match small{display:block}.nmc-reception-match small{margin-top:4px;color:var(--muted,#657c8c);line-height:1.5;}
+.nmc-reception-help{font-size:.79rem;margin-top:12px;color:var(--muted,#657c8c);}
+.nmc-identity-fieldset{border:1px solid var(--border,#d4e0e8);border-radius:12px;padding:14px;min-width:0;}
+.nmc-identity-fieldset legend{font-weight:700;padding:0 6px;}
+.nmc-identity-fieldset>p{font-size:.83rem;color:var(--muted,#657c8c);}
+.nmc-reception-attest{display:flex!important;flex-direction:row!important;align-items:flex-start!important;gap:9px!important;font-size:.83rem!important;line-height:1.45;}
+.nmc-reception-attest input{width:17px!important;min-height:17px!important;flex:0 0 17px;margin:2px 0;}
+@media(max-width:750px){.nmc-reception-form{grid-template-columns:1fr}.nmc-reception-heading-actions{width:100%}.nmc-reception-heading-actions button{flex:1;}}
