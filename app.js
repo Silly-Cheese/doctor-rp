@@ -915,6 +915,10 @@ function currentEncounterChart(encounter) {
       <div><dt>Chief Complaint</dt><dd>${safe(encounter.chiefComplaint || "—")}</dd></div>
       <div><dt>Arrival</dt><dd>${safe(formatDateTime(encounter.arrivalAt))}</dd></div>
       <div><dt>Arrival Method</dt><dd>${safe(encounter.arrivalMethod || "—")}</dd></div>
+      <div><dt>Visit Category</dt><dd>${safe(encounter.visitCategory || "Emergency")}</dd></div>
+      <div><dt>Reception Notes</dt><dd>${safe(encounter.receptionNotes || "None recorded")}</dd></div>
+      <div><dt>Contact Reviewed</dt><dd>${encounter.registrationChecklist?.contactReviewed ? "Yes" : "Not documented"}</dd></div>
+      <div><dt>Language Assistance</dt><dd>${encounter.registrationChecklist?.interpreterRequested ? "Requested" : "Not requested"}</dd></div>
       <div><dt>Location</dt><dd>${safe(encounter.room || t.room || "Waiting Room")}</dd></div>
       <div><dt>Acuity</dt><dd>${t.acuity ? `ESI ${safe(t.acuity)}` : "Not assigned"}</dd></div>
     </dl>
@@ -1081,6 +1085,10 @@ async function checkInPatient(event){
     if(!complaint)throw new Error("Enter the reason for the patient's visit.");
     const arrivalMethod=document.querySelector("#arrivalMethod").value;
     const initialPriority=document.querySelector("#initialPriority").value;
+    const visitCategory=document.querySelector("#nmcVisitCategory").value;
+    const receptionNotes=document.querySelector("#nmcReceptionNote").value.trim().slice(0,500);
+    const contactReviewed=document.querySelector("#nmcContactReviewed").checked;
+    const interpreterRequested=document.querySelector("#nmcInterpreterRequested").checked;
     const patientRef=doc(db,"patients",patient.id);
     const encounterRef=doc(collection(db,"encounters"));
     const auditRef=doc(collection(db,"auditEvents"));
@@ -1100,6 +1108,7 @@ async function checkInPatient(event){
       transaction.set(encounterRef,{
         patientId:patient.id,mrn:live.mrn,patientName:`${live.lastName||""}, ${live.firstName||""}`,
         department:"Emergency Department",chiefComplaint:complaint,arrivalMethod,initialPriority,
+        visitCategory,receptionNotes,registrationChecklist:{contactReviewed,interpreterRequested},
         status:"waiting",room:null,arrivalAt:serverTimestamp(),
         checkedInBy:auth.currentUser.uid,checkedInByName:currentStaff.displayName,
         identityVerificationMethod:verificationMethod,identityVerifiedBy:auth.currentUser.uid,
