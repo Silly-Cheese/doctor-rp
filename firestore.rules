@@ -305,6 +305,37 @@ service cloud.firestore {
       allow delete: if isAdministrator();
     }
 
+    // Longitudinal structured RP medical records: scoped to existing patients.
+    match /patients/{patientId}/recordDocuments/{documentId} {
+      allow read: if isActive()
+        && exists(/databases/$(database)/documents/patients/$(patientId))
+        && (get(/databases/$(database)/documents/patients/$(patientId)).data.get('recordConfidential', false) == false || isAdministrator());
+      allow create: if canEditPatients()
+        && exists(/databases/$(database)/documents/patients/$(patientId))
+        && get(/databases/$(database)/documents/patients/$(patientId)).data.get('recordConfidential', false) == false
+        && request.resource.data.keys().hasOnly(['patientId','category','encounterId','title','body','status','version','createdAt','updatedAt'])
+        && request.resource.data.patientId == patientId
+        && request.resource.data.category in ['Intake','Clinical note','Discharge','Referral','Consent','Imaging report','Laboratory report','Other']
+        && request.resource.data.encounterId is string
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 1
+        && request.resource.data.title.size() <= 140
+        && request.resource.data.body is string
+        && request.resource.data.body.size() >= 3
+        && request.resource.data.body.size() <= 12000
+        && request.resource.data.status == 'active'
+        && request.resource.data.version == 1
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canEditPatients()
+        && resource.data.patientId == patientId
+        && resource.data.status == 'active'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
+        && request.resource.data.status == 'archived'
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
     match /patients/{patientId} {
       allow read: if isActive();
       allow create: if canManageRegistration()
