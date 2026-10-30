@@ -83,3 +83,12 @@
 #nmcAttachmentVault .nmc-record-item .nmc-record-actions{flex-wrap:wrap;justify-content:flex-start;}
 #nmcAttachmentVault .nmc-record-item-head{align-items:flex-start;}
 @media(max-width:650px){.nmc-quality-items{grid-template-columns:1fr;}#nmcAttachmentVault .nmc-record-item-head{flex-direction:column;}}
+
+
+.nmc-integrity-toolbar{display:flex;justify-content:flex-end;margin:12px 0;}
+.nmc-integrity-panel{border:1px solid var(--border,#d9e2e9);border-radius:14px;background:var(--surface,#fff);padding:18px;margin:12px 0 20px;min-width:0;}
+#nmcIntegrityOutput{margin-top:14px;font-size:.85rem;line-height:1.65;overflow-wrap:anywhere;}
+#nmcIntegrityOutput ol{max-height:320px;overflow-y:auto;background:var(--surface-secondary,#f7fafc);border-radius:12px;padding:13px 16px 13px 35px;}
+#nmcIntegrityOutput li{margin:6px 0;}
+.nmc-identity-case{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--border,#d9e2e9);}
+.nmc-identity-case span{flex:1;min-width:180px;}
