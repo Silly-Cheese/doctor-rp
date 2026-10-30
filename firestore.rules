@@ -336,6 +336,30 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Record-quality identity review; no destructive patient merges.
+    match /patients/{patientId}/identityReviews/{reviewId} {
+      allow read: if isActive()
+        && exists(/databases/$(database)/documents/patients/$(patientId))
+        && (get(/databases/$(database)/documents/patients/$(patientId)).data.get('recordConfidential', false) == false || isAdministrator());
+      allow create: if canEditPatients()
+        && exists(/databases/$(database)/documents/patients/$(patientId))
+        && get(/databases/$(database)/documents/patients/$(patientId)).data.get('recordConfidential', false) == false
+        && request.resource.data.keys().hasOnly(['patientId','candidatePatientIds','reason','status','createdAt'])
+        && request.resource.data.patientId == patientId
+        && request.resource.data.candidatePatientIds is list
+        && request.resource.data.candidatePatientIds.size() > 0
+        && request.resource.data.candidatePatientIds.size() <= 10
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 500
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt == request.time;
+      allow update: if isAdministrator()
+        && resource.data.status == 'open'
+        && request.resource.data.status in ['resolved','dismissed']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow delete: if false;
+    }
+
     match /patients/{patientId} {
       allow read: if isActive();
       allow create: if canManageRegistration()
