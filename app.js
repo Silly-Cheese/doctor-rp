@@ -851,7 +851,15 @@ function renderPatientChart(patientId) {
       ? `<button class="primary-button" type="button" data-checkin-id="${safe(patient.id)}">Check In Patient</button>`
       : "";
 
+  const patientEncounters = encounters.filter(encounter => encounter.patientId === patientId);
+  const completedCount = patientEncounters.filter(encounter => !encounterIsActive(encounter)).length;
   els.patientChartBody.innerHTML = `
+    <div class="nmc-chart-overview" aria-label="Patient record overview">
+      <div><span>Medical record</span><strong>${safe(patient.mrn || "Pending")}</strong></div>
+      <div><span>Encounters</span><strong>${patientEncounters.length}</strong></div>
+      <div><span>Completed visits</span><strong>${completedCount}</strong></div>
+      <div><span>Current status</span><strong>${active ? safe(formatStatus(active.status)) : "No active encounter"}</strong></div>
+    </div>
     <div class="chart-banner">
       <div><strong>${safe(patient.firstName)} ${safe(patient.lastName)}</strong><span>${safe(patient.mrn)} · DOB ${safe(formatDateOnly(patient.dob))} · ${safe(calculateAge(patient.dob))} yrs · ${safe(patient.sex || "Unknown")}</span></div>
       <div class="chart-actions">${actionButtons}</div>
