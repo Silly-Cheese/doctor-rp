@@ -32,7 +32,14 @@ const CSS=[
  "tr{break-inside:avoid}tfoot td{font-weight:800;background:#f6fafc;border-bottom:0}",
  ".allocation{margin:18px 0 25px;margin-left:auto;max-width:350px}.allocation .line{display:flex;justify-content:space-between;gap:20px;padding:8px 0;border-bottom:1px solid #e1e9ed}.allocation .line:last-child{border:0;border-top:2px solid #c8dbe4;margin-top:6px;padding-top:12px;font-weight:800;font-size:15px}",
  ".notice{background:#f4f8fa;border-left:3px solid #397fa0;color:#4c7083;padding:13px 17px;border-radius:0 8px 8px 0;margin-top:20px;line-height:1.6}",
- ".audit{margin-top:36px;border-top:2px solid #b9d1dd;padding-top:16px}.audit .sub{max-width:530px}",
+ ".signatures{margin-top:32px;padding-top:18px;border-top:2px solid #b9d1dd;break-inside:avoid;page-break-inside:avoid}",
+ ".signatures h3{margin:0 0 6px;color:#183d55}.signatures-note{margin:0 0 24px;color:#657f8d;font-size:10px;line-height:1.55}",
+ ".signature-grid{display:grid;grid-template-columns:1fr 1fr;gap:34px}",
+ ".signature-party{min-width:0}.signature-party h4{font-size:12px;margin:0 0 32px;color:#21465b}",
+ ".signature-line{border-bottom:1px solid #647f90;min-height:26px}.signature-caption{font-size:10px;color:#587184;margin:5px 0 18px}",
+ ".signature-meta{display:grid;grid-template-columns:1.5fr 1fr;gap:15px;margin-top:12px}.signature-meta .signature-line{min-height:22px}.signature-meta .signature-caption{margin-bottom:0}",
+ "@media(max-width:650px){.signature-grid{grid-template-columns:1fr;gap:28px}}",
+  ".audit{margin-top:36px;border-top:2px solid #b9d1dd;padding-top:16px}.audit .sub{max-width:530px}",
  ".footer{display:flex;justify-content:space-between;gap:12px;border-top:1px solid #d7e5ec;margin-top:42px;padding-top:14px;font-size:10px;color:#718994}",
  "@media(max-width:650px){.sheet{padding:24px 18px;min-height:auto}.brand{align-items:flex-start;gap:12px}.brand h1{font-size:15px}.monogram{width:40px;height:40px;font-size:24px}.summary{grid-template-columns:1fr}.doc-heading h2{font-size:14px}.balance strong{font-size:24px}.toolbar{border-radius:0;margin:0}.toolbar span{display:none}}",
  "@media print{@page{margin:0.55in 0.62in}.toolbar{display:none!important}body{background:white;color:#19354b;print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{min-height:auto;max-width:none;box-shadow:none;margin:0;padding:0}.brand{margin-bottom:22px}.balance{margin-bottom:22px}.footer{margin-top:26px}.audit{break-before:auto}a{color:inherit;text-decoration:none}}"
@@ -53,6 +60,15 @@ export function renderNorthstarStatement({invoice,events=[],patientName="",inter
   '<table><thead><tr><th>Date</th><th>Activity</th><th class="number">Amount</th><th>Details / recorded by</th></tr></thead><tbody>'+
   (events.length?events.map(e=>'<tr><td>'+esc(readableDate(e.createdAt))+'</td><td>'+esc(status(e.action))+'</td><td class="number">'+currency(e.amountCents||0)+'</td><td>'+esc([e.detail,e.reason,e.actorUid].filter(Boolean).join(" · "))+'</td></tr>').join(""):'<tr><td colspan="4">No ledger adjustments recorded</td></tr>')+
   '</tbody></table><p class="muted">Internal notes: '+esc(a.notes||"None")+'. Waiver authorization: '+esc(a.waiverReason||"None")+'.</p></section>':"";
+ const signatures='<section class="signatures" aria-label="Staff and patient signature spaces">'+
+  '<h3>Acknowledgment &amp; signatures</h3>'+
+  '<p class="signatures-note">For documentation of receipt or review only. Signing does not establish a real payment obligation. This is a roleplay simulation invoice.</p>'+
+  '<div class="signature-grid">'+
+  '<div class="signature-party"><h4>Northstar staff member</h4><div class="signature-line"></div><p class="signature-caption">Staff signature</p>'+
+  '<div class="signature-meta"><div><div class="signature-line"></div><p class="signature-caption">Printed name / title</p></div><div><div class="signature-line"></div><p class="signature-caption">Date</p></div></div></div>'+
+  '<div class="signature-party"><h4>Patient / authorized representative</h4><div class="signature-line"></div><p class="signature-caption">Patient / representative signature</p>'+
+  '<div class="signature-meta"><div><div class="signature-line"></div><p class="signature-caption">Printed name / relationship</p></div><div><div class="signature-line"></div><p class="signature-caption">Date</p></div></div></div>'+
+  '</div></section>';
  const safeTitle=(internal?"Northstar Internal Ledger":"Northstar Patient Statement")+" - "+invoiceNumber;
  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
   '<title>'+esc(safeTitle)+'</title><style>'+CSS+'</style></head><body>'+
@@ -73,7 +89,7 @@ export function renderNorthstarStatement({invoice,events=[],patientName="",inter
   '<div class="notice"><strong>Billing details</strong><div>Insurer: '+esc(a.insuranceEstimatedCents>0?(a.insuranceProvider||"Not specified"):"None / self-pay")+'</div>'+
   (a.insurerBalanceCents>0?'<div>Estimated insurer balance: '+currency(a.insurerBalanceCents)+' (not a payment received)</div>':"")+
   '<div>This statement is part of a hospital simulation. It does not request payment, transmit an insurance claim, or establish a real financial obligation.</div></div>'+
-  audit+'<footer class="footer"><span>Northstar Medical Center · '+(internal?"Confidential staff ledger":"Patient statement")+'</span><span>'+esc(invoiceNumber)+'</span></footer></main></body></html>';
+  audit+signatures+'<footer class="footer"><span>Northstar Medical Center · '+(internal?"Confidential staff ledger":"Patient statement")+'</span><span>'+esc(invoiceNumber)+'</span></footer></main></body></html>';
 }
 export function openNorthstarStatement(opts){
  const content=renderNorthstarStatement(opts);
