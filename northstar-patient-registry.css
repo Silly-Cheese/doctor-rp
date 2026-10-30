@@ -16,3 +16,15 @@
 #patientsSection .patient-row:hover, #patientsSection .patient-row:focus-visible { background:rgba(38,130,190,.075); }
 @media(max-width:850px) {.nmc-registry-tools{grid-template-columns:repeat(2,minmax(0,1fr))}.nmc-registry-search{grid-column:1/-1}}
 @media(max-width:560px) {.nmc-registry-summary{gap:7px}.nmc-registry-stat{padding:11px 9px}.nmc-registry-stat span{font-size:.69rem}.nmc-registry-tools{grid-template-columns:1fr}.nmc-registry-search{grid-column:auto}#patientsSection .section-heading{align-items:flex-start; flex-direction:column}}
+
+/* Unified longitudinal chart within existing patient chart modal. */
+#patientChartDialog { width:min(1120px,calc(100vw - 24px)); max-height: min(92dvh, 960px); }
+#patientChartDialog .modal-body { overflow-y:auto; overscroll-behavior:contain; }
+#patientChartBody .nmc-chart-overview { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:0 0 16px; }
+.nmc-chart-overview > div { display:flex; flex-direction:column; gap:7px; padding:13px 15px; border:1px solid var(--border,#d9e2e9); background:var(--surface,#fff); border-radius:12px; min-width:0; }
+.nmc-chart-overview span { font-size:.74rem; color:var(--muted,#64748b); }
+.nmc-chart-overview strong { font-size:1rem; overflow-wrap:anywhere; color:var(--text,#17354b); }
+#patientChartBody .chart-section { min-width:0; }
+#patientChartBody .detail-list dd { overflow-wrap:anywhere; }
+#patientChartBody .history-list { max-height:440px; overflow-y:auto; }
+@media(max-width:700px) { #patientChartBody .nmc-chart-overview { grid-template-columns:repeat(2,minmax(0,1fr)); } #patientChartDialog { width:calc(100vw - 12px); max-height:96dvh; } }
