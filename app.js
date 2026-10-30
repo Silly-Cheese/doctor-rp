@@ -602,7 +602,7 @@ function renderClinicalState() {
   renderWaitingRoom();
   renderActiveEncounters();
   // Keep unfinished chart documents and file selections intact during realtime updates.
-  const editingDocument=els.patientChartBody?.querySelector(".nmc-record-editor:not(.hidden)");
+  const editingDocument=els.patientChartBody?.querySelector(".nmc-record-editor:not(.hidden), #nmcContactEdit[open]");
   if(selectedPatientId && els.patientChartDialog.open && !editingDocument)renderPatientChart(selectedPatientId);
 }
 
@@ -833,6 +833,50 @@ async function registerPatient(event) {
   }
 }
 
+
+function renderPatientContactEditor(patient) {
+  const host=document.getElementById("nmcPatientContacts");
+  if(!host)return;
+  const mayEdit=canRegisterPatients()&&(currentStaff?.role==="administrator"||currentStaff?.permissions?.editPatients!==false)
+    && patient.vitalStatus!=="deceased" && patient.currentStatus!=="deceased";
+  if(!mayEdit){host.remove();return;}
+  host.innerHTML='<div class="chart-section-title"><p class="eyebrow">Reception Desk</p><h4>Contact information</h4></div>';
+  const editor=document.createElement("details");
+  editor.id="nmcContactEdit";editor.className="nmc-contact-edit";
+  const title=document.createElement("summary");title.textContent="Update phone or emergency contact";
+  const form=document.createElement("form");form.className="nmc-contact-form";
+  const fields=[["Phone","phone",patient.phone||"",40],["Emergency contact","emergencyContact",patient.emergencyContact||"",140]];
+  for(const [caption,name,value,maxLength] of fields){
+    const label=document.createElement("label");label.textContent=caption;
+    const input=document.createElement("input");input.name=name;input.value=value;input.maxLength=maxLength;input.autocomplete="off";
+    label.append(input);form.append(label);
+  }
+  const note=document.createElement("p");note.className="muted";
+  note.textContent="Updates affect the master patient chart and are recorded in the staff audit history.";
+  form.append(note);
+  const submit=document.createElement("button");submit.className="primary-button";submit.type="submit";submit.textContent="Save contact details";
+  form.append(submit);editor.append(title,form);host.append(editor);
+  form.addEventListener("submit",async event=>{
+    event.preventDefault();submit.disabled=true;submit.textContent="Saving…";
+    try{
+      const phone=form.elements.namedItem("phone").value.trim();
+      const emergencyContact=form.elements.namedItem("emergencyContact").value.trim();
+      const batch=writeBatch(db);
+      batch.update(doc(db,"patients",patient.id),{
+        phone,emergencyContact,contactReviewedAt:serverTimestamp(),
+        contactReviewedBy:auth.currentUser.uid,updatedAt:serverTimestamp()
+      });
+      batch.set(doc(collection(db,"auditEvents")),{
+        type:"patient-contact-updated",patientId:patient.id,
+        actorUid:auth.currentUser.uid,actorName:currentStaff.displayName,
+        at:serverTimestamp()
+      });
+      await batch.commit();showToast("Patient contact details updated.");editor.open=false;
+    }catch(error){showToast(friendlyError(error));}
+    finally{submit.disabled=false;submit.textContent="Save contact details";}
+  });
+}
+
 function openPatientChart(patientId) {
   const patient = patients.find((item) => item.id === patientId);
   if (!patient) {
@@ -900,11 +944,13 @@ function renderPatientChart(patientId) {
       <div class="chart-section-title"><p class="eyebrow">Encounter History</p><h4>Previous Visits</h4></div>
       ${history.length ? `<div class="history-list">${history.map(historyRow).join("")}</div>` : '<div class="chart-empty"><p>No previous encounters recorded.</p></div>'}
     </section>
+    <section class="chart-section history-section" id="nmcPatientContacts"></section>
     <section class="chart-section history-section" id="nmcPatientQuality"></section>
     <section class="chart-section history-section" id="nmcRecordWorkspace"></section>
     <section class="chart-section history-section" id="nmcAttachmentVault"></section>`;
   renderRecordWorkspace({db,patientId,encounters,canEdit:canRegisterPatients() && (currentStaff?.role === "administrator" || currentStaff?.permissions?.editPatients !== false),onNotice:showToast});
   renderPatientRecordQuality({db,patient,patients,encounters,canFlag:canRegisterPatients(),canResolve:currentStaff?.role === "administrator",onNotice:showToast});
+  renderPatientContactEditor(patient);
   renderAttachmentVault({db,patient,encounters,canEdit:canRegisterPatients() && (currentStaff?.role === "administrator" || currentStaff?.permissions?.editPatients !== false),onNotice:showToast});
 }
 
