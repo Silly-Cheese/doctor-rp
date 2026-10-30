@@ -27,6 +27,7 @@ import {billingFieldsMarkup,bindBillingPreview,buildBillingRecord,prepareEncount
 import {renderRecordWorkspace} from "./northstar-medical-records.js";
 import {renderPatientRecordQuality} from "./northstar-record-quality.js";
 import {renderAttachmentVault} from "./northstar-attachments.js";
+import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBPtNWvmmYl-6hFb7NlmNszapMwQH4Xm7I",
@@ -635,6 +636,7 @@ function renderDashboard() {
 
 function renderPatientSearch() {
   if (!els.patientResults) return;
+  document.querySelector("#nmcIntegrityToggle").hidden = currentStaff?.role !== "administrator";
   const term = (els.patientSearchInput?.value || "").trim().toLowerCase();
   const filter = document.querySelector("#patientStatusFilter")?.value || "all";
   const sort = document.querySelector("#patientSortBy")?.value || "recent";
@@ -994,6 +996,27 @@ function verifiedCheckInIdentity(patient){
   }
   throw new Error("Choose an accepted patient verification method.");
 }
+
+document.querySelector("#nmcIntegrityToggle").addEventListener("click",()=>{
+  if(currentStaff?.role!=="administrator")return;
+  document.querySelector("#nmcIntegrityPanel").classList.toggle("hidden");
+});
+document.querySelector("#nmcRunIntegrity").addEventListener("click",async()=>{
+  if(currentStaff?.role!=="administrator")return;
+  const btn=document.querySelector("#nmcRunIntegrity"),output=document.querySelector("#nmcIntegrityOutput");
+  btn.disabled=true;btn.textContent="Scanning…";
+  try{
+    const result=await httpsCallable(getFunctions(app,"us-central1"),"northstarV3Integrity",{timeout:60000})({});
+    const data=result.data||{},issues=Array.isArray(data.issues)?data.issues:[];
+    const counts=Object.entries(data.checked||{}).map(([name,n])=>safe(name)+": "+safe(n)).join(" · ");
+    const incomplete=(data.incomplete||[]).length?"<p class='nmc-quality-warning'>Partial scan: collection limits reached. Review results carefully.</p>":"";
+    const list=issues.length?"<ol>"+issues.slice(0,35).map(item=>"<li><strong>"+safe(item.collection)+"</strong> · "+safe(item.id)+" — "+safe(item.reason)+"</li>").join("")+"</ol>":"<p class='nmc-quality-good'>No issues identified in the records checked.</p>";
+    output.innerHTML="<p><strong>"+issues.length+" potential issue(s)</strong> · "+counts+"</p>"+incomplete+list+(issues.length>35?"<p>Additional findings omitted from this view.</p>":"");
+  }catch(error){
+    output.textContent="Scan unavailable. Deploy the Northstar Cloud Functions and check administrator access. "+(error?.message||"");
+  }finally{btn.disabled=false;btn.textContent="Run scan";}
+});
+
 document.querySelector("#nmcReceptionToggle").addEventListener("click",()=>{
   const desk=document.querySelector("#nmcReceptionDesk");
   desk.classList.toggle("hidden");
