@@ -328,6 +328,8 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
       allow update: if canEditPatients()
+        && exists(/databases/$(database)/documents/patients/$(patientId))
+        && get(/databases/$(database)/documents/patients/$(patientId)).data.get('recordConfidential', false) == false
         && resource.data.patientId == patientId
         && resource.data.status == 'active'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
@@ -357,6 +359,53 @@ service cloud.firestore {
         && resource.data.status == 'open'
         && request.resource.data.status in ['resolved','dismissed']
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow delete: if false;
+    }
+
+    // File metadata stays under the master patient; Storage bytes are separate.
+    match /patients/{patientId}/attachments/{attachmentId} {
+      allow read: if isActive()
+        && exists(/databases/$(database)/documents/patients/$(patientId))
+        && (get(/databases/$(database)/documents/patients/$(patientId)).data.get('recordConfidential', false) == false || isAdministrator());
+      allow create: if canEditPatients()
+        && exists(/databases/$(database)/documents/patients/$(patientId))
+        && get(/databases/$(database)/documents/patients/$(patientId)).data.get('recordConfidential', false) == false
+        && request.resource.data.keys().hasOnly(['patientId','category','encounterId','title','fileName','mimeType','fileSize','storagePath','status','version','supersedesId','createdAt','updatedAt'])
+        && request.resource.data.patientId == patientId
+        && request.resource.data.category in ['Intake','Clinical note','Discharge','Referral','Consent','Imaging report','Laboratory report','Other']
+        && request.resource.data.encounterId is string
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 1
+        && request.resource.data.title.size() <= 140
+        && request.resource.data.fileName is string
+        && request.resource.data.fileName.size() > 0
+        && request.resource.data.fileName.size() <= 180
+        && request.resource.data.mimeType in ['application/pdf','image/png','image/jpeg','text/plain']
+        && request.resource.data.fileSize is int
+        && request.resource.data.fileSize > 0
+        && request.resource.data.fileSize <= 5242880
+        && request.resource.data.storagePath == 'rp-patient-documents/' + patientId + '/' + attachmentId + '/file'
+        && request.resource.data.status == 'active'
+        && request.resource.data.version is int
+        && request.resource.data.version >= 1
+        && request.resource.data.version <= 50
+        && request.resource.data.supersedesId is string
+        && (
+          (request.resource.data.supersedesId == '' && request.resource.data.version == 1)
+          || (request.resource.data.supersedesId != '' && request.resource.data.supersedesId != attachmentId
+            && exists(/databases/$(database)/documents/patients/$(patientId)/attachments/$(request.resource.data.supersedesId))
+            && get(/databases/$(database)/documents/patients/$(patientId)/attachments/$(request.resource.data.supersedesId)).data.get('version', 0) == request.resource.data.version - 1)
+        )
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canEditPatients()
+        && exists(/databases/$(database)/documents/patients/$(patientId))
+        && get(/databases/$(database)/documents/patients/$(patientId)).data.get('recordConfidential', false) == false
+        && resource.data.patientId == patientId
+        && resource.data.status == 'active'
+        && request.resource.data.status == 'archived'
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']);
       allow delete: if false;
     }
 
