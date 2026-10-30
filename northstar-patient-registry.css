@@ -1,0 +1,18 @@
+/* Patient Registry modernization: enhances the existing patientsSection; no new page. */
+#patientsSection { max-width: 1500px; margin-inline: auto; }
+#patientsSection .section-heading { align-items: center; gap: 1rem; }
+.nmc-registry-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap: 12px; margin: 18px 0; }
+.nmc-registry-stat { background:var(--surface, #fff); border:1px solid var(--border, #d9e2e9); border-radius:14px; padding:16px 18px; display:flex; flex-direction:column; gap:6px; min-width:0; box-shadow:0 2px 12px rgba(7,45,73,.035); }
+.nmc-registry-stat strong { font-size:clamp(1.35rem,2.5vw,1.95rem); line-height:1.1; font-variant-numeric:tabular-nums; color:var(--text, #12354b); }
+.nmc-registry-stat span { font-size:.79rem; color:var(--muted, #637b8c); }
+.nmc-registry-tools { display:grid; grid-template-columns:minmax(220px,1fr) minmax(160px,190px) minmax(160px,200px); gap:12px; align-items:end; }
+#patientsSection .nmc-registry-search { margin:0; min-width:0; }
+#patientsSection .nmc-registry-search input { min-width:0; width:100%; }
+.nmc-registry-field { display:flex; flex-direction:column; gap:6px; font-size:.8rem; font-weight:600; color:var(--muted, #64748b); }
+.nmc-registry-field select { width:100%; min-height:44px; padding:9px 12px; border:1px solid var(--border,#d9e2e9); border-radius:10px; background:var(--surface,#fff); color:var(--text,#17354b); font:inherit; }
+.nmc-registry-count { margin:14px 2px 10px; font-size:.81rem; color:var(--muted,#64748b); }
+.nmc-registry-panel { overflow:hidden; }
+#patientsSection .patient-row { transition:background .15s ease; }
+#patientsSection .patient-row:hover, #patientsSection .patient-row:focus-visible { background:rgba(38,130,190,.075); }
+@media(max-width:850px) {.nmc-registry-tools{grid-template-columns:repeat(2,minmax(0,1fr))}.nmc-registry-search{grid-column:1/-1}}
+@media(max-width:560px) {.nmc-registry-summary{gap:7px}.nmc-registry-stat{padding:11px 9px}.nmc-registry-stat span{font-size:.69rem}.nmc-registry-tools{grid-template-columns:1fr}.nmc-registry-search{grid-column:auto}#patientsSection .section-heading{align-items:flex-start; flex-direction:column}}
