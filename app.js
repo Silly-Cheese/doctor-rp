@@ -630,23 +630,41 @@ function renderDashboard() {
 function renderPatientSearch() {
   if (!els.patientResults) return;
   const term = (els.patientSearchInput?.value || "").trim().toLowerCase();
-  const filtered = patients.filter((patient) => {
-    if (!term) return true;
-    const haystack = `${patient.firstName || ""} ${patient.lastName || ""} ${patient.lastName || ""}, ${patient.firstName || ""} ${patient.mrn || ""}`.toLowerCase();
-    return haystack.includes(term);
-  }).slice(0, 50);
+  const filter = document.querySelector("#patientStatusFilter")?.value || "all";
+  const sort = document.querySelector("#patientSortBy")?.value || "recent";
+  const activeCount = patients.filter(patient => Boolean(activeEncounterForPatient(patient.id))).length;
+  const waitingCount = patients.filter(patient => ["waiting", "triage"].includes(activeEncounterForPatient(patient.id)?.status)).length;
+  const summary = document.querySelector("#patientRegistrySummary");
+  if (summary) summary.innerHTML = [
+    ["Total patient records", patients.length],
+    ["Active encounters", activeCount],
+    ["Waiting / triage", waitingCount]
+  ].map(([label, value]) => `<div class="nmc-registry-stat"><strong>${value}</strong><span>${label}</span></div>`).join("");
 
+  const matching = patients.filter(patient => {
+    const encounter = activeEncounterForPatient(patient.id);
+    const name = `${patient.firstName || ""} ${patient.lastName || ""} ${patient.lastName || ""}, ${patient.firstName || ""}`;
+    const haystack = `${name} ${patient.mrn || ""} ${patient.phone || ""} ${patient.dob || ""}`.toLowerCase();
+    if (term && !haystack.includes(term)) return false;
+    if (filter === "active") return Boolean(encounter);
+    if (filter === "waiting") return ["waiting", "triage"].includes(encounter?.status);
+    if (filter === "admitted") return encounter?.status === "admitted" || patient.currentStatus === "admitted";
+    if (filter === "inactive") return !encounter;
+    if (filter === "identity") return /^(john|jane)\s+doe$/i.test(name.trim()) || /unidentified|unknown/i.test(name);
+    return true;
+  }).sort((a,b) => sort === "name"
+    ? `${a.lastName || ""} ${a.firstName || ""}`.localeCompare(`${b.lastName || ""} ${b.firstName || ""}`)
+    : sort === "mrn" ? String(a.mrn || "").localeCompare(String(b.mrn || ""))
+    : (b.lastCheckInAt?.seconds || b.createdAt?.seconds || 0) - (a.lastCheckInAt?.seconds || a.createdAt?.seconds || 0));
+  const count = document.querySelector("#patientRegistryCount");
+  if (count) count.textContent = `Showing ${Math.min(matching.length, 75)} of ${matching.length} matching patients${matching.length > 75 ? " · Narrow your search to see more" : ""}`;
   if (!patients.length) {
     els.patientResults.innerHTML = emptyPanel("No patient records", canRegisterPatients() ? "Register the first Northstar patient to begin." : "No patient records are available.");
-    return;
+  } else if (!matching.length) {
+    els.patientResults.innerHTML = emptyPanel("No matching patients", "Try a different search or status filter.");
+  } else {
+    els.patientResults.innerHTML = `<div class="panel table-panel nmc-registry-panel"><div class="patient-table">${matching.slice(0,75).map(patientRow).join("")}</div></div>`;
   }
-
-  if (!filtered.length) {
-    els.patientResults.innerHTML = emptyPanel("No matching patients", "Try a different name or medical record number.");
-    return;
-  }
-
-  els.patientResults.innerHTML = `<div class="panel table-panel"><div class="patient-table">${filtered.map(patientRow).join("")}</div></div>`;
 }
 
 function patientRow(patient) {
@@ -733,6 +751,27 @@ async function registerPatient(event) {
   const lastName = normalizeName(document.querySelector("#patientLastName").value);
   const dob = document.querySelector("#patientDob").value;
   const sex = document.querySelector("#patientSex").value;
+
+  // Prevent accidental duplicate master records using currently loaded records.
+  // Server-side uniqueness must still be implemented for fully concurrent registrations.
+  const duplicates = patients.filter(patient =>
+    (patient.firstName || "").trim().toLowerCase() === firstName.toLowerCase() &&
+    (patient.lastName || "").trim().toLowerCase() === lastName.toLowerCase() &&
+    patient.dob === dob
+  );
+  if (duplicates.length) {
+    submit.disabled = false;
+    submit.textContent = "Create Patient Record";
+    const existing = duplicates[0];
+    const proceed = window.confirm(`A patient with this name and date of birth already exists (MRN: ${existing.mrn || "unavailable"}).\n\nSelect Cancel to review their existing chart, or OK to create a separate record if you have verified this is a different person.`);
+    if (!proceed) {
+      els.patientRegistrationDialog.close();
+      openPatientChart(existing.id);
+      return;
+    }
+    submit.disabled = true;
+    submit.textContent = "Creating Record…";
+  }
 
   try {
     const patientRef = doc(collection(db, "patients"));
@@ -1140,6 +1179,7 @@ els.pendingSignOut.addEventListener("click", () => signOut(auth));
 els.menuButton.addEventListener("click", () => els.sidebar.classList.toggle("open"));
 els.quickPatientSearch.addEventListener("click", () => openSection("patients"));
 els.patientSearchInput.addEventListener("input", renderPatientSearch);
+["patientStatusFilter","patientSortBy"].forEach(id => document.querySelector(`#${id}`)?.addEventListener("change", renderPatientSearch));
 els.patientRegistrationForm.addEventListener("submit", registerPatient);
 els.checkInForm.addEventListener("submit", checkInPatient);
 els.triageForm.addEventListener("submit", saveTriage);
