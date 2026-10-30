@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { collection, doc, addDoc, getDocs, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const esc = x => String(x ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
 const norm = v => String(v || "").trim().toLowerCase().replace(/\s+/g," ");
 const checks = (p, all, encounters) => {
@@ -16,11 +16,11 @@ const checks = (p, all, encounters) => {
  if (p.activeEncounterId && !active.some(e=>e.id===p.activeEncounterId)) missing.push("Patient active encounter pointer does not match an open visit");
  return {missing,dupes,score:Math.max(0,100-Math.min(missing.length,6)*15)};
 };
-export function renderPatientRecordQuality({db,patient,patients,encounters,canFlag,onNotice}){
+export function renderPatientRecordQuality({db,patient,patients,encounters,canFlag,canResolve=false,onNotice}){
  const host=document.getElementById("nmcPatientQuality");
  if(!host)return;
  const quality=checks(patient,patients,encounters);
- host.innerHTML=`<header class="nmc-quality-title"><div><p class="eyebrow">Chart Quality</p><h4>Record integrity & identity</h4></div><span class="nmc-quality-score">${quality.score}% complete</span></header>
+ host.innerHTML=`<header class="nmc-quality-title"><div><p class="eyebrow">Chart Quality</p><h4>Record integrity & identity</h4></div><span class="nmc-quality-score">Registry check score: ${quality.score}/100</span></header>
  <div class="nmc-quality-items">${quality.missing.length?quality.missing.map(x=>`<div class="nmc-quality-warning"><span aria-hidden="true">!</span><span>${esc(x)}</span></div>`).join(""):'<p class="nmc-quality-good">No missing fields or obvious local conflicts detected. This is not a clinical validation.</p>'}</div>
  ${canFlag&&quality.dupes.length?`<button id="nmcFlagIdentity" type="button" class="secondary-button">Flag possible duplicate for review</button>`:""}
  <div class="nmc-quality-review" id="nmcIdentityReviewHistory"><p class="muted">Loading identity review history…</p></div>`;
@@ -30,8 +30,28 @@ export function renderPatientRecordQuality({db,patient,patients,encounters,canFl
   try{
    const result=await getDocs(collectionRef);
    if(!host.isConnected)return;
-   const docs=result.docs.map(d=>d.data()).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
-   history.innerHTML=docs.length?`<details><summary>Identity review history (${docs.length})</summary>${docs.map(d=>`<p><strong>${esc(d.status)}</strong> · ${esc(d.reason)} ${d.createdAt?.toDate?.()?.toLocaleDateString?.()||""}</p>`).join("")}</details>`:'<p class="muted">No identity reviews filed.</p>';
+   const docs=result.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+   history.innerHTML=docs.length?'<details><summary>Identity review history ('+docs.length+')</summary><div id="nmcIdentityCases"></div></details>':'<p class="muted">No identity reviews filed.</p>';
+   const cases=history.querySelector("#nmcIdentityCases");
+   docs.forEach(d=>{
+     const row=document.createElement("div");row.className="nmc-identity-case";
+     const label=document.createElement("span");label.textContent=(d.status||"open")+" · "+(d.reason||"Identity review");
+     row.append(label);
+     if(canResolve&&d.status==="open"){
+       for(const status of ["resolved","dismissed"]){
+         const btn=document.createElement("button");btn.type="button";btn.className="text-button";btn.textContent=status==="resolved"?"Mark resolved":"Dismiss";
+         btn.addEventListener("click",async()=>{
+           btn.disabled=true;
+           try{
+             await updateDoc(doc(db,"patients",patient.id,"identityReviews",d.id),{status});
+             onNotice?.("Review marked "+status+". No patient records were merged.");await refresh();
+           }catch(error){onNotice?.("Unable to update review status.");btn.disabled=false;}
+         });
+         row.append(btn);
+       }
+     }
+     cases?.append(row);
+   });
   }catch(error){history.innerHTML='<p class="muted">Identity review history unavailable for this staff role.</p>';}
  };
  const btn=host.querySelector("#nmcFlagIdentity");
