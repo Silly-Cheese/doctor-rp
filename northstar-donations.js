@@ -6,8 +6,7 @@ import {getAuth} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.
 import {getFirestore,collection,doc,writeBatch,runTransaction,onSnapshot,query,orderBy,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {summarizeBilling} from "./northstar-billing-insights.js";
 
-const db=getFirestore(getApp());
-const auth=getAuth(getApp());
+let db,auth;
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 const money=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format((Number(n)||0)/100);
 const fmtDate=t=>{const d=t?.toDate?.()||(t?.seconds?new Date(t.seconds*1000):null);return d?.toLocaleDateString("en-US",{year:"numeric",month:"short",day:"numeric"})||"Pending";};
@@ -22,8 +21,8 @@ function toCents(value){
 function canManage(p){return p?.status==="active"&&(p.role==="administrator"||p.permissions?.billingManage===true);}
 function printAcknowledgment(d){
  const received=d.status==="received";
- const title=received?"Donation receipt":"Donation request";
- const detail=received?"The simulated donation below has been recorded as received.":"This donation has not been received or added to collected revenue.";
+ const title=received?"Donation receipt":d.status==="reversed"?"Reversed donation statement":d.status==="cancelled"?"Cancelled donation request":"Donation request";
+ const detail=received?"The simulated donation below has been recorded as received.":d.status==="reversed"?"This previously received donation was reversed and is excluded from current collected revenue.":d.status==="cancelled"?"The donation request was cancelled and is not collected.":"This donation has not been received or added to collected revenue.";
  const html='<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Northstar '+title+'</title>'+
  '<style>@page{size:letter;margin:.75in}*{box-sizing:border-box}body{font:13px/1.55 Arial,sans-serif;color:#183849;margin:0;background:#eef4f7}main{background:white;max-width:780px;padding:46px 52px;margin:25px auto}header{border-bottom:3px solid #145674;padding-bottom:18px;margin-bottom:28px}h1{margin:0;font-size:22px}h2{font-size:18px;color:#0c5575}.muted{color:#647d8c}.row{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid #e0e8ec}.amount{font-size:30px;color:#135b77;font-weight:800;margin:20px 0}.signature-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:30px}.line{border-bottom:1px solid #708e9e;height:52px}.caption{color:#617989;font-size:11px;margin:6px 0}.sign{break-inside:avoid;margin-top:38px;border-top:1px solid #b7d1dc;padding-top:12px}.notice{border-left:3px solid #4c93a9;padding:12px;background:#f2f8fa;margin-top:20px}.toolbar{display:flex;justify-content:center;gap:12px;margin:15px}.toolbar button{padding:10px 16px;cursor:pointer}@media print{body{background:white}.toolbar{display:none}main{max-width:none;margin:0;padding:0}}</style></head><body><div class="toolbar"><button onclick="window.print()">Print / Save PDF</button><button onclick="window.close()">Close</button></div><main>'+
  '<header><h1>Northstar Medical Center</h1><p class="muted">Donation acknowledgment · DOCTOR-RP SIMULATION</p></header><h2>'+title+'</h2>'+
@@ -43,8 +42,35 @@ function printAcknowledgment(d){
  if(!w)throw Error("Browser blocked the print window. Please allow pop-ups.");
  w.document.open();w.document.write(html);w.document.close();w.focus();
 }
+
+function confirmDonationAction(next,gift){
+ return new Promise(resolve=>{
+  const dialog=document.createElement("dialog");dialog.className="nmc-gift-dialog";
+  const label=next==="received"?"Confirm received donation":next==="reversed"?"Reverse donation":"Cancel donation request";
+  dialog.innerHTML='<form class="nmc-gift-dialog-content"><header><div><p class="eyebrow">Northstar · Giving ledger</p><h3>'+esc(label)+'</h3><p>'+esc(gift.donorName)+' · '+money(gift.amountCents)+'</p></div><button type="button" class="nmc-gift-close" aria-label="Close dialog">×</button></header>'+
+    '<p class="nmc-gift-dialog-hint">'+(next==="received"?"Recording as received will increase collected revenue. This does not actually transfer funds.":"The original entry will remain visible. Your reason is required for the audit trail.")+'</p>'+
+    (next==="received"?'<label>Recorded method<select name="method"><option value="cash">Cash</option><option value="check">Check</option><option value="external-transfer">External transfer</option><option value="other">Other</option></select></label>':'<label>Reason<textarea name="reason" minlength="5" maxlength="500" rows="3" required placeholder="Explain the correction"></textarea></label>')+
+    '<div class="nmc-gift-actions"><button type="button" class="nmc-gift-dismiss">Back</button><button type="submit" class="primary-button">'+esc(label)+'</button></div></form>';
+  const form=dialog.querySelector("form");
+  const done=value=>{dialog.close();dialog.remove();resolve(value);};
+  dialog.querySelector(".nmc-gift-close").addEventListener("click",()=>done(null));
+  dialog.querySelector(".nmc-gift-dismiss").addEventListener("click",()=>done(null));
+  dialog.addEventListener("cancel",event=>{event.preventDefault();done(null);},{once:true});
+  form.addEventListener("submit",event=>{
+   event.preventDefault();const data=new FormData(form);
+   const method=next==="received"?String(data.get("method")):"";
+   const reason=next==="received"?"":String(data.get("reason")||"").trim();
+   if(next==="received"&&!validMethods.includes(method))return;
+   if(next!=="received"&&(reason.length<5||reason.length>500))return;
+   done({method,reason});
+  });
+  document.body.append(dialog);dialog.showModal();
+ });
+}
+
 let stop=null;
 export function mountNorthstarDonations({target,records=[],encounters=[],patients=[],profile}){
+ db=getFirestore(getApp());auth=getAuth(getApp());
  if(stop){stop();stop=null;}
  const host=target.querySelector("#nmcDonationWorkspace");
  if(!host)return;
@@ -88,16 +114,10 @@ export function mountNorthstarDonations({target,records=[],encounters=[],patient
  async function transition(id,next){
   if(!manage)return;
   const current=donations.find(d=>d.id===id);if(!current)return;
-  let method="",reason="";
-  if(next==="received"){
-   method=window.prompt("Received via cash, check, external-transfer, or other (simulation only):","cash")||"";
-   if(!validMethods.includes(method)){alert("Choose cash, check, external-transfer, or other.");return;}
-   if(!window.confirm("Confirm this fictional donation was received? It will increase Collected revenue."))return;
-  }else{
-   reason=window.prompt(next==="reversed"?"Reason for reversing this received donation:":"Reason for cancelling this request:","")||"";
-   if(reason.trim().length<5||reason.trim().length>500){alert("Enter a reason of 5–500 characters.");return;}
-   if(!window.confirm("Confirm this "+next+" action? The original ledger record and audit history remain."))return;
-  }
+  // Use an accessible in-app confirmation instead of browser prompts.
+  const details=await confirmDonationAction(next,current);
+  if(!details)return;
+  const {method,reason}=details;
   const actor=auth.currentUser?.uid;if(!actor){alert("Sign in again.");return;}
   try{
    const donationRef=doc(db,"nmcDonations",id),auditRef=doc(collection(db,"auditEvents"));
