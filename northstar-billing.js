@@ -2,6 +2,7 @@ import {overrideInvoiceCharges} from "./northstar-billing-workflows.js";
 import {mountBillingDashboard} from "./northstar-billing-dashboard.js";
 import {openNorthstarStatement} from "./northstar-invoice-print.js";
 import {summarizeBilling,exportBillingCSV} from "./northstar-billing-insights.js";
+import {mountNorthstarDonations} from "./northstar-donations.js";
 // Northstar billing is a simulation ledger: no payment processing, claims submission, or payer verification.
 import {collectEncounterCharges} from "./northstar-service-catalog.js";
 import {getApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -354,13 +355,14 @@ export function renderBillingPage({target,records,encounters,patients=[],profile
  if(!access(profile)){target.innerHTML='<div class="panel"><h3>Billing access restricted</h3><p>Contact an administrator for billing access.</p></div>';return;}
  const metrics=summarizeBilling(records,encounters);
  target.innerHTML='<section class="nmc-billing-page"><header><div><p class="eyebrow">Financial Operations · Simulation</p><h2>Billing & Revenue</h2><p>Patient accounts, invoices, insurance estimates and transparent administrative adjustments.</p></div><span class="nmc-bill-label">No real payments or insurer claims</span></header>'+
- '<div class="nmc-bill-metrics nmc-bill-expanded-metrics"><article><span>Invoices</span><strong>'+metrics.invoices+'</strong></article><article><span>Total charges</span><strong>'+money(metrics.totalCharges)+'</strong></article><article><span>Collected</span><strong>'+money(metrics.collected)+'</strong></article><article><span>Patient balances</span><strong>'+money(metrics.patientBalance)+'</strong></article><article><span>Insurer balances</span><strong>'+money(metrics.insuranceBalance)+'</strong></article><article><span>Waived</span><strong>'+money(metrics.waived)+'</strong></article><article><span>Overdue invoices</span><strong>'+metrics.overdue+'</strong></article><article><span>Unbilled discharges</span><strong>'+metrics.unbilled+'</strong></article></div>'+
+ '<div class="nmc-bill-metrics nmc-bill-expanded-metrics"><article><span>Invoices</span><strong>'+metrics.invoices+'</strong></article><article><span>Total charges</span><strong>'+money(metrics.totalCharges)+'</strong></article><article><span>Total collected</span><strong id="nmcBillingCollected">Loading…</strong></article><article><span>Clinical collected</span><strong id="nmcBillingClinicalCollected">'+money(metrics.collected)+'</strong></article><article><span>Donation revenue</span><strong id="nmcBillingDonationsCollected">Loading…</strong></article><article><span>Patient balances</span><strong>'+money(metrics.patientBalance)+'</strong></article><article><span>Insurer balances</span><strong>'+money(metrics.insuranceBalance)+'</strong></article><article><span>Waived</span><strong>'+money(metrics.waived)+'</strong></article><article><span>Overdue invoices</span><strong>'+metrics.overdue+'</strong></article><article><span>Unbilled discharges</span><strong>'+metrics.unbilled+'</strong></article></div>'+
  '<section class="nmc-bill-attention"><header><div><p class="eyebrow">Billing work queue</p><h3>Needs attention</h3></div><span>Review balances, pending payer claims and older encounters.</span></header><div class="nmc-bill-queue-actions"><button type="button" data-billing-queue="overdue"><strong>'+metrics.overdue+'</strong><span>Past-due accounts</span></button><button type="button" data-billing-queue="claim-review"><strong>'+metrics.claimsToReview+'</strong><span>Insurance follow-up</span></button><button type="button" data-billing-queue="unbilled"><strong>'+metrics.unbilled+'</strong><span>Unbilled discharges</span></button></div></section>'+
- '<section class="nmc-billing-workspace"></section></section>';
+ '<section id="nmcDonationWorkspace" class="nmc-gifts-workspace"></section><section class="nmc-billing-workspace"></section></section>';
  const reload=async()=>{
   const snap=await getDocs(collection(getFirestore(getApp()),"billingAccounts"));
   renderBillingPage({target,records:snap.docs.map(x=>({id:x.id,...x.data()})),encounters:current.encounters,patients:current.patients,profile:current.profile});
  };
+ mountNorthstarDonations({target,records,encounters,patients,profile});
  mountBillingDashboard({target,records,encounters,patients,profile,
   onOpenInvoice:async id=>{try{await openInvoice(id)}catch(e){showBillingError(target,e.message||"Cannot open invoice.");}},
   onRetrospective:async encounter=>{if(!encounter)return;try{const saved=await openBillingDialogForEncounter({encounter,retroactive:true});if(saved)await reload()}catch(e){showBillingError(target,e.message||"Unable to create invoice.");}},
