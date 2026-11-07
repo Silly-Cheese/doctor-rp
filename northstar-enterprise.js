@@ -60,6 +60,8 @@ function organizeNavigation(){
   bins.get(group).push(node);
  }
  for(const [key,title,icon,group] of WORKFLOWS){
+  // Pharmacy is part of Medication Administration, not a duplicate sidebar page.
+  if(key==="pharmacy4")continue;
   const b=document.createElement("button");b.type="button";b.className="nav-item enterprise-nav";
   b.dataset.enterpriseOpen=key;b.innerHTML='<span>'+esc(icon)+'</span>'+esc(title);
   bins.get(group).push(b);
@@ -97,7 +99,12 @@ function canOpenWorkflow(key){
 }
 function openSection(key){
  if(!canOpenWorkflow(key)){toast("This workspace is unavailable for your staff role.");return;}
-state.activeSection=key;const navSearch=document.querySelector("#enterpriseNavSearch");if(navSearch?.value){navSearch.value="";applyNavigationFilter("");}document.querySelectorAll(".content-section").forEach(s=>s.classList.add("hidden"));document.querySelector(`#enterprise-${key}`)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(n=>n.classList.toggle("active",n.dataset.enterpriseOpen===key));const title=WORKFLOWS.find(x=>x[0]===key)?.[1]||"Northstar";const h=document.querySelector("#pageTitle");if(h)h.textContent=title;document.querySelector(".sidebar")?.classList.remove("open");const nav=document.querySelector(`[data-enterprise-open="${key}"]`);const group=nav?.closest(".nav-group");if(group?.classList.contains("is-collapsed"))group.querySelector(".nav-group-title-toggle")?.click();startLazy(key);renderActive();}
+ // Keep legacy deep links functional while routing all pharmacy tools to MAR.
+ if(key==="pharmacy4"){
+  window.dispatchEvent(new CustomEvent("northstar:open-mar",{detail:{tab:"queue"}}));
+  return;
+ }
+ state.activeSection=key;const navSearch=document.querySelector("#enterpriseNavSearch");if(navSearch?.value){navSearch.value="";applyNavigationFilter("");}document.querySelectorAll(".content-section").forEach(s=>s.classList.add("hidden"));document.querySelector(`#enterprise-${key}`)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(n=>n.classList.toggle("active",n.dataset.enterpriseOpen===key));const title=WORKFLOWS.find(x=>x[0]===key)?.[1]||"Northstar";const h=document.querySelector("#pageTitle");if(h)h.textContent=title;document.querySelector(".sidebar")?.classList.remove("open");const nav=document.querySelector(`[data-enterprise-open="${key}"]`);const group=nav?.closest(".nav-group");if(group?.classList.contains("is-collapsed"))group.querySelector(".nav-group-title-toggle")?.click();startLazy(key);renderActive();}
 function stopLazy(){state.lazyUnsubs.forEach(u=>{try{u()}catch{}});state.lazyUnsubs=[];state.data={};state.dataErrors={};}
 function listen(name,key=name){
  const u=onSnapshot(collection(db,name),snapshot=>{
@@ -119,6 +126,9 @@ function scheduleActiveRender(){
  requestAnimationFrame(()=>{redrawScheduled=false;if(state.activeSection&&canOpenWorkflow(state.activeSection))renderActive();});
 }
 function renderActive(){if(!state.activeSection||!canOpenWorkflow(state.activeSection))return;({inbox:renderInbox,lab:renderLab,imaging:renderImaging,admissions:renderAdmissions,ems:renderEms,discharge:renderDischarge,procedures:renderProcedures,blood:renderBlood,supplies:renderSupplies,debrief:renderDebrief,billing:()=>renderBillingPage({target:document.querySelector("#enterprise-billing"),records:state.data.billingAccounts||[],encounters:state.encounters,patients:state.patients,profile:state.profile}),catalog:()=>renderServiceCatalog({target:document.querySelector("#enterprise-catalog"),records:state.data.serviceCatalog||[],profile:state.profile}),...Object.fromEntries(V3_PAGES.map(([key])=>[key,()=>renderV3Page(key,{profile:state.profile,data:state.data,patients:state.patients,encounters:state.encounters,users:state.users})])),...Object.fromEntries(DEPARTMENTS.map(({key})=>[key,()=>renderDepartment(key,{profile:state.profile,data:state.data,patients:state.patients,encounters:state.encounters,users:state.users})]))}[state.activeSection]||(()=>{}))();
+ if(state.activeSection==="pharmacy4"){
+  window.dispatchEvent(new Event("northstar:pharmacy-content-updated"));
+ }
  const section=document.querySelector("#enterprise-"+state.activeSection);
  if(section){
   let note=section.querySelector(":scope > .nmc-clean-data-warning");
@@ -332,6 +342,10 @@ function bind(){document.addEventListener("click",async e=>{const n=e.target.clo
 function addInstallButton(){if(!state.installPrompt||document.querySelector("#installNorthstar"))return;const f=document.querySelector(".sidebar-footer");const b=document.createElement("button");b.id="installNorthstar";b.className="text-button";b.textContent="Install Northstar";b.onclick=async()=>{await state.installPrompt.prompt();state.installPrompt=null;b.remove()};f?.prepend(b)}
 
 function refreshRoleNavigation(){
+ const canAccess=canOpenWorkflow("pharmacy4");
+ window.dispatchEvent(new CustomEvent("northstar:medication-pharmacy-access",{detail:{
+  canAccess,canRequest:canAccess&&["administrator","pharmacist","physician"].includes(state.profile?.role)
+ }}));
  document.querySelectorAll(".enterprise-nav").forEach(button=>{
   const key=button.dataset.enterpriseOpen;
   // Unauthenticated staff should not be offered institutional workspaces.
@@ -356,7 +370,7 @@ function startBase(user){
   state.profile=snapshot.exists()?{id:snapshot.id,...snapshot.data()}:null;
   refreshRoleNavigation();
   if(state.activeSection&&!canOpenWorkflow(state.activeSection)){
-   document.querySelector("#enterprise-"+state.activeSection)?.classList.add("hidden");
+   if(state.activeSection!=="pharmacy4")document.querySelector("#enterprise-"+state.activeSection)?.classList.add("hidden");
    stopLazy();state.activeSection=null;
    toast("Your staff permissions have changed. Please select an available workspace.");
   }else if(state.activeSection)renderActive();
@@ -373,4 +387,19 @@ function startBase(user){
  }
 }
 
+function activateMedicationWorkspace(){
+ if(!canOpenWorkflow("pharmacy4"))return;
+ if(state.activeSection!=="pharmacy4"){
+  state.activeSection="pharmacy4";
+  startLazy("pharmacy4");
+ }else renderActive();
+}
+window.addEventListener("northstar:medication-workspace-opened",activateMedicationWorkspace);
+// Release pharmacy listeners on any other sidebar destination.
+document.addEventListener("click",event=>{
+ const link=event.target.closest(".nav-item");
+ if(link&&link.dataset.northstarClinical!=="mar"&&state.activeSection==="pharmacy4"){
+  stopLazy();state.activeSection=null;
+ }
+},true);
 ensureStyles();ensureSections();organizeNavigation();bind();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js").catch(()=>{});onAuthStateChanged(auth,startBase);

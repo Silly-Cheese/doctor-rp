@@ -29,6 +29,49 @@ const { chromium } = require("playwright");
     if(missing.length)console.error("Failed local asset responses:",JSON.stringify(missing));
     const absent=Object.entries(states).filter(([,ok])=>!ok).map(([name])=>name);
     if(retiredVisible)absent.push("Retired patient deletion control still exists");
+    // Medication Administration must be the only entry point for MAR + Pharmacy.
+    // Render department data locally to exercise all tabs without a live Firebase login.
+    const mergedMedications=await page.evaluate(async()=>{
+      const workspace=document.querySelector("#northstarMarSection");
+      const pharmacy=document.querySelector("#enterprise-pharmacy4");
+      const mar=document.querySelector("#nmcMarAdministration");
+      if(!workspace||!pharmacy||!mar||!workspace.contains(pharmacy))return false;
+      if(document.querySelector('[data-enterprise-open="pharmacy4"]'))return false;
+      if(document.querySelectorAll("[data-med-workspace-tab]").length!==5)return false;
+      const {renderDepartment}=await import("./northstar-v4.js");
+      renderDepartment("pharmacy4",{
+        profile:{role:"administrator",status:"active"},
+        patients:[],encounters:[],users:[],
+        data:{nmcPharmacyDispenses:[],nmcPharmacyStock:[],nmcMedicationCatalog:[],orders:[]}
+      });
+      window.dispatchEvent(new CustomEvent("northstar:medication-pharmacy-access",{
+        detail:{canAccess:true,canRequest:true}
+      }));
+      const steps=[
+        ["queue","[data-n4-view='queue']"],
+        ["new","[data-n4-view='new']"],
+        ["context","[data-n4-view='context']"],
+        ["medications","[data-n4-view='medications']"]
+      ];
+      for(const [tab,selector] of steps){
+        const button=document.querySelector('[data-med-workspace-tab="'+tab+'"]');
+        button?.click();
+        const pane=pharmacy.querySelector(selector);
+        if(!button||button.hidden||pharmacy.hidden||!pane||pane.hidden)return false;
+      }
+      if(!pharmacy.querySelector("[data-nmc-med-add]"))return false;
+      const administration=document.querySelector('[data-med-workspace-tab="mar"]');
+      administration?.click();
+      if(!administration||mar.hidden||!pharmacy.hidden)return false;
+      window.dispatchEvent(new CustomEvent("northstar:medication-pharmacy-access",{
+        detail:{canAccess:false,canRequest:false}
+      }));
+      return [...document.querySelectorAll("[data-med-workspace-tab]")]
+        .filter(el=>el.dataset.medWorkspaceTab!=="mar")
+        .every(el=>el.hidden);
+    });
+    if(!mergedMedications)absent.push("Unified MAR / dispensing / stock / formulary navigation");
+
     // Simulate an authorized module becoming visible after authentication.
     // The sidebar should reveal and hide the same destination without reloading.
     const billingPanel=await page.locator("#dischargeForm .nmc-bill-fields").count()>0;
@@ -440,7 +483,7 @@ const { chromium } = require("playwright");
       if(valid.encounterId!=="enc")return false;
       return summarizeDepartment("surgery4",ctx.data.nmcSurgicalCases).open===1;
     });
-    if(!v4Departments)absent.push("Northstar 4.0 five full-page department workspaces and linked record selection");
+    if(!v4Departments)absent.push("Northstar 4.0 four standalone departments plus embedded pharmacy and linked record selection");
     const v4FormStability=await page.evaluate(async()=>{
       const {renderDepartment}=await import("./northstar-v4.js");
       const ctx={profile:{role:"administrator",status:"active"},
@@ -478,14 +521,14 @@ const { chromium } = require("playwright");
     const v4Nav=await page.evaluate(()=>{
       const sidebar=document.querySelector(".nav-list"),links=sidebar?.querySelectorAll(".nav-group-departments .enterprise-nav")||[];
       const group=sidebar?.querySelector(".nav-group-departments");
-      if(links.length!==5||!group||!group.classList.contains("is-collapsed"))return false;
+      if(links.length!==4||!group||!group.classList.contains("is-collapsed")||sidebar.querySelector('[data-enterprise-open="pharmacy4"]'))return false;
       const toggle=group.querySelector(".nav-group-title-toggle");
       toggle.click();
       if(group.classList.contains("is-collapsed")||toggle.getAttribute("aria-expanded")!=="true")return false;
       toggle.click();
       return group.classList.contains("is-collapsed")&&toggle.getAttribute("aria-expanded")==="false";
     });
-    if(!v4Nav)absent.push("Collapsible Departments navigation and explicit module registry");
+    if(!v4Nav)absent.push("Collapsible Departments navigation (four standalone modules; pharmacy integrated into MAR)");
     await page.setViewportSize({width:390,height:740});
     const v4Mobile=await page.evaluate(()=>{
       const section=document.querySelector("#enterprise-surgery4"),work=section?.querySelector(".n4-workspace");

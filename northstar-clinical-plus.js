@@ -23,7 +23,7 @@ const state = {
   profile: null,
   patients: [], encounters: [], orders: [], results: [], notes: [], addenda: [], observations: [], administrations: [], tasks: [],
   selectedPatientId: null, selectedEncounterId: null, selectedNoteId: null, unsubscribers: [], cameraStream: null, scanLoop: 0, renderQueued: false,
-  orderSearch: ""
+  orderSearch: "", medicationTab: "mar", pharmacyAccess: null, pharmacyCanRequest: null
 };
 
 let orderChoices=[];
@@ -86,6 +86,18 @@ function injectAdvancedClinical() {
   const staffSection = document.querySelector("#staffSection");
   const mar = document.createElement("section");
   mar.id = "northstarMarSection"; mar.className = "content-section hidden";
+  // One persistent medication workspace. The pharmacy module mounts in this section.
+  mar.innerHTML = `<div class="section-heading nmc-med-heading"><div><p class="eyebrow">Northstar Medical Center</p>
+    <h3>Medication Administration & Pharmacy</h3><p>Administer, dispense, manage stock, and maintain the hospital medication catalog.</p></div></div>
+    <nav class="nmc-med-tabs" aria-label="Medication workspace">
+      <button type="button" data-med-workspace-tab="mar" aria-pressed="true">Administration (MAR)</button>
+      <button type="button" data-med-workspace-tab="queue" hidden>Dispensing Queue</button>
+      <button type="button" data-med-workspace-tab="new" hidden>Request Dispense</button>
+      <button type="button" data-med-workspace-tab="context" hidden>Pharmacy Inventory</button>
+      <button type="button" data-med-workspace-tab="medications" hidden>Medication Catalog</button>
+    </nav>
+    <div id="nmcMarAdministration" class="nmc-med-pane"></div>
+    <section id="enterprise-pharmacy4" class="enterprise-section nmc-med-pharmacy-pane" hidden aria-label="Pharmacy and dispensing"></section>`;
   if (staffSection) main.insertBefore(mar, staffSection); else main?.appendChild(mar);
 
   const topbar = document.querySelector(".topbar-actions");
@@ -153,14 +165,47 @@ function injectDialogs() {
   document.querySelector("#addendumForm")?.addEventListener("submit", saveAddendum);
 }
 
-function openMar() {
+const pharmacyRole=role=>["administrator","pharmacist","physician","nurse"].includes(role);
+const dispenseRequestRole=role=>["administrator","pharmacist","physician"].includes(role);
+function syncMedicationTabs(){
+  const canSee=state.pharmacyAccess ?? pharmacyRole(state.profile?.role);
+  const canRequest=state.pharmacyCanRequest ?? dispenseRequestRole(state.profile?.role);
+  for(const button of document.querySelectorAll("[data-med-workspace-tab]")){
+    const tab=button.dataset.medWorkspaceTab;
+    button.hidden=tab!=="mar" && (!canSee || (tab==="new"&&!canRequest));
+  }
+  if(state.medicationTab!=="mar" && (!canSee || (state.medicationTab==="new"&&!canRequest)))state.medicationTab="mar";
+  const active=state.medicationTab;
+  for(const button of document.querySelectorAll("[data-med-workspace-tab]")){
+    const selected=button.dataset.medWorkspaceTab===active;
+    button.setAttribute("aria-pressed",String(selected));
+    button.classList.toggle("active",selected);
+  }
+  const mar=document.querySelector("#nmcMarAdministration");
+  const pharmacy=document.querySelector("#enterprise-pharmacy4");
+  if(mar)mar.hidden=active!=="mar";
+  if(pharmacy){
+    pharmacy.hidden=active==="mar";
+    for(const pane of pharmacy.querySelectorAll("[data-n4-view]")){
+      pane.hidden=pane.dataset.n4View!==active;
+    }
+    for(const button of pharmacy.querySelectorAll("[data-n4-panel]")){
+      button.classList.toggle("n4-selected",button.dataset.n4Panel===active);
+    }
+  }
+}
+function openMar(event) {
+  const requested=event?.detail?.tab;
+  if(["mar","queue","new","context","medications"].includes(requested))state.medicationTab=requested;
   document.querySelectorAll(".content-section").forEach(s => s.classList.add("hidden"));
   document.querySelector("#northstarMarSection")?.classList.remove("hidden");
   document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
   document.querySelector('[data-northstar-clinical="mar"]')?.classList.add("active");
-  const title = document.querySelector("#pageTitle"); if (title) title.textContent = "Medication Administration";
+  const title = document.querySelector("#pageTitle"); if (title) title.textContent = "Medication Administration & Pharmacy";
   document.querySelector(".sidebar")?.classList.remove("open");
   renderMar();
+  syncMedicationTabs();
+  window.dispatchEvent(new Event("northstar:medication-workspace-opened"));
 }
 
 function medicationOrders() { return state.orders.filter(o => o.category === "medication" && !["cancelled"].includes(o.status)).sort((a,b) => dueTime(a) - dueTime(b)); }
@@ -174,7 +219,7 @@ function medState(order) {
 }
 
 function renderMar() {
-  const target = document.querySelector("#northstarMarSection"); if (!target || !state.profile) return;
+  const target = document.querySelector("#nmcMarAdministration"); if (!target || !state.profile) return;
   const meds = medicationOrders();
   target.innerHTML = `<div class="section-heading"><div><p class="eyebrow">Medication Administration Record</p><h3>MAR</h3><p>Scheduled, due, overdue, held, refused, and completed medication orders.</p></div></div>
     <div class="mar-metrics"><article><span>Overdue</span><strong>${meds.filter(m => medState(m) === "overdue").length}</strong></article><article><span>Due</span><strong>${meds.filter(m => medState(m) === "due").length}</strong></article><article><span>Due Soon</span><strong>${meds.filter(m => medState(m) === "due-soon").length}</strong></article><article><span>Completed</span><strong>${meds.filter(m => medState(m) === "given").length}</strong></article></div>
@@ -418,6 +463,18 @@ async function mergePatients(sourceId,targetId) {
 }
 
 function bindEvents() {
+  document.addEventListener("click",event=>{
+    const tab=event.target.closest("[data-med-workspace-tab]");
+    if(!tab||tab.hidden)return;
+    state.medicationTab=tab.dataset.medWorkspaceTab;
+    syncMedicationTabs();
+  });
+  window.addEventListener("northstar:pharmacy-content-updated",syncMedicationTabs);
+  window.addEventListener("northstar:medication-pharmacy-access",event=>{
+    state.pharmacyAccess=Boolean(event.detail?.canAccess);
+    state.pharmacyCanRequest=Boolean(event.detail?.canRequest);
+    syncMedicationTabs();
+  });
   document.querySelector('[data-northstar-clinical="mar"]')?.addEventListener("click",openMar); document.querySelector("#scanWristbandButton")?.addEventListener("click",openScanner);
   document.querySelector("#orderCatalogSearch")?.addEventListener("input",e=>{state.orderSearch=e.target.value.trim();renderOrderCatalog();});
   document.querySelector("#manualScanButton")?.addEventListener("click",()=>handleScan(document.querySelector("#manualScanMrn").value));
@@ -439,7 +496,7 @@ function bindEvents() {
 }
 
 function scheduleRender(){if(state.renderQueued)return;state.renderQueued=true;requestAnimationFrame(()=>{state.renderQueued=false;const mar=document.querySelector("#northstarMarSection");if(mar&&!mar.classList.contains("hidden"))renderMar();if(document.querySelector("#patientChartDialog")?.open)enhanceChart();});}
-function stopListeners(){state.unsubscribers.forEach(u=>{try{u();}catch(_){}});state.unsubscribers=[];state.profile=null;}
+function stopListeners(){state.unsubscribers.forEach(u=>{try{u();}catch(_){}});state.unsubscribers=[];state.profile=null;state.medicationTab="mar";state.pharmacyAccess=null;state.pharmacyCanRequest=null;syncMedicationTabs();}
 function bindCollection(name,key){const u=onSnapshot(collection(db,name),s=>{state[key]=s.docs.map(d=>({id:d.id,...d.data()}));scheduleRender();},()=>{state[key]=[];scheduleRender();});state.unsubscribers.push(u);}
 async function start(user){stopListeners();if(!user)return;const p=await getDoc(doc(db,"users",user.uid));if(!p.exists())return;state.profile={id:p.id,...p.data()};if(state.profile.status!=="active")return;[["patients","patients"],["encounters","encounters"],["orders","orders"],["results","results"],["clinicalNotes","notes"],["noteAddenda","addenda"],["observations","observations"],["medicationAdministrations","administrations"],["tasks","tasks"]].forEach(([n,k])=>bindCollection(n,k));scheduleRender();}
 

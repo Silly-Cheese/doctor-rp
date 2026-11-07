@@ -1,4 +1,4 @@
-const NORTHSTAR_BUILD = "20261107-medication-formulary";
+const NORTHSTAR_BUILD = "20261107-unified-medications";
 const moduleUrl = path => `${path}?v=${NORTHSTAR_BUILD}`;
 window.NorthstarBuild = NORTHSTAR_BUILD;
 const failedModules = [];
