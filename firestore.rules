@@ -1162,6 +1162,7 @@ service cloud.firestore {
         && request.resource.data.collection in [
           'nmcSurgicalCases','nmcInfectionReviews','nmcSterileTrays',
           'nmcTransportRequests','nmcPharmacyDispenses','nmcPharmacyStock',
+          'nmcMedicationCatalog',
           'nmcSterileRequests'
         ]
         && request.resource.data.recordId is string
@@ -1260,6 +1261,29 @@ service cloud.firestore {
         && v4Update('nmcTransportRequests',requestId,['requested','assigned','en-route','arrived','completed','cancelled']);
       allow delete: if false;
     }
+    // Pharmacy-managed formulary. Historical orders retain the original medication label.
+    match /nmcMedicationCatalog/{medicationId} {
+      allow read: if v4Role(['administrator','pharmacist','physician','nurse']);
+      allow create: if v4Role(['administrator','pharmacist'])
+        && request.resource.data.keys().hasOnly([
+          'name','strength','form','group','notes','status',
+          'createdBy','updatedBy','createdAt','updatedAt','auditEventId'
+        ])
+        && v4Created()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 120
+        && request.resource.data.strength is string && request.resource.data.strength.size() <= 60
+        && request.resource.data.form in ['Tablet','Capsule','Oral liquid','Injection','IV fluid','Nebulizer','Topical','Other']
+        && request.resource.data.group in ['antibiotics','medications','fluids']
+        && request.resource.data.notes is string && request.resource.data.notes.size() <= 240
+        && request.resource.data.status == 'active'
+        && v4Audit('nmcMedicationCatalog',medicationId,'created');
+      allow update: if v4Role(['administrator','pharmacist'])
+        && v4Update('nmcMedicationCatalog',medicationId,['active','inactive'])
+        && request.resource.data.status != resource.data.status;
+      allow delete: if false;
+    }
+
     match /nmcPharmacyStock/{stockId} {
       allow read: if v4Role(['administrator','pharmacist','physician','nurse']);
       allow create: if v4Role(['administrator','pharmacist'])

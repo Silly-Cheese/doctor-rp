@@ -72,3 +72,16 @@
 .n4-mini select{max-width:180px;min-width:120px;padding:9px;background:#f2f8fb;color:#145979;border:1px solid #c6dbe5;border-radius:8px}
 @media(max-width:950px){.n4-stock-adjust-editor{grid-template-columns:1fr 1fr}.n4-stock-adjust-editor button{width:100%}}
 @media(max-width:600px){.n4-stock-adjust-editor{grid-template-columns:1fr}.n4-stock-row>span{margin-left:auto}.n4-mini{flex-wrap:wrap}.n4-mini select{width:100%;max-width:none}}
+
+/* Role-managed medication formulary inside the pharmacy workspace. */
+.n4-med-formulary .n4-med-filter{display:grid;gap:6px;margin:12px 0 8px;font-size:.8rem;font-weight:750;color:#365b6f}
+.n4-med-formulary .n4-med-filter input{padding:11px 12px;border:1px solid #bdd3e0;border-radius:9px;min-width:0;width:100%;max-width:460px;box-sizing:border-box;color:#183e55;background:#fff}
+.n4-med-formulary .n4-med-list{max-height:390px;overflow-y:auto;margin-bottom:6px}
+.n4-med-formulary .n4-med-entry{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:12px 4px;border-bottom:1px solid #e4edf2}
+.n4-med-formulary .n4-med-entry strong{display:block;color:#1a4157;font-size:.88rem;overflow-wrap:anywhere}
+.n4-med-formulary .n4-med-entry small{display:block;color:#668599;font-size:.77rem;margin-top:4px;overflow-wrap:anywhere}
+.n4-med-formulary .n4-med-entry[hidden]{display:none}
+.n4-med-formulary .n4-med-add-form textarea{box-sizing:border-box;min-width:0;width:100%;padding:12px 13px;border:1px solid #bdd3e0;color:#143d53;background:#fff;border-radius:10px;font:inherit;resize:vertical}
+.n4-med-formulary .n4-med-wide{grid-column:1/-1}
+.n4-med-formulary .n4-med-help{font-size:.78rem;color:#607e90;line-height:1.5;margin:14px 0 2px}
+@media(max-width:650px){.n4-med-formulary .n4-med-entry{align-items:flex-start;flex-wrap:wrap}.n4-med-formulary .n4-med-wide{grid-column:auto}}
