@@ -11,6 +11,8 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,serverTimestamp}=require
    const firestore=ctx.firestore();
    await setDoc(doc(firestore,"users","adminstaff"),{uid:"adminstaff",role:"administrator",status:"active",permissions:{}});
    await setDoc(doc(firestore,"users","siumember"),{uid:"siumember",role:"staff",status:"active",permissions:{siuInvestigations:true}});
+   await setDoc(doc(firestore,"users","pharmstaff"),{uid:"pharmstaff",role:"pharmacist",status:"active",permissions:{}});
+   await setDoc(doc(firestore,"users","physician"),{uid:"physician",role:"physician",status:"active",permissions:{providerActions:true}});
    await setDoc(doc(firestore,"patients","testpatient"),{firstName:"Example",lastName:"Patient",displayName:"Example Patient",mrn:"NMC-TEST",vitalStatus:"active",currentStatus:"not-checked-in"});
    await setDoc(doc(firestore,"users","registrar"),{uid:"registrar",role:"registration",status:"active",permissions:{manageRegistration:true}});
    await setDoc(doc(firestore,"patients","deceaseddoe"),{firstName:"Jane",lastName:"Doe",displayName:"Jane Doe",identityStatus:"unidentified",vitalStatus:"deceased",recordConfidential:true,deceasedAccessUids:[]});
@@ -18,6 +20,8 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,serverTimestamp}=require
   });
   const admin=environment.authenticatedContext("adminstaff").firestore();
   const siu=environment.authenticatedContext("siumember").firestore();
+  const pharmacist=environment.authenticatedContext("pharmstaff").firestore();
+  const physician=environment.authenticatedContext("physician").firestore();
   const registrar=environment.authenticatedContext("registrar").firestore();
   await assertSucceeds(getDoc(doc(admin,"patients","testpatient")));
   await assertFails(deleteDoc(doc(admin,"patients","testpatient")));
@@ -118,6 +122,36 @@ const {doc,getDoc,setDoc,updateDoc,deleteDoc,writeBatch,serverTimestamp}=require
   });
   transport.set(doc(admin,"nmcDepartmentAudit","v4audit-transport"),departmentAudit("nmcTransportRequests","v4transport","created","requested"));
   await assertSucceeds(transport.commit());
+  // Custom medication formulary: audited pharmacist/admin writes, provider read-only access.
+  const medication=writeBatch(admin);
+  medication.set(doc(admin,"nmcMedicationCatalog","amoxicillin-500-capsule"),{
+    name:"Amoxicillin",strength:"500 mg",form:"Capsule",group:"antibiotics",notes:"Simulation entry",
+    status:"active",createdBy:"adminstaff",updatedBy:"adminstaff",
+    createdAt:serverTimestamp(),updatedAt:serverTimestamp(),auditEventId:"v4audit-med-created"
+  });
+  medication.set(doc(admin,"nmcDepartmentAudit","v4audit-med-created"),
+    departmentAudit("nmcMedicationCatalog","amoxicillin-500-capsule","created","active"));
+  await assertSucceeds(medication.commit());
+  await assertSucceeds(getDoc(doc(pharmacist,"nmcMedicationCatalog","amoxicillin-500-capsule")));
+  await assertSucceeds(getDoc(doc(physician,"nmcMedicationCatalog","amoxicillin-500-capsule")));
+  await assertFails(getDoc(doc(siu,"nmcMedicationCatalog","amoxicillin-500-capsule")));
+  await assertFails(updateDoc(doc(physician,"nmcMedicationCatalog","amoxicillin-500-capsule"),{status:"inactive"}));
+  await assertFails(updateDoc(doc(admin,"nmcMedicationCatalog","amoxicillin-500-capsule"),{
+    name:"Renamed medication",updatedBy:"adminstaff",updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(doc(admin,"nmcMedicationCatalog","amoxicillin-500-capsule"),{
+    status:"inactive",updatedBy:"adminstaff",updatedAt:serverTimestamp()
+  }));
+  const deactivate=writeBatch(pharmacist);
+  deactivate.update(doc(pharmacist,"nmcMedicationCatalog","amoxicillin-500-capsule"),{
+    status:"inactive",updatedBy:"pharmstaff",updatedAt:serverTimestamp(),auditEventId:"v4audit-med-inactive"
+  });
+  deactivate.set(doc(pharmacist,"nmcDepartmentAudit","v4audit-med-inactive"),{
+    collection:"nmcMedicationCatalog",recordId:"amoxicillin-500-capsule",action:"status",
+    from:"active",to:"inactive",actorUid:"pharmstaff",createdAt:serverTimestamp()
+  });
+  await assertSucceeds(deactivate.commit());
+  await assertFails(deleteDoc(doc(admin,"nmcMedicationCatalog","amoxicillin-500-capsule")));
   const pharmacyStock=writeBatch(admin);
   pharmacyStock.set(doc(admin,"nmcPharmacyStock","v4stock"),{
     itemName:"Simulation Medication",sku:"RX-TEST",quantity:12,location:"Main Pharmacy",status:"available",
