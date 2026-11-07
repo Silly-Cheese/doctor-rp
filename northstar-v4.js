@@ -174,7 +174,7 @@ export function renderDepartment(key,ctx){
  const label={surgery4:"Surgical cases",infection4:"Prevention reviews",sterile4:"Instrument trays",transport4:"Transport requests",pharmacy4:"Dispensing requests"}[key];
  const markup='<div class="n4-workspace"><header class="n4-head"><div><p class="eyebrow">NORTHSTAR 4.0 / DEPARTMENTS</p><h2>'+esc(model.title)+'</h2><p>'+esc(model.intro)+'</p></div><span class="n4-role">'+esc(userRole)+'</span></header>'+
   '<div class="n4-stats">'+stat("Total records",summary.total)+stat("Active",summary.open)+stat("Completed / closed",summary.complete)+stat("Priority flags",summary.alerts)+'</div>'+
-  '<div class="n4-tools"><button type="button" data-n4-panel="queue" class="n4-selected">Work queue</button>'+(mayCreateDepartment(ctx.profile?.role,key)?'<button type="button" data-n4-panel="new">New record</button>':"")+''+(key==="pharmacy4"?'<button type="button" data-n4-panel="medications">Medication Catalog</button>':"")+'<button type="button" data-n4-panel="context">Connected work</button></div>'+
+  '<div class="n4-tools"><button type="button" data-n4-panel="queue" class="n4-selected">Work queue</button>'+(mayCreateDepartment(ctx.profile?.role,key)?'<button type="button" data-n4-panel="new">New record</button>':"")+(key==="pharmacy4"?'<button type="button" data-n4-panel="medications">Medication Catalog</button>':"")+'<button type="button" data-n4-panel="context">Connected work</button></div>'+
   '<div class="n4-view" data-n4-view="queue"><section class="n4-panel"><header><h3>'+esc(label)+'</h3><label class="n4-search">Search records<input type="search" data-n4-search placeholder="Filter by name, status or location"></label></header><div class="n4-list" data-n4-list></div></section></div>'+
   '<div class="n4-view" data-n4-view="new" hidden><form class="n4-panel n4-form"><header><h3>'+esc(createName)+'</h3><small>Creates a simulated operational record. No clinical procedure or medication administration is automatically performed.</small></header><div class="n4-fields">'+formMarkup(key,ctx)+'</div><button type="submit" class="n4-primary">Save record</button><p class="n4-message" role="status"></p></form></div>'+
   (key==="pharmacy4"?'<div class="n4-view" data-n4-view="medications" hidden>'+renderMedicationFormulary(ctx)+'</div>':"")+
@@ -250,7 +250,7 @@ export function renderDepartment(key,ctx){
   });
  }
  if(key==="pharmacy4"){
-  bindMedicationFormulary(target,ctx);
+   bindMedicationFormulary(target,ctx);
    const stockForm=contextView.querySelector("[data-n4-stock-create]");
   if(stockForm)stockForm.onsubmit=async event=>{
    event.preventDefault();const message=stockForm.querySelector(".n4-message"),button=stockForm.querySelector("button[type=submit]");button.disabled=true;
