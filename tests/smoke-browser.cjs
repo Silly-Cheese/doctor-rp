@@ -483,7 +483,7 @@ const { chromium } = require("playwright");
       if(valid.encounterId!=="enc")return false;
       return summarizeDepartment("surgery4",ctx.data.nmcSurgicalCases).open===1;
     });
-    if(!v4Departments)absent.push("Northstar 4.0 five full-page department workspaces and linked record selection");
+    if(!v4Departments)absent.push("Northstar 4.0 four standalone departments plus embedded pharmacy and linked record selection");
     const v4FormStability=await page.evaluate(async()=>{
       const {renderDepartment}=await import("./northstar-v4.js");
       const ctx={profile:{role:"administrator",status:"active"},
@@ -521,14 +521,14 @@ const { chromium } = require("playwright");
     const v4Nav=await page.evaluate(()=>{
       const sidebar=document.querySelector(".nav-list"),links=sidebar?.querySelectorAll(".nav-group-departments .enterprise-nav")||[];
       const group=sidebar?.querySelector(".nav-group-departments");
-      if(links.length!==5||!group||!group.classList.contains("is-collapsed"))return false;
+      if(links.length!==4||!group||!group.classList.contains("is-collapsed")||sidebar.querySelector('[data-enterprise-open="pharmacy4"]'))return false;
       const toggle=group.querySelector(".nav-group-title-toggle");
       toggle.click();
       if(group.classList.contains("is-collapsed")||toggle.getAttribute("aria-expanded")!=="true")return false;
       toggle.click();
       return group.classList.contains("is-collapsed")&&toggle.getAttribute("aria-expanded")==="false";
     });
-    if(!v4Nav)absent.push("Collapsible Departments navigation and explicit module registry");
+    if(!v4Nav)absent.push("Collapsible Departments navigation (four standalone modules; pharmacy integrated into MAR)");
     await page.setViewportSize({width:390,height:740});
     const v4Mobile=await page.evaluate(()=>{
       const section=document.querySelector("#enterprise-surgery4"),work=section?.querySelector(".n4-workspace");
