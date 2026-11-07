@@ -108,3 +108,24 @@
     padding: 12px 10px;
   }
 }
+
+
+/* Unified Medication Administration + Pharmacy workspace. */
+#northstarMarSection .nmc-med-heading{margin-bottom:16px}
+#northstarMarSection .nmc-med-tabs{display:flex;align-items:stretch;gap:7px;overflow-x:auto;scrollbar-width:thin;max-width:100%;padding:5px 1px 12px;margin-bottom:12px}
+#northstarMarSection .nmc-med-tabs button{flex:0 0 auto;min-height:44px;padding:10px 16px;border:1px solid #cbdce7;border-radius:10px;background:#fff;color:#40677f;font:750 .82rem/1.25 Inter,Arial,sans-serif;cursor:pointer}
+#northstarMarSection .nmc-med-tabs button.active{color:#0c567b;border-color:#8ab9cf;background:#eaf6fc;box-shadow:inset 0 -3px 0 #0b6a94}
+#northstarMarSection .nmc-med-tabs button:hover{border-color:#8bb9d0}
+#northstarMarSection .nmc-med-tabs button:focus-visible{outline:2px solid #0b6a94;outline-offset:2px}
+#northstarMarSection .nmc-med-tabs button[hidden],#northstarMarSection [hidden]{display:none!important}
+#northstarMarSection .nmc-med-pharmacy-pane{min-width:0;max-width:100%;overflow-x:hidden}
+#northstarMarSection .nmc-med-pharmacy-pane .n4-workspace{box-sizing:border-box;max-width:100%;min-height:0;background:transparent;padding:0}
+#northstarMarSection .nmc-med-pharmacy-pane .n4-head,#northstarMarSection .nmc-med-pharmacy-pane .n4-stats,#northstarMarSection .nmc-med-pharmacy-pane .n4-tools,#northstarMarSection .nmc-med-pharmacy-pane .n4-foot{display:none}
+#northstarMarSection .nmc-med-pharmacy-pane .n4-view{padding:0}
+#northstarMarSection .nmc-med-pharmacy-pane .n4-view[data-n4-view="new"]{max-width:920px}
+#northstarMarSection .nmc-med-pharmacy-pane .n4-panels{align-items:start}
+#northstarMarSection .nmc-med-pharmacy-pane .n4-med-formulary{max-width:100%}
+@media(max-width:700px){
+  #northstarMarSection .nmc-med-tabs{gap:6px;padding-bottom:9px}
+  #northstarMarSection .nmc-med-tabs button{font-size:.75rem;padding:9px 12px}
+}
