@@ -1,4 +1,5 @@
 import {ORDER_GROUPS,buildClinicalChoices,selectOrderChoice} from "./northstar-clinical-order-data.js";
+import {medicationDisplayName} from "./northstar-medication-formulary.js";
 import { getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
@@ -335,7 +336,16 @@ async function loadAdvancedOrderChoices(){
  let prices=[];
  try{const snap=await getDocs(collection(db,"serviceCatalog"));prices=snap.docs.map(d=>({id:d.id,...d.data()}));}
  catch(e){console.warn("Billing rates unavailable for ordering",e)}
- orderChoices=buildClinicalChoices(prices,CATALOG.map(x=>({...x,group:ORDER_GROUPS.find(g=>g.category===x.category)?.id||"other"})));
+ let medications=[];
+ try{
+  const snap=await getDocs(collection(db,"nmcMedicationCatalog"));
+  medications=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="active")
+    .map(x=>({name:medicationDisplayName(x),group:x.group,category:"medication",active:true}));
+ }catch(e){console.warn("Custom medication formulary unavailable for ordering",e)}
+ orderChoices=buildClinicalChoices(prices,[
+  ...CATALOG.map(x=>({...x,group:ORDER_GROUPS.find(g=>g.category===x.category)?.id||"other"})),
+  ...medications
+ ]);
  group.value="laboratory";
  refreshAdvancedOrderNames();
 }
