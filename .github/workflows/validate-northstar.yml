@@ -42,7 +42,7 @@ jobs:
           GOOGLE_CLOUD_PROJECT=demo-northstar node -e "const f=require('./functions/index.js'); for (const k of ['northstarHealth']) { if (typeof f[k]!=='function') throw Error('Missing function: '+k); } console.log('Cloud Functions entrypoint loaded successfully');"
 
   browser-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
