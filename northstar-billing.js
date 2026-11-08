@@ -3,7 +3,8 @@ import {mountBillingDashboard} from "./northstar-billing-dashboard.js";
 import {openNorthstarStatement} from "./northstar-invoice-print.js";
 import {summarizeBilling,exportBillingCSV} from "./northstar-billing-insights.js";
 import {mountNorthstarDonations} from "./northstar-donations.js";
-// Northstar billing is a simulation ledger: no payment processing, claims submission, or payer verification.
+// Northstar billing is a simulation ledger. Sterling Mutual handoff only pre-fills an external
+// portal request; it does not submit a claim, verify eligibility, or record a payment.
 import {collectEncounterCharges} from "./northstar-service-catalog.js";
 import {getApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {getAuth} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
@@ -11,6 +12,7 @@ import {getFirestore,collection,doc,getDoc,getDocs,query,orderBy,writeBatch,runT
 
 const esc=x=>String(x??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 const CURRENCY=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
+const STERLING_MEDICAL_PORTAL="https://sterling-mutual-insurance.web.app/";
 export const money=c=>CURRENCY.format((Number(c)||0)/100);
 const moneyValue=(v,required=false)=>{
  const x=String(v??"").trim();
@@ -387,11 +389,22 @@ async function openInvoice(id){
  '<div class="nmc-bill-invoice-totals"><div>Charges<strong>'+money(a.chargeCents)+'</strong></div><div>Insurance estimate<strong>'+money(a.insuranceEstimatedCents)+'</strong></div><div>Waived<strong>'+money(a.waivedCents)+'</strong></div><div>Patient portion<strong>'+money(a.patientResponsibilityCents)+'</strong></div><div>Paid by patient<strong>'+money(a.patientPaidCents)+'</strong></div><div>Patient balance<strong>'+money(a.patientBalanceCents)+'</strong></div><div>Expected insurer balance<strong>'+money(a.insurerBalanceCents)+'</strong></div></div>'+
  '<h3>Itemized charges</h3><div class="nmc-bill-lines">'+(a.lineItems||[]).map(x=>'<div><span>'+esc(x.description)+' (×'+Number(x.quantity||1)+')<small>'+esc(x.clinicalGroup||x.sourceType||"Service")+' · Rate version '+Number(x.rateVersion||1)+'</small></span><strong>'+money(x.amountCents)+'</strong></div>').join("")+'</div>'+
  '<p>Insurer: '+esc(a.insuranceProvider||"None")+' · Payment due: '+esc(a.paymentDueDate||"Not set")+' · Waiver reason: '+esc(a.waiverReason||"None")+'</p><p>'+esc(a.notes||"")+'</p>'+
- '<div class="nmc-bill-dialog-actions"><button type="button" class="nmc-bill-print">Print patient statement</button><button type="button" class="nmc-bill-print-internal">Print internal ledger</button>'+(current.profile?.role==="administrator"?'<button type="button" class="nmc-bill-override-open">Override invoice charges</button>':'')+'</div>'+
+ '<div class="nmc-bill-dialog-actions"><button type="button" class="nmc-bill-print">Print patient statement</button><button type="button" class="nmc-bill-print-internal">Print internal ledger</button><button type="button" class="nmc-bill-sterling-claim">Request payout via Sterling Mutual</button>'+(current.profile?.role==="administrator"?'<button type="button" class="nmc-bill-override-open">Override invoice charges</button>':'')+'</div>'+
  (writable?'<form id="nmcBillingAction"><h3>Post ledger activity</h3><label>Action<select name="action" required><option value="patient-payment">Record simulated patient payment</option><option value="insurance-payment">Record simulated insurer payment</option><option value="patient-refund">Record simulated patient refund</option><option value="insurance-refund">Record simulated insurer refund</option><option value="coverage">Update estimated insurance coverage</option><option value="waiver">Apply/change waiver</option><option value="charge">Add itemized charge</option><option value="charge-correction">Correct / reduce an erroneous charge</option><option value="insurer">Correct insurer name</option><option value="due-date">Set payment due date (YYYY-MM-DD)</option><option value="claim">Update insurance claim status</option><option value="note">Add an internal note</option></select></label><label>Amount ($)<input type="number" name="amount" min="0" step="0.01" placeholder="0.00"></label><label>Detail / reference<input name="detail" maxlength="250" placeholder="Charge description, payment reference, or note"></label><label>Claim decision<select name="claimOutcome"><option value="not-submitted">Not submitted</option><option value="submitted">Submitted</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="denied">Denied</option><option value="paid">Paid</option></select></label><label>Reason / authorization<textarea name="reason" required minlength="5" maxlength="750" rows="2"></textarea></label><button type="submit">Save simulated activity</button><p class="nmc-bill-action-status" role="status"></p></form>':'')+
  '<h3>Audit trail</h3><div class="nmc-bill-history">'+(events.empty?'<p>No adjustment activity yet.</p>':events.docs.map(x=>{const e=x.data();return '<div><strong>'+esc(statusLabel(e.action||"record"))+' · '+money(e.amountCents||0)+'</strong><small>'+esc(e.detail||"")+' · '+esc(e.reason||"")+' · '+esc(e.actorUid||"")+'</small></div>'}).join(""))+'</div><p class="nmc-bill-notice">Simulation invoice only. No actual payment is accepted or insurer claim transmitted.</p></div>';
  document.body.append(d);d.showModal();
  d.querySelector(".nmc-bill-close").onclick=()=>d.close();
+ // Hand off non-clinical invoice reference and an editable requested amount only.
+ // No patient names, medical chart details, or Sterling credentials enter the URL.
+ d.querySelector(".nmc-bill-sterling-claim").onclick=()=>{
+  const confirmed=window.confirm("Open Sterling Mutual's separate medical claims portal? The invoice reference and amount will prefill a request. You must sign in there and submit it for review; no payout or clinical data transfer occurs automatically.");
+  if(!confirmed)return;
+  const url=new URL(STERLING_MEDICAL_PORTAL);
+  url.searchParams.set("medicalInvoice",String(a.invoiceNumber||id));
+  url.searchParams.set("medicalAmount",(Math.max(0,Number(a.insurerBalanceCents)>0?Number(a.insurerBalanceCents):Number(a.chargeCents)||0)/100).toFixed(2));
+  url.searchParams.set("medicalSource","northstar");
+  window.open(url.toString(),"_blank","noopener,noreferrer");
+ };
  d.addEventListener("close",()=>d.remove());
  const eventRows=events.docs.map(x=>({id:x.id,...x.data()}));
  for(const [selector,internal] of [[".nmc-bill-print",false],[".nmc-bill-print-internal",true]]){
