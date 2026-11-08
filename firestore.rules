@@ -837,6 +837,100 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+
+    // Public insurer verification is a short-lived projection, never the clinical record.
+    // A random 128-bit verification code is necessary in addition to an invoice number.
+    function insuranceInvoicePath(encounterId) {
+      return /databases/$(database)/documents/billingAccounts/$(encounterId);
+    }
+    function insuranceAccessPath(encounterId) {
+      return /databases/$(database)/documents/insuranceInvoiceAccess/$(encounterId);
+    }
+    function validInsuranceAccess(data, encounterId) {
+      return data.keys().hasOnly(['code','invoiceNumber','active','expiresAt','updatedAt','updatedBy'])
+        && data.code is string && data.code.matches('^[A-F0-9]{32}$')
+        && data.invoiceNumber is string && data.invoiceNumber.matches('^NMC-[A-Z0-9]{10}$')
+        && data.active is bool && data.expiresAt is timestamp
+        && data.updatedAt == request.time
+        && data.updatedBy == request.auth.uid
+        && exists(insuranceInvoicePath(encounterId))
+        && get(insuranceInvoicePath(encounterId)).data.invoiceNumber == data.invoiceNumber;
+    }
+    function insuranceSnapshotShape(data, snapshotId) {
+      return data.keys().hasOnly([
+          'simulated','encounterId','invoiceNumber','verificationCode','invoiceUpdatedAt',
+          'publishedAt','expiresAt','status','claimStatus','insuranceProvider',
+          'chargeCents','insuranceEstimatedCents','insuranceReceivedCents',
+          'waivedCents','patientBalanceCents','insurerBalanceCents','serviceLines'
+        ])
+        && data.simulated == true
+        && data.encounterId is string && data.encounterId.size() >= 1 && data.encounterId.size() <= 128
+        && data.invoiceNumber is string && data.invoiceNumber.matches('^NMC-[A-Z0-9]{10}$')
+        && data.verificationCode is string && data.verificationCode.matches('^[A-F0-9]{32}$')
+        && snapshotId == data.invoiceNumber + '-' + data.verificationCode
+        && data.invoiceUpdatedAt is timestamp && data.publishedAt is timestamp
+        && data.expiresAt is timestamp
+        && data.status is string && data.claimStatus is string
+        && data.insuranceProvider is string && data.insuranceProvider.size() <= 100
+        && data.chargeCents is int && data.chargeCents >= 0
+        && data.insuranceEstimatedCents is int && data.insuranceEstimatedCents >= 0
+        && data.insuranceReceivedCents is int && data.insuranceReceivedCents >= 0
+        && data.waivedCents is int && data.waivedCents >= 0
+        && data.patientBalanceCents is int && data.patientBalanceCents >= 0
+        && data.insurerBalanceCents is int && data.insurerBalanceCents >= 0
+        && data.serviceLines is list && data.serviceLines.size() > 0 && data.serviceLines.size() <= 100;
+    }
+    function activeInsuranceSnapshot(data) {
+      return exists(insuranceAccessPath(data.encounterId))
+        && get(insuranceAccessPath(data.encounterId)).data.active == true
+        && get(insuranceAccessPath(data.encounterId)).data.code == data.verificationCode
+        && get(insuranceAccessPath(data.encounterId)).data.expiresAt == data.expiresAt
+        && request.time < data.expiresAt
+        && exists(insuranceInvoicePath(data.encounterId))
+        && get(insuranceInvoicePath(data.encounterId)).data.invoiceNumber == data.invoiceNumber
+        && get(insuranceInvoicePath(data.encounterId)).data.updatedAt == data.invoiceUpdatedAt
+        && get(insuranceInvoicePath(data.encounterId)).data.chargeCents == data.chargeCents
+        && get(insuranceInvoicePath(data.encounterId)).data.insuranceEstimatedCents == data.insuranceEstimatedCents
+        && get(insuranceInvoicePath(data.encounterId)).data.insurerBalanceCents == data.insurerBalanceCents;
+    }
+    function newlyPublishedInsuranceSnapshot(data, snapshotId) {
+      return insuranceSnapshotShape(data, snapshotId)
+        && data.publishedAt == request.time
+        && data.expiresAt > request.time
+        && existsAfter(insuranceAccessPath(data.encounterId))
+        && getAfter(insuranceAccessPath(data.encounterId)).data.active == true
+        && getAfter(insuranceAccessPath(data.encounterId)).data.code == data.verificationCode
+        && getAfter(insuranceAccessPath(data.encounterId)).data.expiresAt == data.expiresAt
+        && existsAfter(insuranceInvoicePath(data.encounterId))
+        && getAfter(insuranceInvoicePath(data.encounterId)).data.invoiceNumber == data.invoiceNumber
+        && getAfter(insuranceInvoicePath(data.encounterId)).data.updatedAt == data.invoiceUpdatedAt
+        && getAfter(insuranceInvoicePath(data.encounterId)).data.chargeCents == data.chargeCents
+        && getAfter(insuranceInvoicePath(data.encounterId)).data.insuranceEstimatedCents == data.insuranceEstimatedCents
+        && getAfter(insuranceInvoicePath(data.encounterId)).data.insuranceReceivedCents == data.insuranceReceivedCents
+        && getAfter(insuranceInvoicePath(data.encounterId)).data.waivedCents == data.waivedCents
+        && getAfter(insuranceInvoicePath(data.encounterId)).data.patientBalanceCents == data.patientBalanceCents
+        && getAfter(insuranceInvoicePath(data.encounterId)).data.insurerBalanceCents == data.insurerBalanceCents
+        && getAfter(insuranceInvoicePath(data.encounterId)).data.status == data.status
+        && getAfter(insuranceInvoicePath(data.encounterId)).data.claimStatus == data.claimStatus
+        && getAfter(insuranceInvoicePath(data.encounterId)).data.insuranceProvider == data.insuranceProvider;
+    }
+    match /insuranceInvoiceAccess/{encounterId} {
+      allow get: if isBillingManager();
+      allow list: if false;
+      allow create, update: if isBillingManager()
+        && validInsuranceAccess(request.resource.data, encounterId);
+      allow delete: if isBillingManager();
+    }
+    match /insuranceInvoiceVerifications/{verificationId} {
+      // Public can only retrieve one unguessable document; listing is always forbidden.
+      allow get: if insuranceSnapshotShape(resource.data, verificationId)
+        && activeInsuranceSnapshot(resource.data);
+      allow list: if false;
+      allow create, update: if isBillingManager()
+        && newlyPublishedInsuranceSnapshot(request.resource.data, verificationId);
+      allow delete: if isBillingManager();
+    }
+
     match /billingAccounts/{encounterId} {
       allow read: if isBillingReader();
       allow create: if (isProvider() || isBillingManager())
