@@ -1,5 +1,6 @@
 import {overrideInvoiceCharges} from "./northstar-billing-workflows.js";
 import {openInsuranceVerificationManagement} from "./northstar-insurance-verification.js";
+import {mountInsuranceRemittanceReview} from "./northstar-insurance-remittance-review.js";
 import {mountBillingDashboard} from "./northstar-billing-dashboard.js";
 import {openNorthstarStatement} from "./northstar-invoice-print.js";
 import {summarizeBilling,exportBillingCSV} from "./northstar-billing-insights.js";
@@ -394,6 +395,16 @@ async function openInvoice(id){
  (writable?'<form id="nmcBillingAction"><h3>Post ledger activity</h3><label>Action<select name="action" required><option value="patient-payment">Record simulated patient payment</option><option value="insurance-payment">Record simulated insurer payment</option><option value="patient-refund">Record simulated patient refund</option><option value="insurance-refund">Record simulated insurer refund</option><option value="coverage">Update estimated insurance coverage</option><option value="waiver">Apply/change waiver</option><option value="charge">Add itemized charge</option><option value="charge-correction">Correct / reduce an erroneous charge</option><option value="insurer">Correct insurer name</option><option value="due-date">Set payment due date (YYYY-MM-DD)</option><option value="claim">Update insurance claim status</option><option value="note">Add an internal note</option></select></label><label>Amount ($)<input type="number" name="amount" min="0" step="0.01" placeholder="0.00"></label><label>Detail / reference<input name="detail" maxlength="250" placeholder="Charge description, payment reference, or note"></label><label>Claim decision<select name="claimOutcome"><option value="not-submitted">Not submitted</option><option value="submitted">Submitted</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="denied">Denied</option><option value="paid">Paid</option></select></label><label>Reason / authorization<textarea name="reason" required minlength="5" maxlength="750" rows="2"></textarea></label><button type="submit">Save simulated activity</button><p class="nmc-bill-action-status" role="status"></p></form>':'')+
  '<h3>Audit trail</h3><div class="nmc-bill-history">'+(events.empty?'<p>No adjustment activity yet.</p>':events.docs.map(x=>{const e=x.data();return '<div><strong>'+esc(statusLabel(e.action||"record"))+' · '+money(e.amountCents||0)+'</strong><small>'+esc(e.detail||"")+' · '+esc(e.reason||"")+' · '+esc(e.actorUid||"")+'</small></div>'}).join(""))+'</div><p class="nmc-bill-notice">Simulation invoice only. No actual payment is accepted or insurer claim transmitted.</p></div>';
  document.body.append(d);d.showModal();
+ if(writable){
+   const remittancePanel=document.createElement("section");
+   remittancePanel.className="nmc-remittance-panel";
+   d.querySelector(".nmc-bill-dialog-actions").after(remittancePanel);
+   mountInsuranceRemittanceReview({
+     encounterId:id,target:remittancePanel,
+     onPosted:async()=>{d.close();await openInvoice(id);}
+   }).catch(error=>{remittancePanel.textContent="Unable to load insurer payment review: "+(error.message||error);});
+ }
+ 
  d.querySelector(".nmc-bill-close").onclick=()=>d.close();
  const insuranceVerificationButton=d.querySelector(".nmc-bill-verify-open");
  if(insuranceVerificationButton)insuranceVerificationButton.onclick=()=>openInsuranceVerificationManagement(id,a.invoiceNumber);
