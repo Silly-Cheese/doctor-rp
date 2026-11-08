@@ -5,23 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <meta name="referrer" content="no-referrer">
-  <title>Insurance Invoice Verification | Northstar Medical Center</title>
+  <title>Insurance Invoice Verification & Payments | Northstar Medical Center</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="insurance-verify.css?v=1">
 </head>
 <body>
-  <header class="iv-header"><a class="iv-brand" href="index.html"><span class="iv-mark">N</span><span><strong>Northstar Medical Center</strong><small>Insurance Invoice Verification</small></span></a><span class="iv-public">Public lookup · No account required</span></header>
+  <header class="iv-header"><a class="iv-brand" href="index.html"><span class="iv-mark">N</span><span><strong>Northstar Medical Center</strong><small>Invoice Verification & Remittances</small></span></a><span class="iv-public">Public lookup · No account required</span></header>
   <main class="iv-page">
-    <div class="iv-intro"><p class="iv-kicker">For insurance representatives</p><h1>Verify a medical invoice.</h1><p>Confirm that an invoice was issued by Northstar and review its current itemized charges and financial summary. No account, password, or staff authorization is required.</p></div>
+    <div class="iv-intro"><p class="iv-kicker">For insurance representatives</p><h1>Verify a medical invoice.</h1><p>Confirm that an invoice was issued by Northstar, review itemized charges, and submit a simulated insurer payment for billing review. No account or password is required.</p></div>
     <section class="iv-card" aria-labelledby="verifyTitle"><div class="iv-card-title"><span>01 / Invoice validation</span><h2 id="verifyTitle">Find an invoice</h2><p>Enter the invoice number and the confidential verification code provided by Northstar Billing. Both are required to protect the privacy of the records.</p></div>
       <form id="verificationForm" class="iv-form" autocomplete="off"><label>Invoice number<input name="invoiceNumber" maxlength="14" spellcheck="false" autocapitalize="characters" placeholder="NMC-XXXXXXXXXX" required></label><label>Verification code<input name="verificationCode" maxlength="48" spellcheck="false" autocapitalize="characters" placeholder="32-character code" required></label><button type="submit">Verify invoice</button></form><p class="iv-status" id="verificationStatus" role="status" aria-live="polite"></p>
     </section>
     <section id="verificationResult" class="iv-card iv-results" aria-label="Verified invoice details" hidden></section>
-    <div class="iv-footnotes"><h3>What does verification mean?</h3><p>A successful result confirms the published invoice summary matches a current, active record in Northstar's simulation billing system. It does not verify patient identity, prove actual insurance eligibility, submit a claim, or confirm a real payout.</p><p>Cannot verify? Ask Northstar Billing for a current invoice reference and code. Access may be revoked, expired, or require refresh following a billing correction.</p></div>
+    <div class="iv-footnotes"><h3>What does verification mean?</h3><p>A successful result confirms the published invoice summary matches a current, active record in Northstar's simulation billing system. It does not verify patient identity or prove actual insurance eligibility. Payment submissions are simulated requests and do not transfer money or mark an invoice paid until approved by billing staff.</p><p>Cannot verify? Ask Northstar Billing for a current invoice reference and code. Access may be revoked, expired, or require refresh following a billing correction.</p></div>
   </main>
-  <footer class="iv-footer">Northstar Medical Center · Financial records verification · Simulation environment</footer>
+  <footer class="iv-footer">Northstar Medical Center · Invoice verification and insurer remittance · Simulation environment</footer>
   <script type="module" src="insurance-verify.js?v=1"></script>
 </body>
 </html>
