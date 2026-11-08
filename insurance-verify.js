@@ -1,6 +1,7 @@
 // Public-only insurer lookup: no Firebase Authentication or access to private records.
 import {initializeApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {getFirestore,doc,getDocFromServer} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import {attachInsuranceRemittance} from "./northstar-insurance-remittance.js";
 
 const app=initializeApp({
   apiKey:"AIzaSyBPtNWvmmYl-6hFb7NlmNszapMwQH4Xm7I",
@@ -57,6 +58,7 @@ function renderResult(invoice){
   fragment.append(node("p","iv-asof","Source last updated: "+(invoice.invoiceUpdatedAt?.toDate?.().toLocaleString()||"Not available")+" · Published: "+(invoice.publishedAt?.toDate?.().toLocaleString()||"Not available")));
   fragment.append(node("p","iv-disclaimer","This simulation verification does not prove insurance coverage, establish medical necessity, or authorize payment. Patient identity and clinical records are not included."));
   output.replaceChildren(fragment);output.hidden=false;
+  attachInsuranceRemittance({target:output,store,invoice,verificationId:invoice.invoiceNumber+"-"+invoice.verificationCode});
 }
 
 form.addEventListener("submit",async event=>{
