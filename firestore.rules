@@ -931,6 +931,91 @@ service cloud.firestore {
       allow delete: if isBillingManager();
     }
 
+    // Public no-login requests are PROPOSALS, never proof of a money transfer.
+    // One request is permitted per random invoice verification code.
+    // Anonymous clients cannot update invoices, payment records, or submitted requests.
+    function remittanceSnapshotPath(verificationId) {
+      return /databases/$(database)/documents/insuranceInvoiceVerifications/$(verificationId);
+    }
+    function validInsuranceRemittance(data, verificationId) {
+      let source = get(remittanceSnapshotPath(verificationId)).data;
+      return data.keys().hasAll([
+          'simulated','encounterId','invoiceNumber','verificationCode','amountCents',
+          'insurerName','method','remittanceReference','note','status',
+          'submittedAt','reviewedAt','reviewedBy','reviewReason','receiptEventId'
+        ])
+        && data.keys().hasOnly([
+          'simulated','encounterId','invoiceNumber','verificationCode','amountCents',
+          'insurerName','method','remittanceReference','note','status',
+          'submittedAt','reviewedAt','reviewedBy','reviewReason','receiptEventId'
+        ])
+        && data.simulated == true
+        && data.encounterId is string
+        && data.invoiceNumber is string
+        && data.verificationCode is string
+        && verificationId == data.invoiceNumber + '-' + data.verificationCode
+        && exists(remittanceSnapshotPath(verificationId))
+        && source.encounterId == data.encounterId
+        && source.invoiceNumber == data.invoiceNumber
+        && source.verificationCode == data.verificationCode
+        && activeInsuranceSnapshot(source)
+        && data.amountCents is int && data.amountCents >= 1
+        && data.amountCents <= source.insurerBalanceCents
+        && data.insurerName is string && data.insurerName.size() >= 2 && data.insurerName.size() <= 100
+        && data.method in ['eft','ach','check','other']
+        && data.remittanceReference is string
+        && data.remittanceReference.size() >= 4 && data.remittanceReference.size() <= 80
+        && data.note is string && data.note.size() <= 300
+        && data.status == 'pending'
+        && data.submittedAt == request.time
+        && data.reviewedAt == null
+        && data.reviewedBy == ''
+        && data.reviewReason == ''
+        && data.receiptEventId == '';
+    }
+    function acceptedRemittancePosted(data) {
+      let invoiceBefore = get(insuranceInvoicePath(data.encounterId)).data;
+      let invoiceAfter = getAfter(insuranceInvoicePath(data.encounterId)).data;
+      let audit = getAfter(/databases/$(database)/documents/billingAccounts/$(data.encounterId)/events/$(data.receiptEventId)).data;
+      return invoiceBefore.invoiceNumber == data.invoiceNumber
+        && invoiceAfter.invoiceNumber == data.invoiceNumber
+        && invoiceBefore.insurerBalanceCents >= data.amountCents
+        && invoiceAfter.insuranceReceivedCents == invoiceBefore.insuranceReceivedCents + data.amountCents
+        && invoiceAfter.insurerBalanceCents == invoiceBefore.insurerBalanceCents - data.amountCents
+        && invoiceAfter.updatedAt == request.time
+        && invoiceAfter.updatedBy == request.auth.uid
+        && audit.action == 'insurance-payment'
+        && audit.amountCents == data.amountCents
+        && audit.actorUid == request.auth.uid
+        && audit.createdAt == request.time;
+    }
+    function validRemittanceReview(data) {
+      return resource.data.status == 'pending'
+        && data.diff(resource.data).affectedKeys().hasOnly([
+          'status','reviewedAt','reviewedBy','reviewReason','receiptEventId'
+        ])
+        && data.status in ['accepted','declined']
+        && data.reviewedBy == request.auth.uid
+        && data.reviewedAt == request.time
+        && data.reviewReason is string
+        && data.reviewReason.size() >= 5 && data.reviewReason.size() <= 750
+        && data.receiptEventId is string
+        && (
+          (data.status == 'declined' && data.receiptEventId == '')
+          || (
+            data.status == 'accepted'
+            && data.receiptEventId.matches('^[A-Za-z0-9]{20}$')
+            && acceptedRemittancePosted(data)
+          )
+        );
+    }
+    match /insuranceRemittanceRequests/{verificationId} {
+      allow get, list: if isBillingManager();
+      allow create: if validInsuranceRemittance(request.resource.data, verificationId);
+      allow update: if isBillingManager() && validRemittanceReview(request.resource.data);
+      allow delete: if false;
+    }
+
     match /billingAccounts/{encounterId} {
       allow read: if isBillingReader();
       allow create: if (isProvider() || isBillingManager())
