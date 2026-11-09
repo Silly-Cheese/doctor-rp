@@ -27,7 +27,7 @@ import {billingFieldsMarkup,bindBillingPreview,buildBillingRecord,prepareEncount
 import {renderRecordWorkspace} from "./northstar-medical-records.js";
 import {renderPatientRecordQuality} from "./northstar-record-quality.js";
 import {renderAttachmentVault} from "./northstar-attachments.js";
-import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import {scanNorthstarIntegrity} from "./northstar-local-diagnostics.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBPtNWvmmYl-6hFb7NlmNszapMwQH4Xm7I",
@@ -1059,16 +1059,23 @@ document.querySelector("#nmcRunIntegrity").addEventListener("click",async()=>{
   if(currentStaff?.role!=="administrator")return;
   const btn=document.querySelector("#nmcRunIntegrity"),output=document.querySelector("#nmcIntegrityOutput");
   btn.disabled=true;btn.textContent="Scanning…";
+  output.textContent="Checking authorized Firestore records. No data will be changed.";
   try{
-    const result=await httpsCallable(getFunctions(app,"us-central1"),"northstarV3Integrity",{timeout:60000})({});
-    const data=result.data||{},issues=Array.isArray(data.issues)?data.issues:[];
-    const counts=Object.entries(data.checked||{}).map(([name,n])=>safe(name)+": "+safe(n)).join(" · ");
-    const incomplete=(data.incomplete||[]).length?"<p class='nmc-quality-warning'>Partial scan: collection limits reached. Review results carefully.</p>":"";
-    const list=issues.length?"<ol>"+issues.slice(0,35).map(item=>"<li><strong>"+safe(item.collection)+"</strong> · "+safe(item.id)+" — "+safe(item.reason)+"</li>").join("")+"</ol>":"<p class='nmc-quality-good'>No issues identified in the records checked.</p>";
-    output.innerHTML="<p><strong>"+issues.length+" potential issue(s)</strong> · "+counts+"</p>"+incomplete+list+(issues.length>35?"<p>Additional findings omitted from this view.</p>":"");
+    const data=await scanNorthstarIntegrity(db);
+    const issues=data.issues||[];
+    const counts=Object.entries(data.checked||{}).map(([name,count])=>safe(name)+": "+safe(count)).join(" · ");
+    const incomplete=data.incomplete?.length
+      ?"<p class='nmc-quality-warning'>Partial scan: "+safe(data.incomplete.join(", "))+" exceeded the 500-record limit. Some missing-reference findings were suppressed to avoid false positives.</p>":"";
+    const list=issues.length
+      ?"<ol>"+issues.slice(0,35).map(issue=>"<li><strong>"+safe(issue.collection)+"</strong> · "+safe(issue.id)+" — "+safe(issue.reason)+"</li>").join("")+"</ol>"
+      :"<p class='nmc-quality-good'>No issues identified in the records checked.</p>";
+    output.innerHTML="<p><strong>"+safe(issues.length)+" potential issue(s)</strong> · "+counts+"</p>"+incomplete+list+
+      (issues.length>35||data.issueLimitReached?"<p>Additional findings omitted from this view.</p>":"");
   }catch(error){
-    output.textContent="Scan unavailable. Deploy the Northstar Cloud Functions and check administrator access. "+(error?.message||"");
-  }finally{btn.disabled=false;btn.textContent="Run scan";}
+    output.textContent="Scan unavailable: "+(error?.message||"Check your Firestore permissions and connection.");
+  }finally{
+    btn.disabled=false;btn.textContent="Run scan";
+  }
 });
 
 document.querySelector("#nmcReceptionToggle").addEventListener("click",()=>{
