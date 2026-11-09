@@ -3,7 +3,7 @@
 import {getApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {getAuth} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {getFirestore,collection,doc,setDoc,updateDoc,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import {scanNorthstarIntegrity,scanNorthstarBillingAudit} from "./northstar-local-diagnostics.js";
 import {patientTimeline,patientLabel,flowSummary,billingReview,integrityReview,dischargeReadiness,supplyReview,trainingReview,dateValue,dollars,notClosed} from "./northstar-v3-core.js";
 export const V3_PAGES=[
  ["patient360","Patient Command Center","Care","▦"],
@@ -139,7 +139,7 @@ function renderIdentity(c){
  return heading("Record Integrity","Read-only detection of missing patient records, broken encounter references and duplicated identifiers.","Phase 1")+
  '<div class="n3-metrics">'+stat("Patients",data.patients.length)+stat("Encounters",data.encounters.length)+stat("Reference findings",findings.length)+'</div>'+
  section("Local data integrity findings",short(findings.map(x=>item(x.reason,x.collection+" · "+x.id, x.patientId||x.encounterId||"")),150),findings.length+" findings")+
- section("Server-side diagnostics",'<p class="n3-hint">Scan a bounded snapshot on Firebase Cloud Functions to verify referenced patient and encounter IDs. No records are deleted or merged.</p><div class="n3-actions"><button type="button" class="n3-primary" data-n3-call="northstarV3Integrity">Run server integrity scan</button><button type="button" class="n3-btn" data-n3-call="northstarV3BillingAudit">Run financial audit</button></div><pre id="n3-server-result" class="n3-result">Not run. Deploy new Cloud Functions to enable server diagnostics.</pre>')+
+ section("Firestore diagnostics",'<p class="n3-hint">Run a bounded, read-only diagnostic directly using your administrator Firestore permissions. No Cloud Functions deployment required.</p><div class="n3-actions"><button type="button" class="n3-primary" data-n3-scan="integrity">Run integrity scan</button><button type="button" class="n3-btn" data-n3-scan="billing">Run financial audit</button></div><pre id="n3-scan-result" class="n3-result">Not run. Diagnostic reads are capped at 500 records per collection.</pre>')+
  '<p class="n3-hint">A missing record is flagged for administrator review, never automatically purged. Scan counts are bounded for performance and should not be interpreted as a whole-database guarantee.</p>';
 }
 function renderPortal(c){
@@ -197,12 +197,18 @@ export function renderV3Page(key,c){
   catch(e){sel.value=previous||"open";const warning=document.createElement("small");warning.className="n3-error";warning.textContent="Update failed: "+e.message;sel.after(warning);}
   finally{sel.disabled=false;}
  });
- target.querySelectorAll("[data-n3-call]").forEach(b=>b.onclick=async()=>{
+ target.querySelectorAll("[data-n3-scan]").forEach(button=>button.onclick=async()=>{
   if(!admin(c))return;
-  const out=target.querySelector("#n3-server-result");out.textContent="Running read-only scan…";b.disabled=true;
-  try{const callable=httpsCallable(getFunctions(getApp(),"us-central1"),b.dataset.n3Call);
-   const result=await callable({});out.textContent=JSON.stringify(result.data,null,2);}
-  catch(e){out.textContent="Backend unavailable or permission denied: "+(e.message||e)+". Deploy the Cloud Functions first.";}
-  finally{b.disabled=false;}
+  const output=target.querySelector("#n3-scan-result");
+  button.disabled=true;
+  output.textContent="Reading authorized Firestore data. This is a read-only operation…";
+  try{
+   const data=button.dataset.n3Scan==="billing"
+    ?await scanNorthstarBillingAudit(store())
+    :await scanNorthstarIntegrity(store());
+   output.textContent=JSON.stringify(data,null,2);
+  }catch(error){
+   output.textContent="Diagnostic unavailable: "+(error?.message||"Check Firestore permissions.");
+  }finally{button.disabled=false;}
  });
 }
