@@ -77,6 +77,7 @@ export function bindBillingPreview(form){
 }
 
 function checkedLines(form){
+ if(form.querySelector(".nmc-discharge-edit, .nmc-unpriced-editor:not([hidden])"))throw Error("Finish or cancel the open charge adjustment before finalizing the invoice.");
  if(form.dataset.billingReady!=="yes")throw Error("Service charges have not been loaded. Reopen discharge and resolve the pricing warnings.");
  const lines=JSON.parse(form.dataset.billingLines||"[]");
  if(!Array.isArray(lines)||!lines.length)throw Error("No chargeable services were found. Add an active encounter or clinical service price before discharge.");
@@ -178,9 +179,9 @@ export function renderDischargeChargeReview(form,quote){
    edit.onclick=()=>{
     row.querySelector(".nmc-discharge-edit")?.remove();
     const editor=document.createElement("div");editor.className="nmc-discharge-edit";
-    editor.innerHTML='<label>Unit price ($)<input name="unitPrice" type="number" min="0" max="9999999.99" step="0.01" required></label>'+
-     '<label>Quantity<input name="quantity" type="number" min="1" max="100" step="1" required></label>'+
-     '<label class="nmc-discharge-edit-reason">Reason for adjustment<input name="reason" maxlength="250" minlength="5" required placeholder="e.g. Correct duplicate or adjusted service charge"></label>'+
+    editor.innerHTML='<label>Unit price ($)<input name="unitPrice" type="number" min="0" max="9999999.99" step="0.01"></label>'+
+     '<label>Quantity<input name="quantity" type="number" min="1" max="100" step="1"></label>'+
+     '<label class="nmc-discharge-edit-reason">Reason for adjustment<input name="reason" maxlength="250" minlength="5" placeholder="e.g. Correct duplicate or adjusted service charge"></label>'+
      '<div class="nmc-discharge-edit-actions"><button class="nmc-discharge-save" type="button">Save adjustment</button><button class="nmc-discharge-cancel" type="button">Cancel</button></div><p role="status" class="nmc-bill-error"></p>';
     editor.querySelector('[name="unitPrice"]').value=(item.unitPriceCents/100).toFixed(2);
     editor.querySelector('[name="quantity"]').value=String(item.quantity||1);
@@ -248,10 +249,10 @@ export function renderDischargeChargeReview(form,quote){
      editor.replaceChildren();
      if(!exclude){
       const label=document.createElement("label");label.textContent="Encounter-only charge ($)";
-      const input=document.createElement("input");input.type="number";input.min="0";input.max="9999999.99";input.step="0.01";input.required=true;input.placeholder="0.00";label.append(input);editor.append(label);
+      const input=document.createElement("input");input.type="number";input.name="oneTimePrice";input.min="0";input.max="9999999.99";input.step="0.01";input.placeholder="0.00";label.append(input);editor.append(label);
      }
      const label=document.createElement("label");label.textContent=exclude?"Reason for not billing this clinical service":"Reason for one-time rate";
-     const reason=document.createElement("input");reason.type="text";reason.maxLength=160;reason.minLength=5;reason.required=true;
+     const reason=document.createElement("input");reason.type="text";reason.name="oneTimeReason";reason.maxLength=160;reason.minLength=5;
      reason.placeholder=exclude?"e.g. Included in a bundled service":"e.g. Procedure adjustment for this encounter";
      label.append(reason);editor.append(label);
      const actions=document.createElement("div");actions.className="nmc-discharge-edit-actions";
